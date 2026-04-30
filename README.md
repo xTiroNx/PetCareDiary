@@ -250,7 +250,7 @@ ADMIN_TELEGRAM_IDS=your_numeric_telegram_id
 Render build command:
 
 ```bash
-npm ci && npm run prisma:generate && npm --workspace apps/backend run build && npm run prisma:migrate:deploy
+npm ci --include=dev && npm run prisma:generate && npm --workspace apps/backend run build && npm run prisma:migrate:deploy
 ```
 
 Render start command:

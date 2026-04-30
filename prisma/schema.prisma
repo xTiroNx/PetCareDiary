@@ -1,0 +1,217 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PetType {
+  CAT
+  DOG
+  OTHER
+}
+
+enum FoodType {
+  DRY
+  WET
+  NATURAL
+  TREAT
+  OTHER
+}
+
+enum SymptomType {
+  VOMITING
+  YELLOW_VOMIT
+  NO_APPETITE
+  DIARRHEA
+  CONSTIPATION
+  LETHARGY
+  PAIN
+  OTHER
+}
+
+enum ReminderType {
+  FEEDING
+  MEDICINE
+  WEIGHT
+  VET
+  OTHER
+}
+
+enum PaymentProductType {
+  MONTHLY
+  LIFETIME
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  CANCELED
+}
+
+model User {
+  id             String          @id @default(cuid())
+  telegramId     BigInt          @unique
+  username       String?
+  firstName      String?
+  lastName       String?
+  languageCode   String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  trialStartedAt DateTime
+  trialEndsAt    DateTime
+  accessUntil    DateTime?
+  lifetimeAccess Boolean         @default(false)
+  pets           Pet[]
+  feedingEntries FeedingEntry[]
+  symptomEntries SymptomEntry[]
+  medicineEntries MedicineEntry[]
+  weightEntries  WeightEntry[]
+  noteEntries    NoteEntry[]
+  reportExports  ReportExport[]
+  reminders      Reminder[]
+  payments       Payment[]
+}
+
+model Pet {
+  id              String          @id @default(cuid())
+  userId          String
+  name            String
+  type            PetType
+  weightKg        Decimal?        @db.Decimal(5, 2)
+  ageYears        Decimal?        @db.Decimal(4, 1)
+  healthNotes     String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  feedingEntries  FeedingEntry[]
+  symptomEntries  SymptomEntry[]
+  medicineEntries MedicineEntry[]
+  weightEntries   WeightEntry[]
+  noteEntries     NoteEntry[]
+  reportExports   ReportExport[]
+  reminders       Reminder[]
+
+  @@index([userId])
+}
+
+model FeedingEntry {
+  id        String   @id @default(cuid())
+  petId     String
+  userId    String
+  dateTime  DateTime
+  foodType  FoodType
+  amount    String
+  note      String?
+  createdAt DateTime @default(now())
+  pet       Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, petId, dateTime])
+}
+
+model SymptomEntry {
+  id          String      @id @default(cuid())
+  petId       String
+  userId      String
+  dateTime    DateTime
+  symptomType SymptomType
+  severity    Int
+  note        String?
+  createdAt   DateTime    @default(now())
+  pet         Pet         @relation(fields: [petId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, petId, dateTime])
+}
+
+model MedicineEntry {
+  id           String   @id @default(cuid())
+  petId        String
+  userId       String
+  medicineName String
+  dosage       String
+  dateTime     DateTime
+  taken        Boolean  @default(false)
+  note         String?
+  createdAt    DateTime @default(now())
+  pet          Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, petId, dateTime])
+}
+
+model WeightEntry {
+  id        String   @id @default(cuid())
+  petId     String
+  userId    String
+  date      DateTime
+  weightKg  Decimal  @db.Decimal(5, 2)
+  createdAt DateTime @default(now())
+  pet       Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, petId, date])
+}
+
+model NoteEntry {
+  id        String   @id @default(cuid())
+  petId     String
+  userId    String
+  dateTime  DateTime
+  note      String
+  createdAt DateTime @default(now())
+  pet       Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, petId, dateTime])
+}
+
+model ReportExport {
+  id        String   @id @default(cuid())
+  userId    String
+  petId     String
+  period    Int
+  dayKey    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pet       Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+
+  @@index([userId, dayKey])
+}
+
+model Reminder {
+  id         String       @id @default(cuid())
+  petId      String
+  userId     String
+  type       ReminderType
+  title      String
+  time       DateTime
+  repeatRule String?
+  active     Boolean      @default(true)
+  createdAt  DateTime     @default(now())
+  pet        Pet          @relation(fields: [petId], references: [id], onDelete: Cascade)
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, petId, time])
+}
+
+model Payment {
+  id                      String             @id @default(cuid())
+  userId                  String
+  productType             PaymentProductType
+  amountStars             Int
+  currency                String             @default("XTR")
+  status                  PaymentStatus      @default(PENDING)
+  invoicePayload          String             @unique
+  telegramPaymentChargeId String?
+  providerPaymentChargeId String?
+  createdAt               DateTime           @default(now())
+  paidAt                  DateTime?
+  user                    User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+}

@@ -1,0 +1,8 @@
+[build]
+  command = "npm --workspace apps/frontend run build"
+  publish = "apps/frontend/dist"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: petcare-diary-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm ci && npm run prisma:generate && npm --workspace apps/backend run build && npm run prisma:migrate:deploy
+    startCommand: npm --workspace apps/backend run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: FRONTEND_URL
+        value: https://petcare-diary.netlify.app
+      - key: DATABASE_URL
+        fromDatabase:
+          name: petcare-diary-db
+          property: connectionString
+      - key: BOT_TOKEN
+        sync: false
+      - key: BOT_USERNAME
+        sync: false
+      - key: TELEGRAM_WEBHOOK_SECRET
+        generateValue: true
+      - key: ADMIN_TELEGRAM_IDS
+        sync: false
+      - key: MONTHLY_PRICE_STARS
+        value: "199"
+      - key: LIFETIME_PRICE_STARS
+        value: "1499"
+      - key: TRIAL_DAYS
+        value: "3"
+      - key: ENABLE_DEV_AUTH
+        value: "false"
+
+databases:
+  - name: petcare-diary-db
+    plan: free
+    region: frankfurt
+    databaseName: petcare
+    user: petcare

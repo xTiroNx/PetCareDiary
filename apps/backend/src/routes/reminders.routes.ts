@@ -13,7 +13,7 @@ const reminderSchema = z.object({
   type: z.enum(["FEEDING", "MEDICINE", "WEIGHT", "VET", "OTHER"]),
   title: z.string().min(1).max(120),
   time: z.coerce.date(),
-  repeatRule: z.string().max(120).optional().nullable(),
+  repeatRule: z.enum(["daily", "weekly", "monthly"]).optional().nullable(),
   active: z.boolean().optional()
 }).strict();
 
@@ -50,7 +50,7 @@ router.post("/", async (req, res, next) => {
   try {
     const body = reminderSchema.parse(req.body);
     await assertPetBelongsToUser(body.petId, req.user!.id);
-    const reminder = await prisma.reminder.create({ data: { ...body, userId: req.user!.id } });
+    const reminder = await prisma.reminder.create({ data: { ...body, repeatRule: body.repeatRule || null, userId: req.user!.id } });
     res.status(201).json(serialize(reminder));
   } catch (error) {
     next(error);
@@ -64,7 +64,15 @@ router.patch("/:id", async (req, res, next) => {
     if (body.petId) await assertPetBelongsToUser(body.petId, req.user!.id);
     const existing = await prisma.reminder.findFirst({ where: { id, userId: req.user!.id } });
     if (!existing) throw new HttpError(404, "REMINDER_NOT_FOUND", "Reminder not found.");
-    const reminder = await prisma.reminder.update({ where: { id: existing.id }, data: body });
+    const data = {
+      ...body,
+      ...(Object.prototype.hasOwnProperty.call(body, "repeatRule") ? { repeatRule: body.repeatRule || null } : {}),
+      lastDeliveryError: null
+    };
+    const reminder = await prisma.reminder.update({
+      where: { id: existing.id },
+      data
+    });
     res.json(serialize(reminder));
   } catch (error) {
     next(error);

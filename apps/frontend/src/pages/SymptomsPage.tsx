@@ -3,10 +3,12 @@ import { Edit3, Save, Trash2, X } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { api, jsonBody } from "../api/client";
 import { ConfirmAction } from "../components/ConfirmAction";
+import { DateTimeFields } from "../components/DateTimeFields";
 import { EmptyState } from "../components/EmptyState";
 import { LoadMore } from "../components/LoadMore";
 import { RequestError } from "../components/RequestError";
 import { SelectField } from "../components/SelectField";
+import { SeverityScale } from "../components/SeverityScale";
 import { usePaginatedApi } from "../hooks/usePaginatedApi";
 import { useAppStore } from "../store/appStore";
 import { localDateTimeInputValue } from "../utils/dateTime";
@@ -84,11 +86,11 @@ export default function SymptomsPage() {
     <main className="space-y-4">
       <h1 className="page-title">{t("symptomsTitle")}</h1>
       <form onSubmit={onSubmit} className="panel grid gap-3">
-        <input className="input" name="dateTime" type="datetime-local" defaultValue={now} required />
+        <DateTimeFields defaultValue={now} required />
         <SelectField name="symptomType" defaultValue="VOMITING">
           <option value="VOMITING">{t("vomiting")}</option><option value="YELLOW_VOMIT">{t("yellowVomit")}</option><option value="NO_APPETITE">{t("noAppetite")}</option><option value="DIARRHEA">{t("diarrhea")}</option><option value="CONSTIPATION">{t("constipation")}</option><option value="LETHARGY">{t("lethargy")}</option><option value="PAIN">{t("pain")}</option><option value="OTHER">{t("other")}</option>
         </SelectField>
-        <input className="input" name="severity" type="number" min="1" max="5" defaultValue="2" required />
+        <SeverityScale defaultValue="1" />
         <textarea className="input" name="note" placeholder={t("comment")} />
         <button className="btn btn-primary">{t("add")}</button>
         <RequestError error={add.error} />
@@ -102,7 +104,7 @@ export default function SymptomsPage() {
         <div className="panel space-y-3" key={entry.id}>
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="font-semibold">{symptomLabels[entry.symptomType] ?? entry.symptomType} · {entry.severity}/5</p>
+              <p className="font-semibold">{symptomLabels[entry.symptomType] ?? entry.symptomType} · {t("severity")} {entry.severity}/5</p>
               <p className="text-sm text-zinc-500">{new Date(entry.dateTime).toLocaleString(languageLocale(language))}</p>
               {entry.note && <p className="mt-1 text-sm">{entry.note}</p>}
             </div>
@@ -113,11 +115,11 @@ export default function SymptomsPage() {
           </div>
           {editingId === entry.id && draft && (
             <div className="grid gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
-              <input className="input" type="datetime-local" value={draft.dateTime} onChange={(event) => setDraft({ ...draft, dateTime: event.target.value })} />
+              <DateTimeFields value={draft.dateTime} onChange={(dateTime) => setDraft({ ...draft, dateTime })} />
               <SelectField value={draft.symptomType} onChange={(event) => setDraft({ ...draft, symptomType: event.target.value })}>
                 <option value="VOMITING">{t("vomiting")}</option><option value="YELLOW_VOMIT">{t("yellowVomit")}</option><option value="NO_APPETITE">{t("noAppetite")}</option><option value="DIARRHEA">{t("diarrhea")}</option><option value="CONSTIPATION">{t("constipation")}</option><option value="LETHARGY">{t("lethargy")}</option><option value="PAIN">{t("pain")}</option><option value="OTHER">{t("other")}</option>
               </SelectField>
-              <input className="input" type="number" min="1" max="5" value={draft.severity} onChange={(event) => setDraft({ ...draft, severity: event.target.value })} />
+              <SeverityScale value={draft.severity} onChange={(severity) => setDraft({ ...draft, severity })} />
               <textarea className="input" value={draft.note} onChange={(event) => setDraft({ ...draft, note: event.target.value })} placeholder={t("comment")} />
               <div className="grid grid-cols-2 gap-2">
                 <button className="btn btn-primary" onClick={() => saveEdit(entry.id)}><Save size={16} />{t("save")}</button>

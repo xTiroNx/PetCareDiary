@@ -68,7 +68,7 @@ export default function WeightPage() {
     <main className="space-y-4">
       <h1 className="page-title">{t("weightTitle")}</h1>
       <form onSubmit={onSubmit} className="panel grid gap-3">
-        <input className="input" name="date" type="date" defaultValue={localDateInputValue()} required />
+        <input className="input date-input" name="date" type="date" defaultValue={localDateInputValue()} required />
         <input className="input" name="weightKg" type="number" step="0.1" placeholder={t("weightKg")} required />
         <button className="btn btn-primary">{t("add")}</button>
         <RequestError error={add.error} />
@@ -97,7 +97,7 @@ export default function WeightPage() {
           </div>
           {editingId === entry.id && draft && (
             <div className="grid gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
-              <input className="input" type="date" value={draft.date} onChange={(event) => setDraft({ ...draft, date: event.target.value })} />
+              <input className="input date-input" type="date" value={draft.date} onChange={(event) => setDraft({ ...draft, date: event.target.value })} />
               <input className="input" type="number" step="0.1" value={draft.weightKg} onChange={(event) => setDraft({ ...draft, weightKg: event.target.value })} placeholder={t("weightKg")} />
               <div className="grid grid-cols-2 gap-2">
                 <button className="btn btn-primary" onClick={() => saveEdit(entry.id)}><Save size={16} />{t("save")}</button>

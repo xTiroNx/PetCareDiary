@@ -3,6 +3,7 @@ import { Edit3, Save, Trash2, X } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { api, jsonBody } from "../api/client";
 import { ConfirmAction } from "../components/ConfirmAction";
+import { DateTimeFields } from "../components/DateTimeFields";
 import { EmptyState } from "../components/EmptyState";
 import { LoadMore } from "../components/LoadMore";
 import { RequestError } from "../components/RequestError";
@@ -70,7 +71,7 @@ export default function NotePage() {
     <main className="space-y-4">
       <h1 className="page-title">{t("otherNote")}</h1>
       <form onSubmit={onSubmit} className="panel grid gap-3">
-        <input className="input" name="dateTime" type="datetime-local" defaultValue={now} required />
+        <DateTimeFields defaultValue={now} required />
         <textarea className="input min-h-32" name="note" placeholder={t("notePlaceholder")} required />
         <button className="btn btn-primary">{t("add")}</button>
         <RequestError error={add.error} />
@@ -94,7 +95,7 @@ export default function NotePage() {
           </div>
           {editingId === entry.id && draft && (
             <div className="grid gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
-              <input className="input" type="datetime-local" value={draft.dateTime} onChange={(event) => setDraft({ ...draft, dateTime: event.target.value })} />
+              <DateTimeFields value={draft.dateTime} onChange={(dateTime) => setDraft({ ...draft, dateTime })} />
               <textarea className="input min-h-32" value={draft.note} onChange={(event) => setDraft({ ...draft, note: event.target.value })} placeholder={t("notePlaceholder")} />
               <div className="grid grid-cols-2 gap-2">
                 <button className="btn btn-primary" onClick={() => saveEdit(entry.id)}><Save size={16} />{t("save")}</button>

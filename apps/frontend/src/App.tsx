@@ -46,6 +46,7 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
     if (accessStatus === "expired" && !freeRoutes.has(location.pathname)) navigate("/paywall", { replace: true });
+    if (pet && location.pathname === "/onboarding") navigate("/", { replace: true });
     if (accessStatus !== "expired" && !pet && !routesWithoutPet.has(location.pathname)) navigate("/onboarding", { replace: true });
   }, [user, accessStatus, pet, location.pathname, navigate]);
 

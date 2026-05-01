@@ -1,6 +1,7 @@
 type DemoStore = {
   user: Record<string, unknown>;
   pet: Record<string, unknown> | null;
+  pets?: Record<string, unknown>[];
   adminUsers?: Record<string, unknown>[];
   reportExports?: Record<string, number>;
   feeding: Record<string, unknown>[];
@@ -29,6 +30,8 @@ function readStore(): DemoStore {
     parsed.reminders ??= [];
     parsed.adminUsers ??= [];
     parsed.reportExports ??= {};
+    parsed.pets ??= parsed.pet ? [parsed.pet] : [];
+    parsed.pet = parsed.pets[0] ?? null;
     return parsed;
   }
 
@@ -44,6 +47,7 @@ function readStore(): DemoStore {
       isAdmin: true
     },
     pet: null,
+    pets: [],
     adminUsers: [
       {
         id: "demo-user-target",
@@ -118,6 +122,7 @@ export async function demoApi<T>(path: string, options: RequestInit = {}): Promi
     return {
       user: store.user,
       pet: store.pet,
+      pets: store.pets ?? (store.pet ? [store.pet] : []),
       isAdmin: true,
       accessStatus: "admin",
       accessEndsAt: null
@@ -173,12 +178,14 @@ export async function demoApi<T>(path: string, options: RequestInit = {}): Promi
   }
 
   if (path === "/api/pets" && method === "POST") {
-    store.pet = { id: uid(), ...jsonBody(options), createdAt: new Date().toISOString() };
+    const pet = { id: uid(), ...jsonBody(options), createdAt: new Date().toISOString() };
+    store.pets = [...(store.pets ?? []), pet];
+    store.pet = pet;
     writeStore(store);
-    return store.pet as T;
+    return pet as T;
   }
 
-  if (path === "/api/pets") return [store.pet].filter(Boolean) as T;
+  if (path === "/api/pets") return (store.pets ?? [store.pet].filter(Boolean)) as T;
 
   const collection = collectionFor(path);
   if (collection && method === "POST") {

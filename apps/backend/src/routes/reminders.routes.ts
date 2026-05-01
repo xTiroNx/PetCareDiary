@@ -7,13 +7,17 @@ import { serialize } from "../utils/serialize.js";
 import { idParamSchema } from "../utils/validation.js";
 
 const router = Router();
+const repeatRuleSchema = z.preprocess(
+  (value) => value === "" ? null : value,
+  z.enum(["daily", "weekly", "monthly"]).optional().nullable()
+);
 
 const reminderSchema = z.object({
   petId: z.string().min(1),
   type: z.enum(["FEEDING", "MEDICINE", "WEIGHT", "VET", "OTHER"]),
   title: z.string().min(1).max(120),
   time: z.coerce.date(),
-  repeatRule: z.enum(["daily", "weekly", "monthly"]).optional().nullable(),
+  repeatRule: repeatRuleSchema,
   active: z.boolean().optional()
 }).strict();
 

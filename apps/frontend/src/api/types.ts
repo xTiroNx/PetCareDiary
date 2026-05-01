@@ -24,6 +24,7 @@ export type Pet = {
 export type AuthResponse = {
   user: User;
   pet: Pet | null;
+  pets?: Pet[];
   isAdmin?: boolean;
   accessStatus: AccessStatus;
   accessEndsAt: string | null;

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { BottomNav } from "./BottomNav";
+import { PetSwitcher } from "./PetSwitcher";
 import { isTelegram } from "../utils/telegram";
 import { useI18n } from "../utils/i18n";
 
@@ -13,6 +14,7 @@ export function Layout({ children }: { children: ReactNode }) {
           {t("localMode")}
         </div>
       )}
+      <PetSwitcher />
       {children}
       <BottomNav />
     </div>

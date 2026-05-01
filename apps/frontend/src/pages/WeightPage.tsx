@@ -3,6 +3,7 @@ import { Edit3, Save, Trash2, X } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { api, jsonBody } from "../api/client";
 import { ConfirmAction } from "../components/ConfirmAction";
+import { DateField } from "../components/DateField";
 import { EmptyState } from "../components/EmptyState";
 import { LoadMore } from "../components/LoadMore";
 import { RequestError } from "../components/RequestError";
@@ -68,7 +69,7 @@ export default function WeightPage() {
     <main className="space-y-4">
       <h1 className="page-title">{t("weightTitle")}</h1>
       <form onSubmit={onSubmit} className="panel grid gap-3">
-        <input className="input date-input" name="date" type="date" defaultValue={localDateInputValue()} required />
+        <DateField name="date" defaultValue={localDateInputValue()} required />
         <input className="input" name="weightKg" type="number" step="0.1" placeholder={t("weightKg")} required />
         <button className="btn btn-primary">{t("add")}</button>
         <RequestError error={add.error} />
@@ -97,7 +98,7 @@ export default function WeightPage() {
           </div>
           {editingId === entry.id && draft && (
             <div className="grid gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
-              <input className="input date-input" type="date" value={draft.date} onChange={(event) => setDraft({ ...draft, date: event.target.value })} />
+              <DateField value={draft.date} onChange={(date) => setDraft({ ...draft, date })} />
               <input className="input" type="number" step="0.1" value={draft.weightKg} onChange={(event) => setDraft({ ...draft, weightKg: event.target.value })} placeholder={t("weightKg")} />
               <div className="grid grid-cols-2 gap-2">
                 <button className="btn btn-primary" onClick={() => saveEdit(entry.id)}><Save size={16} />{t("save")}</button>

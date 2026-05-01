@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import clsx from "clsx";
 import { api, jsonBody } from "../api/client";
 import { ConfirmAction } from "../components/ConfirmAction";
+import { DateField } from "../components/DateField";
 import { DateTimeFields } from "../components/DateTimeFields";
 import { EmptyState } from "../components/EmptyState";
 import { LoadMore } from "../components/LoadMore";
@@ -226,7 +227,7 @@ export default function DiaryPage() {
     return (
       <div className="mt-3 grid gap-2">
         {entry.type !== "WEIGHT" && <DateTimeFields value={String(draft.dateTime ?? "")} onChange={(dateTime) => updateDraft("dateTime", dateTime)} />}
-        {entry.type === "WEIGHT" && <input className="input date-input" type="date" value={String(draft.date ?? "")} onChange={(event) => updateDraft("date", event.target.value)} />}
+        {entry.type === "WEIGHT" && <DateField value={String(draft.date ?? "")} onChange={(date) => updateDraft("date", date)} />}
         {entry.type === "FEEDING" && (
           <>
             <SelectField value={String(draft.foodType ?? "DRY")} onChange={(event) => updateDraft("foodType", event.target.value)}>
@@ -277,14 +278,8 @@ export default function DiaryPage() {
           {t("period")}
         </div>
         <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2">
-          <label className="text-xs font-semibold text-zinc-500">
-            {t("fromDate")}
-            <input className="input date-input mt-1" type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
-          </label>
-          <label className="text-xs font-semibold text-zinc-500">
-            {t("toDate")}
-            <input className="input date-input mt-1" type="date" value={to} onChange={(event) => setTo(event.target.value)} />
-          </label>
+          <DateField label={t("fromDate")} value={from} onChange={setFrom} />
+          <DateField label={t("toDate")} value={to} onChange={setTo} />
         </div>
         <div className="grid grid-cols-3 gap-2">
           <button className="btn btn-secondary min-h-9 px-2 text-xs" onClick={() => setQuickPeriod(1)}>{t("today")}</button>

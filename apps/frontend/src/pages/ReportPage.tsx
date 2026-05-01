@@ -24,15 +24,26 @@ export default function ReportPage() {
   const exportStatus = useQuery({ queryKey: ["report-export-status"], queryFn: () => api<ExportStatus>("/api/reports/exports/status"), enabled: Boolean(pet) });
   const exportPdf = useMutation({
     mutationFn: () => apiBlob(`/api/reports/summary.pdf?petId=${pet!.id}&period=${period}`),
-    onSuccess: (blob) => {
+    onSuccess: async (blob) => {
+      const filename = `petcare-report-${period === "all" ? "all" : `${period}d`}.pdf`;
+      const file = new File([blob], filename, { type: "application/pdf" });
+      const shareTarget = navigator as Navigator & { canShare?: (data: ShareData) => boolean };
+      if (navigator.share && shareTarget.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: "PetCare Diary report" });
+        setMessage(t("exportDownloaded"));
+        queryClient.invalidateQueries({ queryKey: ["report-export-status"] });
+        return;
+      }
+
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `petcare-report-${period === "all" ? "all" : `${period}d`}.pdf`;
+      link.download = filename;
       document.body.appendChild(link);
       link.click();
       link.remove();
-      URL.revokeObjectURL(url);
+      window.open(url, "_blank", "noopener,noreferrer");
+      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
       setMessage(t("exportDownloaded"));
       queryClient.invalidateQueries({ queryKey: ["report-export-status"] });
     },

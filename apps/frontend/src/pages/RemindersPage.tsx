@@ -63,8 +63,12 @@ export default function RemindersPage() {
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = Object.fromEntries(new FormData(event.currentTarget));
-    add.mutate({ ...data, petId: pet!.id, time: new Date(String(data.time)).toISOString() });
-    event.currentTarget.reset();
+    add.mutate({
+      ...data,
+      petId: pet!.id,
+      time: new Date(String(data.time)).toISOString(),
+      repeatRule: data.repeatRule ? String(data.repeatRule) : null
+    });
   }
 
   function startEdit(item: Reminder) {

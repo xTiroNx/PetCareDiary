@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Home, LogOut, Maximize2, Minimize2, ShieldCheck } from "lucide-react";
+import { Home, LogOut, Maximize2, Minimize2, Plus, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AccessBadge } from "../components/AccessBadge";
 import { MedicalDisclaimer } from "../components/MedicalDisclaimer";
@@ -22,6 +22,7 @@ export default function ProfilePage() {
   const { language, setLanguage, t } = useI18n();
   const user = useAppStore((state) => state.user);
   const pet = useAppStore((state) => state.pet);
+  const pets = useAppStore((state) => state.pets);
   const isAdmin = useAppStore((state) => state.isAdmin);
   const [fullscreen, setFullscreen] = useState(isTelegramFullscreen());
 
@@ -57,6 +58,20 @@ export default function ProfilePage() {
         <div className="grid gap-1 pt-1">
           <p className="text-sm text-zinc-600 dark:text-zinc-300">{t("telegramId")}: <span className="font-semibold text-ink dark:text-white">{user?.telegramId}</span></p>
           <p className="text-sm text-zinc-600 dark:text-zinc-300">{t("pet")}: <span className="font-semibold text-ink dark:text-white">{pet?.name ?? t("noPet")}</span></p>
+        </div>
+      </section>
+      <section className="panel space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="section-title">{t("pets")}</h2>
+          <Link to="/onboarding?new=1" className="btn btn-secondary min-h-9 px-3 text-xs"><Plus size={15} />{t("addPet")}</Link>
+        </div>
+        <div className="grid gap-2">
+          {pets.length ? pets.map((item) => (
+            <div className="rounded-lg border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-800" key={item.id}>
+              <p className="font-semibold">{item.name}</p>
+              <p className="text-xs text-zinc-500">{item.type}</p>
+            </div>
+          )) : <p className="muted">{t("noPet")}</p>}
         </div>
       </section>
       <section className="panel space-y-2">

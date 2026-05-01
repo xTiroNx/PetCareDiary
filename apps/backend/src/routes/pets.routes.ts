@@ -6,13 +6,17 @@ import { serialize } from "../utils/serialize.js";
 import { idParamSchema } from "../utils/validation.js";
 
 const router = Router();
+const optionalNumber = z.preprocess(
+  (value) => value === "" ? null : value,
+  z.coerce.number().positive().optional().nullable()
+);
 
 const petSchema = z.object({
   name: z.string().min(1).max(80),
   type: z.enum(["CAT", "DOG", "OTHER"]),
-  weightKg: z.coerce.number().positive().optional().nullable(),
-  ageYears: z.coerce.number().min(0).optional().nullable(),
-  healthNotes: z.string().max(1000).optional().nullable()
+  weightKg: optionalNumber,
+  ageYears: z.preprocess((value) => value === "" ? null : value, z.coerce.number().min(0).optional().nullable()),
+  healthNotes: z.preprocess((value) => value === "" ? null : value, z.string().max(1000).optional().nullable())
 }).strict();
 
 router.get("/", async (req, res, next) => {

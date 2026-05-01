@@ -28,14 +28,15 @@ export async function authenticateTelegram(initData: string) {
     }
   });
 
-  const pet = await prisma.pet.findFirst({
+  const pets = await prisma.pet.findMany({
     where: { userId: user.id },
     orderBy: { createdAt: "asc" }
   });
 
   return {
     user,
-    pet,
+    pet: pets[0] ?? null,
+    pets,
     isAdmin: isAdminUser(user),
     accessStatus: getAccessStatus(user),
     accessEndsAt: accessEndsAt(user)

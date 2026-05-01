@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { localDateInputValue, localDateTimeInputValue, localTimeInputValue, mergeLocalDateTime } from "../utils/dateTime";
+import { localDateInputValue, localDateTimeInputValue, localTimeInputValue, mergeLocalDateTime, normalizeTimeText, parseDisplayTime } from "../utils/dateTime";
 import { useI18n } from "../utils/i18n";
+import { DateField } from "./DateField";
 
 type DateTimeFieldsProps = {
   name?: string;
@@ -15,6 +16,7 @@ export function DateTimeFields({ name = "dateTime", value, defaultValue, onChang
   const initial = useMemo(() => value || defaultValue || localDateTimeInputValue(), [defaultValue, value]);
   const [date, setDate] = useState(localDateInputValue(new Date(initial)));
   const [time, setTime] = useState(localTimeInputValue(new Date(initial)));
+  const [timeText, setTimeText] = useState(localTimeInputValue(new Date(initial)));
   const merged = mergeLocalDateTime(date, time);
 
   useEffect(() => {
@@ -22,6 +24,7 @@ export function DateTimeFields({ name = "dateTime", value, defaultValue, onChang
     const next = new Date(value);
     setDate(localDateInputValue(next));
     setTime(localTimeInputValue(next));
+    setTimeText(localTimeInputValue(next));
   }, [value]);
 
   function update(nextDate: string, nextTime: string) {
@@ -30,31 +33,42 @@ export function DateTimeFields({ name = "dateTime", value, defaultValue, onChang
   }
 
   return (
-    <div className="grid grid-cols-[minmax(0,1.15fr)_minmax(92px,0.85fr)] gap-2">
+    <div className="grid grid-cols-[minmax(0,1.1fr)_minmax(92px,0.9fr)] gap-2">
       <input type="hidden" name={name} value={merged} />
-      <label className="min-w-0 text-xs font-semibold text-zinc-500">
-        {t("date")}
-        <input
-          className="input date-input mt-1"
-          type="date"
-          value={date}
-          required={required}
-          onChange={(event) => {
-            setDate(event.target.value);
-            update(event.target.value, time);
-          }}
-        />
-      </label>
+      <DateField
+        value={date}
+        required={required}
+        onChange={(nextDate) => {
+          setDate(nextDate);
+          update(nextDate, time);
+        }}
+      />
       <label className="min-w-0 text-xs font-semibold text-zinc-500">
         {t("time")}
         <input
           className="input date-input mt-1"
-          type="time"
-          value={time}
+          inputMode="numeric"
+          placeholder="hh:mm"
+          value={timeText}
           required={required}
+          onBlur={() => {
+            const parsed = parseDisplayTime(timeText);
+            if (!parsed) {
+              setTimeText(time);
+              return;
+            }
+            setTime(parsed);
+            setTimeText(parsed);
+            update(date, parsed);
+          }}
           onChange={(event) => {
-            setTime(event.target.value);
-            update(date, event.target.value);
+            const nextText = normalizeTimeText(event.target.value);
+            setTimeText(nextText);
+            const parsed = parseDisplayTime(nextText);
+            if (parsed) {
+              setTime(parsed);
+              update(date, parsed);
+            }
           }}
         />
       </label>

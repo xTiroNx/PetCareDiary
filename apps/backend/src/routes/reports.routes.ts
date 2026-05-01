@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
+import { existsSync } from "node:fs";
+import PDFDocument from "pdfkit";
 import { prisma } from "../prisma/client.js";
 import { assertPetBelongsToUser } from "../utils/petOwnership.js";
 import { serialize } from "../utils/serialize.js";
@@ -16,15 +18,6 @@ const reportQuerySchema = z.object({
     z.union([z.literal("all"), z.number().int().refine((value) => [7, 14, 30].includes(value))])
   )
 }).strict();
-
-function escapeHtml(value: unknown) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
 
 function dayKey(date = new Date()) {
   return date.toISOString().slice(0, 10);
@@ -50,54 +43,83 @@ async function buildReport(userId: string, petId: string, period: number | "all"
   ]);
 
   const counts = { feeding, symptoms, medicines, medicinesTaken, weights, notes };
-  const html = `
-    <section>
-      <h2>PetCare Diary report: ${escapeHtml(pet?.name ?? "Pet")} · ${period === "all" ? "all time" : `last ${period} days`}</h2>
-      <p>Feedings: ${counts.feeding}</p>
-      <p>Symptoms: ${counts.symptoms}</p>
-      <p>Medicines: ${counts.medicines}, taken: ${counts.medicinesTaken}</p>
-      <p>Weight records: ${counts.weights}</p>
-      <p>Other notes: ${counts.notes}</p>
-      <h3>Recent notes</h3>
-      <ul>${recentNotes.map((entry) => `<li>${escapeHtml(entry.note)}</li>`).join("")}</ul>
-    </section>
-  `;
-
-  return { period, from, petName: pet?.name ?? "Pet", counts, recentNotes, html };
+  return { period, from, petName: pet?.name ?? "Pet", counts, recentNotes };
 }
 
-function renderPdfMvpHtml(report: Awaited<ReturnType<typeof buildReport>>) {
-  // MVP export: valid printable HTML served as an attachment with .pdf filename.
-  // TODO: replace this renderer with Playwright/Puppeteer or PDFKit for binary application/pdf output.
-  return `<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <title>PetCare Diary Report</title>
-    <style>
-      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #17202a; padding: 32px; }
-      h1 { margin: 0 0 8px; }
-      .meta { color: #667085; margin-bottom: 24px; }
-      .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin: 24px 0; }
-      .card { border: 1px solid #d8e2e7; border-radius: 8px; padding: 12px; }
-      .num { font-size: 28px; font-weight: 800; }
-      section { margin-top: 24px; }
-      li { margin-bottom: 8px; }
-    </style>
-  </head>
-  <body>
-    <h1>PetCare Diary Report</h1>
-    <p class="meta">Period: ${report.period === "all" ? "all time" : `last ${report.period} days`} · Generated: ${new Date().toLocaleString()}</p>
-    <div class="grid">
-      <div class="card"><div class="num">${report.counts.feeding}</div><div>Feedings</div></div>
-      <div class="card"><div class="num">${report.counts.symptoms}</div><div>Symptoms</div></div>
-      <div class="card"><div class="num">${report.counts.medicines}</div><div>Medicines</div></div>
-      <div class="card"><div class="num">${report.counts.weights}</div><div>Weight</div></div>
-      <div class="card"><div class="num">${report.counts.notes}</div><div>Notes</div></div>
-    </div>
-    ${report.html}
-  </body>
-</html>`;
+function pdfFont(doc: PDFKit.PDFDocument) {
+  const candidates = [
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+    "/System/Library/Fonts/Supplemental/Arial.ttf"
+  ];
+  const fontPath = candidates.find((candidate) => existsSync(candidate));
+  if (!fontPath) return "Helvetica";
+  doc.registerFont("PetCareFont", fontPath);
+  return "PetCareFont";
+}
+
+function renderReportPdf(report: Awaited<ReturnType<typeof buildReport>>) {
+  return new Promise<Buffer>((resolve, reject) => {
+    const doc = new PDFDocument({
+      size: "A4",
+      margin: 44,
+      info: {
+        Title: "PetCare Diary Report",
+        Author: "PetCare Diary"
+      }
+    });
+    const chunks: Buffer[] = [];
+    const font = pdfFont(doc);
+
+    doc.on("data", (chunk: Buffer) => chunks.push(chunk));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
+
+    const periodLabel = report.period === "all" ? "all time" : `last ${report.period} days`;
+
+    doc.font(font).fontSize(22).text("PetCare Diary Report", { align: "left" });
+    doc.moveDown(0.4);
+    doc.font(font).fontSize(11).fillColor("#5f6673").text(`Pet: ${report.petName}`);
+    doc.text(`Period: ${periodLabel}`);
+    doc.text(`Generated: ${new Date().toLocaleString("ru-RU")}`);
+    doc.moveDown(1);
+
+    doc.fillColor("#17202a").fontSize(15).text("Summary");
+    doc.moveDown(0.5);
+    const rows = [
+      ["Feedings", report.counts.feeding],
+      ["Symptoms", report.counts.symptoms],
+      ["Medicines", report.counts.medicines],
+      ["Medicines taken", report.counts.medicinesTaken],
+      ["Weight records", report.counts.weights],
+      ["Other notes", report.counts.notes]
+    ] as const;
+
+    rows.forEach(([label, count]) => {
+      doc.font(font).fontSize(12).fillColor("#17202a").text(`${label}: `, { continued: true });
+      doc.font(font).fillColor("#1f9d8a").text(String(count));
+    });
+
+    doc.moveDown(1);
+    doc.fillColor("#17202a").fontSize(15).text("Recent notes");
+    doc.moveDown(0.5);
+    if (report.recentNotes.length) {
+      report.recentNotes.forEach((entry, index) => {
+        doc.font(font).fontSize(10).fillColor("#5f6673").text(`${index + 1}. ${new Date(entry.dateTime).toLocaleString("ru-RU")}`);
+        doc.font(font).fontSize(11).fillColor("#17202a").text(entry.note.slice(0, 600));
+        doc.moveDown(0.4);
+      });
+    } else {
+      doc.font(font).fontSize(11).fillColor("#5f6673").text("No notes for this period.");
+    }
+
+    doc.moveDown(1);
+    doc.font(font).fontSize(9).fillColor("#8a91a0").text(
+      "PetCare Diary does not replace veterinary care. If symptoms repeat or condition worsens, contact a veterinarian.",
+      { align: "left" }
+    );
+    doc.end();
+  });
 }
 
 router.get("/summary", async (req, res, next) => {
@@ -144,8 +166,8 @@ router.get("/summary.pdf", async (req, res, next) => {
       isolationLevel: Prisma.TransactionIsolationLevel.Serializable
     });
 
-    const body = renderPdfMvpHtml(report);
-    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    const body = await renderReportPdf(report);
+    res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="petcare-report-${query.period === "all" ? "all" : `${query.period}d`}.pdf"`);
     res.send(body);
   } catch (error) {

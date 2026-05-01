@@ -45,10 +45,11 @@ export default function App() {
 
   useEffect(() => {
     if (!user) return;
+    const isAddingPet = location.pathname === "/onboarding" && new URLSearchParams(location.search).get("new") === "1";
     if (accessStatus === "expired" && !freeRoutes.has(location.pathname)) navigate("/paywall", { replace: true });
-    if (pet && location.pathname === "/onboarding") navigate("/", { replace: true });
+    if (pet && location.pathname === "/onboarding" && !isAddingPet) navigate("/", { replace: true });
     if (accessStatus !== "expired" && !pet && !routesWithoutPet.has(location.pathname)) navigate("/onboarding", { replace: true });
-  }, [user, accessStatus, pet, location.pathname, navigate]);
+  }, [user, accessStatus, pet, location.pathname, location.search, navigate]);
 
   useEffect(() => {
     return configureTelegramBackButton(location.pathname !== "/", () => {

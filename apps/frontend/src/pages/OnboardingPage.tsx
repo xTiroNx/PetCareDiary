@@ -1,7 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { PawPrint } from "lucide-react";
 import { FormEvent } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { api, jsonBody } from "../api/client";
 import type { Pet } from "../api/types";
 import { MedicalDisclaimer } from "../components/MedicalDisclaimer";
@@ -12,10 +12,12 @@ import { useI18n } from "../utils/i18n";
 export default function OnboardingPage() {
   const { t } = useI18n();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const pet = useAppStore((state) => state.pet);
   const setPet = useAppStore((state) => state.setPet);
+  const isAddingPet = searchParams.get("new") === "1";
   const createPet = useMutation({
-    mutationFn: (payload: Record<string, FormDataEntryValue>) => api<Pet>("/api/pets", { method: "POST", body: jsonBody(payload) }),
+    mutationFn: (payload: Record<string, unknown>) => api<Pet>("/api/pets", { method: "POST", body: jsonBody(payload) }),
     onSuccess: (pet) => {
       setPet(pet);
       navigate("/");
@@ -24,16 +26,22 @@ export default function OnboardingPage() {
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    createPet.mutate(Object.fromEntries(new FormData(event.currentTarget)));
+    const data = Object.fromEntries(new FormData(event.currentTarget));
+    createPet.mutate({
+      ...data,
+      weightKg: data.weightKg ? data.weightKg : null,
+      ageYears: data.ageYears ? data.ageYears : null,
+      healthNotes: data.healthNotes ? data.healthNotes : null
+    });
   }
 
-  if (pet) return <Navigate to="/" replace />;
+  if (pet && !isAddingPet) return <Navigate to="/" replace />;
 
   return (
     <main className="space-y-4">
       <div>
         <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-mint text-white"><PawPrint /></div>
-        <h1 className="page-title">PetCare Diary</h1>
+        <h1 className="page-title">{isAddingPet ? t("addPet") : "PetCare Diary"}</h1>
         <p className="muted mt-1">{t("onboardingSubtitle")}</p>
       </div>
       <form onSubmit={onSubmit} className="panel space-y-3">

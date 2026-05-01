@@ -37,13 +37,21 @@ function messageFor(reminder: DueReminder) {
 }
 
 async function sendTelegramMessage(chatId: bigint, text: string) {
+  const miniAppUrl = env.BOT_USERNAME ? `https://t.me/${env.BOT_USERNAME}?startapp=reminders` : undefined;
   const response = await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       chat_id: chatId.toString(),
       text,
-      disable_web_page_preview: true
+      disable_web_page_preview: true,
+      ...(miniAppUrl
+        ? {
+            reply_markup: {
+              inline_keyboard: [[{ text: "Открыть PetCare Diary", url: miniAppUrl }]]
+            }
+          }
+        : {})
     })
   });
 
@@ -80,12 +88,15 @@ export async function processDueReminders() {
         processed += 1;
       } catch (error) {
         const message = error instanceof Error ? error.message : "Reminder delivery failed.";
+        console.error("Reminder delivery failed", { reminderId: reminder.id, userId: reminder.userId, error: message });
         await prisma.reminder.update({
           where: { id: reminder.id },
           data: { lastDeliveryError: message.slice(0, 500) }
         });
       }
     }
+
+    if (processed > 0) console.log("Reminder scheduler delivered reminders", { processed });
 
     return { processed };
   } finally {

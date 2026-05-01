@@ -1,7 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { PawPrint } from "lucide-react";
 import { FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { api, jsonBody } from "../api/client";
 import type { Pet } from "../api/types";
 import { MedicalDisclaimer } from "../components/MedicalDisclaimer";
@@ -12,6 +12,7 @@ import { useI18n } from "../utils/i18n";
 export default function OnboardingPage() {
   const { t } = useI18n();
   const navigate = useNavigate();
+  const pet = useAppStore((state) => state.pet);
   const setPet = useAppStore((state) => state.setPet);
   const createPet = useMutation({
     mutationFn: (payload: Record<string, FormDataEntryValue>) => api<Pet>("/api/pets", { method: "POST", body: jsonBody(payload) }),
@@ -25,6 +26,8 @@ export default function OnboardingPage() {
     event.preventDefault();
     createPet.mutate(Object.fromEntries(new FormData(event.currentTarget)));
   }
+
+  if (pet) return <Navigate to="/" replace />;
 
   return (
     <main className="space-y-4">

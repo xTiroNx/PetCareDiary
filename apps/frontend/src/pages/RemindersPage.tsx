@@ -3,6 +3,7 @@ import { BellPlus, Edit3, Save, Trash2, X } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { api, jsonBody } from "../api/client";
 import { ConfirmAction } from "../components/ConfirmAction";
+import { DateTimeFields } from "../components/DateTimeFields";
 import { EmptyState } from "../components/EmptyState";
 import { LoadMore } from "../components/LoadMore";
 import { RequestError } from "../components/RequestError";
@@ -13,7 +14,17 @@ import { localDateTimeInputValue } from "../utils/dateTime";
 import { languageLocale, useI18n } from "../utils/i18n";
 import { telegramSelection, telegramSuccess } from "../utils/telegram";
 
-type Reminder = { id: string; type: string; title: string; time: string; repeatRule?: string; active: boolean };
+type ReminderRepeatRule = "" | "daily" | "weekly" | "monthly";
+type Reminder = {
+  id: string;
+  type: string;
+  title: string;
+  time: string;
+  repeatRule?: ReminderRepeatRule | null;
+  active: boolean;
+  lastSentAt?: string | null;
+  lastDeliveryError?: string | null;
+};
 
 export default function RemindersPage() {
   const { language, t } = useI18n();
@@ -23,6 +34,7 @@ export default function RemindersPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Record<string, string | boolean>>({});
   const reminderLabels: Record<string, string> = { FEEDING: t("reminderTypeFeeding"), MEDICINE: t("reminderTypeMedicine"), WEIGHT: t("reminderTypeWeight"), VET: t("reminderTypeVet"), OTHER: t("other") };
+  const repeatLabels: Record<string, string> = { daily: t("repeatDaily"), weekly: t("repeatWeekly"), monthly: t("repeatMonthly") };
   const reminders = usePaginatedApi<Reminder>(["reminders", pet?.id], `/api/reminders?petId=${pet?.id ?? ""}`, Boolean(pet));
   const add = useMutation({
     mutationFn: (body: Record<string, unknown>) => api("/api/reminders", { method: "POST", body: jsonBody(body) }),
@@ -99,8 +111,13 @@ export default function RemindersPage() {
           <option value="FEEDING">{t("reminderTypeFeeding")}</option><option value="MEDICINE">{t("reminderTypeMedicine")}</option><option value="WEIGHT">{t("reminderTypeWeight")}</option><option value="VET">{t("reminderTypeVet")}</option><option value="OTHER">{t("other")}</option>
         </SelectField>
         <input className="input" name="title" placeholder={t("title")} required />
-        <input className="input" name="time" type="datetime-local" defaultValue={now} required />
-        <input className="input" name="repeatRule" placeholder={t("repeatRule")} />
+        <DateTimeFields name="time" defaultValue={now} required />
+        <SelectField name="repeatRule" defaultValue="">
+          <option value="">{t("repeatNone")}</option>
+          <option value="daily">{t("repeatDaily")}</option>
+          <option value="weekly">{t("repeatWeekly")}</option>
+          <option value="monthly">{t("repeatMonthly")}</option>
+        </SelectField>
         <button className="btn btn-primary">{t("create")}</button>
         <RequestError error={add.error} />
       </form>
@@ -114,8 +131,11 @@ export default function RemindersPage() {
             <div>
               <p className="font-semibold">{item.title}</p>
               <p className="text-sm text-zinc-500">{reminderLabels[item.type] ?? item.type} · {new Date(item.time).toLocaleString(languageLocale(language))}</p>
-              {item.repeatRule && <p className="text-sm">{item.repeatRule}</p>}
-              <p className="mt-1 text-xs text-zinc-500">{item.active ? t("active") : t("inactive")}</p>
+              {item.repeatRule && <p className="text-sm">{repeatLabels[item.repeatRule] ?? item.repeatRule}</p>}
+              <p className="mt-1 text-xs font-semibold text-zinc-500">
+                {item.lastDeliveryError ? t("deliveryError") : item.active ? t("active") : item.lastSentAt ? t("sent") : t("inactive")}
+              </p>
+              {item.lastDeliveryError && <p className="mt-1 text-xs text-coral">{item.lastDeliveryError}</p>}
             </div>
             <div className="flex shrink-0 gap-1">
               <button className="icon-btn" aria-label={t("editRecord")} title={t("editRecord")} onClick={() => startEdit(item)}><Edit3 size={16} /></button>
@@ -128,8 +148,13 @@ export default function RemindersPage() {
                 <option value="FEEDING">{t("reminderTypeFeeding")}</option><option value="MEDICINE">{t("reminderTypeMedicine")}</option><option value="WEIGHT">{t("reminderTypeWeight")}</option><option value="VET">{t("reminderTypeVet")}</option><option value="OTHER">{t("other")}</option>
               </SelectField>
               <input className="input" value={String(draft.title ?? "")} onChange={(event) => updateDraft("title", event.target.value)} placeholder={t("title")} />
-              <input className="input" type="datetime-local" value={String(draft.time ?? "")} onChange={(event) => updateDraft("time", event.target.value)} />
-              <input className="input" value={String(draft.repeatRule ?? "")} onChange={(event) => updateDraft("repeatRule", event.target.value)} placeholder={t("repeatRule")} />
+              <DateTimeFields name="time" value={String(draft.time ?? "")} onChange={(time) => updateDraft("time", time)} />
+              <SelectField value={String(draft.repeatRule ?? "")} onChange={(event) => updateDraft("repeatRule", event.target.value)}>
+                <option value="">{t("repeatNone")}</option>
+                <option value="daily">{t("repeatDaily")}</option>
+                <option value="weekly">{t("repeatWeekly")}</option>
+                <option value="monthly">{t("repeatMonthly")}</option>
+              </SelectField>
               <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={Boolean(draft.active)} onChange={(event) => updateDraft("active", event.target.checked)} />{t("active")}</label>
               <div className="grid grid-cols-2 gap-2">
                 <button className="btn btn-primary" disabled={update.isPending} onClick={() => saveReminder(item.id)}><Save size={16} />{t("save")}</button>

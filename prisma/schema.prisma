@@ -192,6 +192,8 @@ model Reminder {
   time       DateTime
   repeatRule String?
   active     Boolean      @default(true)
+  lastSentAt DateTime?
+  lastDeliveryError String?
   createdAt  DateTime     @default(now())
   pet        Pet          @relation(fields: [petId], references: [id], onDelete: Cascade)
   user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)

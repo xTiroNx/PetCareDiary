@@ -23,6 +23,10 @@ services:
         generateValue: true
       - key: ADMIN_TELEGRAM_IDS
         sync: false
+      - key: REMINDER_SCHEDULER_ENABLED
+        value: "true"
+      - key: REMINDER_POLL_INTERVAL_MS
+        value: "60000"
       - key: MONTHLY_PRICE_STARS
         value: "199"
       - key: LIFETIME_PRICE_STARS

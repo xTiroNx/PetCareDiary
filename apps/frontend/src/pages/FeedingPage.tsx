@@ -3,6 +3,7 @@ import { Edit3, Save, Trash2, X } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { api, jsonBody } from "../api/client";
 import { ConfirmAction } from "../components/ConfirmAction";
+import { DateTimeFields } from "../components/DateTimeFields";
 import { EmptyState } from "../components/EmptyState";
 import { LoadMore } from "../components/LoadMore";
 import { RequestError } from "../components/RequestError";
@@ -74,7 +75,7 @@ export default function FeedingPage() {
     <main className="space-y-4">
       <h1 className="page-title">{t("feedingTitle")}</h1>
       <form onSubmit={onSubmit} className="panel grid gap-3">
-        <input className="input" name="dateTime" type="datetime-local" defaultValue={now} required />
+        <DateTimeFields defaultValue={now} required />
         <SelectField name="foodType" defaultValue="DRY">
           <option value="DRY">{t("dryFood")}</option><option value="WET">{t("wetFood")}</option><option value="NATURAL">{t("naturalFood")}</option><option value="TREAT">{t("treat")}</option><option value="OTHER">{t("other")}</option>
         </SelectField>
@@ -102,7 +103,7 @@ export default function FeedingPage() {
           </div>
           {editingId === entry.id && draft && (
             <div className="grid gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
-              <input className="input" type="datetime-local" value={draft.dateTime} onChange={(event) => setDraft({ ...draft, dateTime: event.target.value })} />
+              <DateTimeFields value={draft.dateTime} onChange={(dateTime) => setDraft({ ...draft, dateTime })} />
               <SelectField value={draft.foodType} onChange={(event) => setDraft({ ...draft, foodType: event.target.value })}>
                 <option value="DRY">{t("dryFood")}</option><option value="WET">{t("wetFood")}</option><option value="NATURAL">{t("naturalFood")}</option><option value="TREAT">{t("treat")}</option><option value="OTHER">{t("other")}</option>
               </SelectField>

@@ -10,6 +10,8 @@ const envSchema = z.object({
   BOT_USERNAME: z.string().min(1),
   TELEGRAM_WEBHOOK_SECRET: z.string().min(16).optional(),
   ADMIN_TELEGRAM_IDS: z.string().default(""),
+  REMINDER_SCHEDULER_ENABLED: z.coerce.boolean().default(true),
+  REMINDER_POLL_INTERVAL_MS: z.coerce.number().int().min(10_000).default(60_000),
   MONTHLY_PRICE_STARS: z.coerce.number().int().positive().default(199),
   LIFETIME_PRICE_STARS: z.coerce.number().int().positive().default(1499),
   TRIAL_DAYS: z.coerce.number().int().positive().default(3),

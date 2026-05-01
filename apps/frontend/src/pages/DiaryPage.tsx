@@ -4,10 +4,12 @@ import { useMemo, useState } from "react";
 import clsx from "clsx";
 import { api, jsonBody } from "../api/client";
 import { ConfirmAction } from "../components/ConfirmAction";
+import { DateTimeFields } from "../components/DateTimeFields";
 import { EmptyState } from "../components/EmptyState";
 import { LoadMore } from "../components/LoadMore";
 import { RequestError } from "../components/RequestError";
 import { SelectField } from "../components/SelectField";
+import { SeverityScale } from "../components/SeverityScale";
 import { usePaginatedApi } from "../hooks/usePaginatedApi";
 import { useAppStore } from "../store/appStore";
 import { localDateInputValue, localDateTimeInputValue } from "../utils/dateTime";
@@ -100,7 +102,7 @@ export default function DiaryPage() {
         type: "SYMPTOM" as const,
         date: entry.dateTime,
         title: t("symptom"),
-        detail: `${labels.symptom[entry.symptomType] ?? entry.symptomType} · ${entry.severity}/5`,
+        detail: `${labels.symptom[entry.symptomType] ?? entry.symptomType} · ${t("severity")} ${entry.severity}/5`,
         note: entry.note,
         endpoint: "/api/symptoms",
         raw: entry
@@ -223,8 +225,8 @@ export default function DiaryPage() {
   function renderEditForm(entry: TimelineEntry) {
     return (
       <div className="mt-3 grid gap-2">
-        {entry.type !== "WEIGHT" && <input className="input" type="datetime-local" value={String(draft.dateTime ?? "")} onChange={(event) => updateDraft("dateTime", event.target.value)} />}
-        {entry.type === "WEIGHT" && <input className="input" type="date" value={String(draft.date ?? "")} onChange={(event) => updateDraft("date", event.target.value)} />}
+        {entry.type !== "WEIGHT" && <DateTimeFields value={String(draft.dateTime ?? "")} onChange={(dateTime) => updateDraft("dateTime", dateTime)} />}
+        {entry.type === "WEIGHT" && <input className="input date-input" type="date" value={String(draft.date ?? "")} onChange={(event) => updateDraft("date", event.target.value)} />}
         {entry.type === "FEEDING" && (
           <>
             <SelectField value={String(draft.foodType ?? "DRY")} onChange={(event) => updateDraft("foodType", event.target.value)}>
@@ -239,7 +241,7 @@ export default function DiaryPage() {
             <SelectField value={String(draft.symptomType ?? "VOMITING")} onChange={(event) => updateDraft("symptomType", event.target.value)}>
               <option value="VOMITING">{t("vomiting")}</option><option value="YELLOW_VOMIT">{t("yellowVomit")}</option><option value="NO_APPETITE">{t("noAppetite")}</option><option value="DIARRHEA">{t("diarrhea")}</option><option value="CONSTIPATION">{t("constipation")}</option><option value="LETHARGY">{t("lethargy")}</option><option value="PAIN">{t("pain")}</option><option value="OTHER">{t("other")}</option>
             </SelectField>
-            <input className="input" type="number" min="1" max="5" value={String(draft.severity ?? "1")} onChange={(event) => updateDraft("severity", event.target.value)} />
+            <SeverityScale value={String(draft.severity ?? "1")} onChange={(severity) => updateDraft("severity", severity)} />
             <textarea className="input" value={String(draft.note ?? "")} onChange={(event) => updateDraft("note", event.target.value)} placeholder={t("comment")} />
           </>
         )}
@@ -274,14 +276,14 @@ export default function DiaryPage() {
           <CalendarDays size={17} className="text-mint" />
           {t("period")}
         </div>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2">
           <label className="text-xs font-semibold text-zinc-500">
             {t("fromDate")}
-            <input className="input mt-1" type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
+            <input className="input date-input mt-1" type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
           </label>
           <label className="text-xs font-semibold text-zinc-500">
             {t("toDate")}
-            <input className="input mt-1" type="date" value={to} onChange={(event) => setTo(event.target.value)} />
+            <input className="input date-input mt-1" type="date" value={to} onChange={(event) => setTo(event.target.value)} />
           </label>
         </div>
         <div className="grid grid-cols-3 gap-2">

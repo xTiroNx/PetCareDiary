@@ -29,10 +29,14 @@ export default function ReportPage() {
       const file = new File([blob], filename, { type: "application/pdf" });
       const shareTarget = navigator as Navigator & { canShare?: (data: ShareData) => boolean };
       if (navigator.share && shareTarget.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: "PetCare Diary report" });
-        setMessage(t("exportDownloaded"));
-        queryClient.invalidateQueries({ queryKey: ["report-export-status"] });
-        return;
+        try {
+          await navigator.share({ files: [file], title: "PetCare Diary report" });
+          setMessage(t("exportDownloaded"));
+          queryClient.invalidateQueries({ queryKey: ["report-export-status"] });
+          return;
+        } catch {
+          // Fall through to a single file download when native sharing is unavailable or cancelled.
+        }
       }
 
       const url = URL.createObjectURL(blob);
@@ -42,7 +46,6 @@ export default function ReportPage() {
       document.body.appendChild(link);
       link.click();
       link.remove();
-      window.open(url, "_blank", "noopener,noreferrer");
       window.setTimeout(() => URL.revokeObjectURL(url), 60000);
       setMessage(t("exportDownloaded"));
       queryClient.invalidateQueries({ queryKey: ["report-export-status"] });

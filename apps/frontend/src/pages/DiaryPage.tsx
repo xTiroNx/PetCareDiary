@@ -17,6 +17,7 @@ import { localDateInputValue, localDateTimeInputValue } from "../utils/dateTime"
 import { languageLocale, useI18n } from "../utils/i18n";
 
 type DiaryType = "ALL" | "FEEDING" | "SYMPTOM" | "MEDICINE" | "WEIGHT" | "NOTE";
+type PeriodMode = "today" | "7" | "30" | "all" | "custom";
 
 type FeedingEntry = { id: string; dateTime: string; foodType: string; amount: string; note?: string };
 type SymptomEntry = { id: string; dateTime: string; symptomType: string; severity: number; note?: string };
@@ -57,6 +58,7 @@ export default function DiaryPage() {
   const [type, setType] = useState<DiaryType>("ALL");
   const [from, setFrom] = useState(currentDate);
   const [to, setTo] = useState(currentDate);
+  const [periodMode, setPeriodMode] = useState<PeriodMode>("today");
   const [editing, setEditing] = useState<TimelineEntry | null>(null);
   const [draft, setDraft] = useState<EditDraft>({});
 
@@ -169,11 +171,24 @@ export default function DiaryPage() {
     NOTE: FileText
   };
 
-  function setQuickPeriod(days: number) {
+  function setQuickPeriod(days: number, mode: PeriodMode) {
     const now = new Date();
     const start = new Date(now.getTime() - (days - 1) * 86400000);
-    setFrom(start.toISOString().slice(0, 10));
-    setTo(now.toISOString().slice(0, 10));
+    setPeriodMode(mode);
+    setFrom(localDateInputValue(start));
+    setTo(localDateInputValue(now));
+  }
+
+  function setAllPeriod() {
+    setPeriodMode("all");
+    setFrom("");
+    setTo("");
+  }
+
+  function setCustomPeriod() {
+    setPeriodMode("custom");
+    if (!from) setFrom(currentDate);
+    if (!to) setTo(currentDate);
   }
 
   function updateDraft(key: string, value: string | boolean) {
@@ -277,16 +292,20 @@ export default function DiaryPage() {
           <CalendarDays size={17} className="text-mint" />
           {t("period")}
         </div>
-        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2">
-          <DateField label={t("fromDate")} value={from} onChange={setFrom} />
-          <DateField label={t("toDate")} value={to} onChange={setTo} />
+        <div className="grid grid-cols-2 gap-2">
+          <button className={clsx("btn min-h-9 px-2 text-xs", periodMode === "today" ? "btn-primary" : "btn-secondary")} onClick={() => setQuickPeriod(1, "today")}>{t("today")}</button>
+          <button className={clsx("btn min-h-9 px-2 text-xs", periodMode === "7" ? "btn-primary" : "btn-secondary")} onClick={() => setQuickPeriod(7, "7")}>{t("last7")}</button>
+          <button className={clsx("btn min-h-9 px-2 text-xs", periodMode === "30" ? "btn-primary" : "btn-secondary")} onClick={() => setQuickPeriod(30, "30")}>{t("last30")}</button>
+          <button className={clsx("btn min-h-9 px-2 text-xs", periodMode === "all" ? "btn-primary" : "btn-secondary")} onClick={setAllPeriod}>{t("allPeriod")}</button>
+          <button className={clsx("btn col-span-2 min-h-9 px-2 text-xs", periodMode === "custom" ? "btn-primary" : "btn-secondary")} onClick={setCustomPeriod}>{t("period")}</button>
         </div>
-        <div className="grid grid-cols-3 gap-2">
-          <button className="btn btn-secondary min-h-9 px-2 text-xs" onClick={() => setQuickPeriod(1)}>{t("today")}</button>
-          <button className="btn btn-secondary min-h-9 px-2 text-xs" onClick={() => setQuickPeriod(7)}>{t("last7")}</button>
-          <button className="btn btn-secondary min-h-9 px-2 text-xs" onClick={() => setQuickPeriod(30)}>{t("last30")}</button>
-        </div>
-        <button className="btn btn-muted w-full min-h-9" onClick={() => { setFrom(currentDate); setTo(currentDate); setType("ALL"); }}>
+        {periodMode === "custom" && (
+          <div className="grid gap-2">
+            <DateField label={t("fromDate")} value={from} onChange={setFrom} />
+            <DateField label={t("toDate")} value={to} onChange={setTo} />
+          </div>
+        )}
+        <button className="btn btn-muted w-full min-h-9" onClick={() => { setPeriodMode("today"); setFrom(currentDate); setTo(currentDate); setType("ALL"); }}>
           {t("resetFilters")}
         </button>
       </section>

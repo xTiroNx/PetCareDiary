@@ -10,6 +10,23 @@ import { HttpError } from "../utils/httpError.js";
 
 const router = Router();
 const dailyExportLimit = 3;
+const foodLabels: Record<string, string> = {
+  DRY: "Dry food",
+  WET: "Wet food",
+  NATURAL: "Natural food",
+  TREAT: "Treat",
+  OTHER: "Other"
+};
+const symptomLabels: Record<string, string> = {
+  VOMITING: "Vomiting",
+  YELLOW_VOMIT: "Yellow vomit",
+  NO_APPETITE: "No appetite",
+  DIARRHEA: "Diarrhea",
+  CONSTIPATION: "Constipation",
+  LETHARGY: "Lethargy",
+  PAIN: "Pain",
+  OTHER: "Other"
+};
 
 const reportQuerySchema = z.object({
   petId: z.string().min(1).max(128),
@@ -27,23 +44,48 @@ async function buildReport(userId: string, petId: string, period: number | "all"
   const from = period === "all" ? null : new Date(Date.now() - period * 24 * 60 * 60 * 1000);
   const pet = await prisma.pet.findFirst({ where: { id: petId, userId } });
   const dateFilter = from ? { gte: from } : undefined;
-  const [feeding, symptoms, medicines, medicinesTaken, weights, notes, recentNotes] = await Promise.all([
+  const [feeding, symptoms, medicines, medicinesTaken, weights, notes, feedingEntries, symptomEntries, medicineEntries, weightEntries, noteEntries] = await Promise.all([
     prisma.feedingEntry.count({ where: { userId, petId, dateTime: dateFilter } }),
     prisma.symptomEntry.count({ where: { userId, petId, dateTime: dateFilter } }),
     prisma.medicineEntry.count({ where: { userId, petId, dateTime: dateFilter } }),
     prisma.medicineEntry.count({ where: { userId, petId, dateTime: dateFilter, taken: true } }),
     prisma.weightEntry.count({ where: { userId, petId, date: dateFilter } }),
     prisma.noteEntry.count({ where: { userId, petId, dateTime: dateFilter } }),
+    prisma.feedingEntry.findMany({
+      where: { userId, petId, dateTime: dateFilter },
+      select: { id: true, dateTime: true, foodType: true, amount: true, note: true },
+      orderBy: { dateTime: "desc" },
+      take: 50
+    }),
+    prisma.symptomEntry.findMany({
+      where: { userId, petId, dateTime: dateFilter },
+      select: { id: true, dateTime: true, symptomType: true, severity: true, note: true },
+      orderBy: { dateTime: "desc" },
+      take: 50
+    }),
+    prisma.medicineEntry.findMany({
+      where: { userId, petId, dateTime: dateFilter },
+      select: { id: true, dateTime: true, medicineName: true, dosage: true, taken: true, note: true },
+      orderBy: { dateTime: "desc" },
+      take: 50
+    }),
+    prisma.weightEntry.findMany({
+      where: { userId, petId, date: dateFilter },
+      select: { id: true, date: true, weightKg: true },
+      orderBy: { date: "desc" },
+      take: 50
+    }),
     prisma.noteEntry.findMany({
       where: { userId, petId, dateTime: dateFilter },
       select: { id: true, note: true, dateTime: true },
       orderBy: { dateTime: "desc" },
-      take: 10
+      take: 50
     })
   ]);
 
   const counts = { feeding, symptoms, medicines, medicinesTaken, weights, notes };
-  return { period, from, petName: pet?.name ?? "Pet", counts, recentNotes };
+  const entries = { feeding: feedingEntries, symptoms: symptomEntries, medicines: medicineEntries, weights: weightEntries, notes: noteEntries };
+  return { period, from, petName: pet?.name ?? "Pet", counts, entries };
 }
 
 function pdfFont(doc: PDFKit.PDFDocument) {
@@ -100,18 +142,48 @@ function renderReportPdf(report: Awaited<ReturnType<typeof buildReport>>) {
       doc.font(font).fillColor("#1f9d8a").text(String(count));
     });
 
-    doc.moveDown(1);
-    doc.fillColor("#17202a").fontSize(15).text("Recent notes");
-    doc.moveDown(0.5);
-    if (report.recentNotes.length) {
-      report.recentNotes.forEach((entry, index) => {
-        doc.font(font).fontSize(10).fillColor("#5f6673").text(`${index + 1}. ${new Date(entry.dateTime).toLocaleString("ru-RU")}`);
-        doc.font(font).fontSize(11).fillColor("#17202a").text(entry.note.slice(0, 600));
-        doc.moveDown(0.4);
-      });
-    } else {
-      doc.font(font).fontSize(11).fillColor("#5f6673").text("No notes for this period.");
-    }
+    const ensureSpace = (height = 90) => {
+      if (doc.y > doc.page.height - doc.page.margins.bottom - height) doc.addPage();
+    };
+    const section = (title: string) => {
+      ensureSpace();
+      doc.moveDown(0.8);
+      doc.fillColor("#17202a").fontSize(15).text(title);
+      doc.moveDown(0.35);
+    };
+    const empty = () => doc.font(font).fontSize(10).fillColor("#8a91a0").text("No records for this period.");
+    const line = (date: Date, title: string, note?: string | null) => {
+      ensureSpace();
+      doc.font(font).fontSize(10).fillColor("#5f6673").text(new Date(date).toLocaleString("ru-RU"));
+      doc.font(font).fontSize(11).fillColor("#17202a").text(title.slice(0, 220));
+      if (note) doc.font(font).fontSize(10).fillColor("#5f6673").text(note.slice(0, 500));
+      doc.moveDown(0.4);
+    };
+
+    section("Feeding");
+    if (report.entries.feeding.length) {
+      report.entries.feeding.forEach((entry) => line(entry.dateTime, `${foodLabels[entry.foodType] ?? entry.foodType} · ${entry.amount}`, entry.note));
+    } else empty();
+
+    section("Symptoms");
+    if (report.entries.symptoms.length) {
+      report.entries.symptoms.forEach((entry) => line(entry.dateTime, `${symptomLabels[entry.symptomType] ?? entry.symptomType} · severity ${entry.severity}/5`, entry.note));
+    } else empty();
+
+    section("Medicines");
+    if (report.entries.medicines.length) {
+      report.entries.medicines.forEach((entry) => line(entry.dateTime, `${entry.medicineName} · ${entry.dosage} · ${entry.taken ? "taken" : "not taken"}`, entry.note));
+    } else empty();
+
+    section("Weight");
+    if (report.entries.weights.length) {
+      report.entries.weights.forEach((entry) => line(entry.date, `${entry.weightKg.toString()} kg`));
+    } else empty();
+
+    section("Notes");
+    if (report.entries.notes.length) {
+      report.entries.notes.forEach((entry) => line(entry.dateTime, entry.note));
+    } else empty();
 
     doc.moveDown(1);
     doc.font(font).fontSize(9).fillColor("#8a91a0").text(
@@ -132,7 +204,8 @@ router.get("/summary", async (req, res, next) => {
       from: report.from,
       petName: report.petName,
       counts: report.counts,
-      recentNotes: report.recentNotes
+      entries: report.entries,
+      recentNotes: report.entries.notes.slice(0, 10)
     }));
   } catch (error) {
     next(error);

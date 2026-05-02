@@ -82,13 +82,13 @@ body {
 
 @layer components {
   .panel {
-    @apply rounded-lg border border-black/5 bg-white/95 p-4 text-ink shadow-soft backdrop-blur dark:border-white/10 dark:bg-zinc-900/95 dark:text-zinc-50;
+    @apply rounded-lg border border-black/5 bg-white/95 p-3.5 text-ink shadow-sm dark:border-white/10 dark:bg-zinc-900/95 dark:text-zinc-50;
   }
   .input {
     @apply min-h-12 w-full min-w-0 rounded-lg border border-zinc-200 bg-white px-3 py-3 text-base leading-tight text-ink outline-none placeholder:text-zinc-500 focus:border-mint dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50 dark:placeholder:text-zinc-400;
   }
   .date-input {
-    @apply px-2 text-center font-bold tabular-nums;
+    @apply px-2 text-center text-[15px] font-bold tabular-nums;
   }
   .btn {
     @apply inline-flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-lg px-4 py-2 text-center text-sm font-bold leading-tight transition active:scale-[0.98] disabled:pointer-events-none disabled:opacity-55;
@@ -143,5 +143,15 @@ body {
 
   .input {
     font-size: 0.9375rem;
+  }
+}
+
+@media (max-width: 430px) {
+  .datetime-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .date-input {
+    min-height: 2.875rem;
   }
 }

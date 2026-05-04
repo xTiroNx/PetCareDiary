@@ -4,6 +4,7 @@ declare global {
       WebApp?: {
         initData: string;
         version?: string;
+        platform?: string;
         isFullscreen?: boolean;
         viewportHeight?: number;
         viewportStableHeight?: number;
@@ -72,6 +73,24 @@ function setPxVariable(name: string, value: number | undefined) {
   document.documentElement.style.setProperty(name, `${Math.max(0, value ?? 0)}px`);
 }
 
+function platformChromeFallback(platform: string | undefined) {
+  const normalized = platform?.toLowerCase() ?? "";
+  if (normalized.includes("ios") || normalized.includes("ipad")) return 56;
+  if (normalized.includes("android")) return 28;
+  return 40;
+}
+
+function updateTelegramChromeOffset() {
+  const webApp = getTelegramWebApp();
+  const contentTop = Math.max(0, webApp?.contentSafeAreaInset?.top ?? 0);
+  const safeTop = Math.max(0, webApp?.safeAreaInset?.top ?? 0);
+  const reportedTop = Math.max(contentTop, safeTop);
+  const fallbackTop = platformChromeFallback(webApp?.platform);
+  const offset = webApp?.isFullscreen && reportedTop < fallbackTop ? fallbackTop - reportedTop : 0;
+
+  setPxVariable("--tg-chrome-top-offset", offset);
+}
+
 function updateSafeAreaVariables() {
   const webApp = getTelegramWebApp();
   const safe = webApp?.safeAreaInset;
@@ -85,6 +104,7 @@ function updateSafeAreaVariables() {
   setPxVariable("--tg-content-safe-right", content?.right);
   setPxVariable("--tg-content-safe-bottom", content?.bottom);
   setPxVariable("--tg-content-safe-left", content?.left);
+  updateTelegramChromeOffset();
 }
 
 export function setupTelegramUi() {
@@ -99,6 +119,7 @@ export function setupTelegramUi() {
   webApp?.onEvent?.("viewportChanged", updateSafeAreaVariables);
   webApp?.onEvent?.("safeAreaChanged", updateSafeAreaVariables);
   webApp?.onEvent?.("contentSafeAreaChanged", updateSafeAreaVariables);
+  webApp?.onEvent?.("fullscreenChanged", updateSafeAreaVariables);
 }
 
 export function onTelegramEvent(eventType: string, handler: () => void) {

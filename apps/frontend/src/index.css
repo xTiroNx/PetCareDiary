@@ -15,6 +15,7 @@
   --tg-content-safe-right: 0px;
   --tg-content-safe-bottom: 0px;
   --tg-content-safe-left: 0px;
+  --tg-chrome-top-offset: 0px;
   --surface: rgba(255, 255, 255, 0.94);
   --surface-dark: rgba(24, 24, 27, 0.94);
   font-family: Inter, "SF Pro Text", "SF Pro Display", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -86,7 +87,7 @@ body {
 @layer components {
   .app-shell {
     @apply mx-auto min-h-screen max-w-md text-ink dark:text-zinc-50;
-    padding: calc(1rem + max(env(safe-area-inset-top), var(--tg-safe-top), var(--tg-content-safe-top)))
+    padding: calc(1rem + max(env(safe-area-inset-top), var(--tg-safe-top), var(--tg-content-safe-top)) + var(--tg-chrome-top-offset))
       calc(var(--app-inline-padding) + max(env(safe-area-inset-right), var(--tg-safe-right), var(--tg-content-safe-right)))
       calc(var(--bottom-nav-height) + max(env(safe-area-inset-bottom), var(--tg-safe-bottom), var(--tg-content-safe-bottom)))
       calc(var(--app-inline-padding) + max(env(safe-area-inset-left), var(--tg-safe-left), var(--tg-content-safe-left)));

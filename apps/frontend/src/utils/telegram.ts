@@ -75,9 +75,9 @@ function setPxVariable(name: string, value: number | undefined) {
 
 function platformChromeFallback(platform: string | undefined) {
   const normalized = platform?.toLowerCase() ?? "";
-  if (normalized.includes("ios") || normalized.includes("ipad")) return 56;
-  if (normalized.includes("android")) return 28;
-  return 40;
+  if (normalized.includes("ios") || normalized.includes("ipad")) return 88;
+  if (normalized.includes("android")) return 48;
+  return 64;
 }
 
 function updateTelegramChromeOffset() {

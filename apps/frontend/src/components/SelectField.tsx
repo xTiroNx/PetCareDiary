@@ -2,11 +2,13 @@ import { ChevronDown } from "lucide-react";
 import type { SelectHTMLAttributes } from "react";
 import clsx from "clsx";
 
-type SelectFieldProps = SelectHTMLAttributes<HTMLSelectElement>;
+type SelectFieldProps = SelectHTMLAttributes<HTMLSelectElement> & {
+  wrapperClassName?: string;
+};
 
-export function SelectField({ className, children, ...props }: SelectFieldProps) {
+export function SelectField({ className, wrapperClassName, children, ...props }: SelectFieldProps) {
   return (
-    <div className={clsx("relative min-w-0", className)}>
+    <div className={clsx("relative min-w-0", wrapperClassName)}>
       <select {...props} className={clsx("input appearance-none pr-11", className)}>
         {children}
       </select>

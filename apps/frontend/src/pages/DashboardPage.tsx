@@ -32,11 +32,11 @@ export default function DashboardPage() {
       <section className="panel p-3.5">
         <h2 className="section-title mb-3">{t("quickActions")}</h2>
         <div className="grid grid-cols-2 gap-2">
-          <Link className="btn btn-primary" to="/feeding"><Utensils size={18} />{t("feeding")}</Link>
-          <Link className="btn btn-secondary" to="/medicines"><Pill size={18} />{t("medicine")}</Link>
-          <Link className="btn btn-secondary" to="/symptoms"><HeartPulse size={18} />{t("symptom")}</Link>
-          <Link className="btn btn-secondary" to="/weight"><Scale size={18} />{t("weight")}</Link>
-          <Link className="btn btn-secondary col-span-2" to="/notes"><FileText size={18} />{t("otherNote")}</Link>
+          <Link className="btn btn-primary quick-action" to="/feeding"><Utensils size={18} />{t("feeding")}</Link>
+          <Link className="btn btn-secondary quick-action" to="/medicines"><Pill size={18} />{t("medicine")}</Link>
+          <Link className="btn btn-secondary quick-action" to="/symptoms"><HeartPulse size={18} />{t("symptom")}</Link>
+          <Link className="btn btn-secondary quick-action" to="/weight"><Scale size={18} />{t("weight")}</Link>
+          <Link className="btn btn-secondary quick-action col-span-2 min-h-[50px]" to="/notes"><FileText size={18} />{t("otherNote")}</Link>
         </div>
       </section>
       {pet.healthNotes && <section className="panel"><h2 className="section-title">{t("healthFeatures")}</h2><p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">{pet.healthNotes}</p></section>}

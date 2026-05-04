@@ -209,7 +209,7 @@ model Payment {
   currency                String             @default("XTR")
   status                  PaymentStatus      @default(PENDING)
   invoicePayload          String             @unique
-  telegramPaymentChargeId String?
+  telegramPaymentChargeId String?            @unique
   providerPaymentChargeId String?
   createdAt               DateTime           @default(now())
   paidAt                  DateTime?

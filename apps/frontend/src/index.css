@@ -5,6 +5,8 @@
 :root {
   --tg-bg: #f7fbfb;
   --tg-text: #17202a;
+  --app-inline-padding: 1rem;
+  --bottom-nav-height: 5.625rem;
   --tg-safe-top: 0px;
   --tg-safe-right: 0px;
   --tg-safe-bottom: 0px;
@@ -18,6 +20,7 @@
   font-family: Inter, "SF Pro Text", "SF Pro Display", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: var(--tg-text);
   background: var(--tg-bg);
+  scroll-padding-bottom: calc(var(--bottom-nav-height) + max(env(safe-area-inset-bottom), var(--tg-safe-bottom), var(--tg-content-safe-bottom)));
 }
 
 @media (prefers-color-scheme: dark) {
@@ -77,10 +80,17 @@ body {
 }
 
 .safe-bottom {
-  padding-bottom: max(env(safe-area-inset-bottom), var(--tg-safe-bottom));
+  padding-bottom: max(env(safe-area-inset-bottom), var(--tg-safe-bottom), var(--tg-content-safe-bottom));
 }
 
 @layer components {
+  .app-shell {
+    @apply mx-auto min-h-screen max-w-md text-ink dark:text-zinc-50;
+    padding: calc(1rem + max(env(safe-area-inset-top), var(--tg-safe-top), var(--tg-content-safe-top)))
+      calc(var(--app-inline-padding) + max(env(safe-area-inset-right), var(--tg-safe-right), var(--tg-content-safe-right)))
+      calc(var(--bottom-nav-height) + max(env(safe-area-inset-bottom), var(--tg-safe-bottom), var(--tg-content-safe-bottom)))
+      calc(var(--app-inline-padding) + max(env(safe-area-inset-left), var(--tg-safe-left), var(--tg-content-safe-left)));
+  }
   .panel {
     @apply rounded-lg border border-black/5 bg-white/95 p-3.5 text-ink shadow-sm dark:border-white/10 dark:bg-zinc-900/95 dark:text-zinc-50;
   }
@@ -104,6 +114,12 @@ body {
   }
   .icon-btn {
     @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-zinc-100 hover:text-ink dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white;
+  }
+  .quick-action {
+    @apply flex min-h-[56px] flex-col px-2 py-2 text-[12.5px] leading-[1.15];
+  }
+  .record-copy {
+    @apply min-w-0 break-words;
   }
   .section-title {
     @apply text-sm font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400;
@@ -135,6 +151,11 @@ body {
 }
 
 @media (max-width: 360px) {
+  :root {
+    --app-inline-padding: 0.875rem;
+    --bottom-nav-height: 5.35rem;
+  }
+
   .btn {
     padding-left: 0.75rem;
     padding-right: 0.75rem;
@@ -143,6 +164,13 @@ body {
 
   .input {
     font-size: 0.9375rem;
+  }
+
+  .quick-action {
+    min-height: 3.75rem;
+    gap: 0.25rem;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
   }
 }
 

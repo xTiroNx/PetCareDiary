@@ -59,7 +59,7 @@ export default function ReportPage() {
     <main className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <h1 className="page-title min-w-0">{t("reportTitle")}</h1>
-        <SelectField className="w-44 shrink-0" value={period} onChange={(event) => setPeriod(event.target.value as ReportPeriod)}>
+        <SelectField wrapperClassName="w-44 shrink-0" value={period} onChange={(event) => setPeriod(event.target.value as ReportPeriod)}>
           <option value="7">{t("days7")}</option><option value="14">{t("days14")}</option><option value="30">{t("days30")}</option><option value="all">{t("allPeriod")}</option>
         </SelectField>
       </div>

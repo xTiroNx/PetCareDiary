@@ -132,7 +132,7 @@ export default function RemindersPage() {
         {reminders.items.map((item) => (
         <div className="panel" key={item.id}>
           <div className="flex items-start justify-between gap-2">
-            <div>
+            <div className="record-copy">
               <p className="font-semibold">{item.title}</p>
               <p className="text-sm text-zinc-500">{reminderLabels[item.type] ?? item.type} · {new Date(item.time).toLocaleString(languageLocale(language))}</p>
               {item.repeatRule && <p className="text-sm">{repeatLabels[item.repeatRule] ?? item.repeatRule}</p>}

@@ -10,22 +10,110 @@ import { HttpError } from "../utils/httpError.js";
 
 const router = Router();
 const dailyExportLimit = 3;
-const foodLabels: Record<string, string> = {
-  DRY: "Dry food",
-  WET: "Wet food",
-  NATURAL: "Natural food",
-  TREAT: "Treat",
-  OTHER: "Other"
-};
-const symptomLabels: Record<string, string> = {
-  VOMITING: "Vomiting",
-  YELLOW_VOMIT: "Yellow vomit",
-  NO_APPETITE: "No appetite",
-  DIARRHEA: "Diarrhea",
-  CONSTIPATION: "Constipation",
-  LETHARGY: "Lethargy",
-  PAIN: "Pain",
-  OTHER: "Other"
+
+type ReportLanguage = "ru" | "en";
+
+const reportText = {
+  ru: {
+    title: "Отчет PetCare Diary",
+    pet: "Питомец",
+    petType: "Тип",
+    age: "Возраст",
+    currentWeight: "Текущий вес",
+    healthNotes: "Заметки о здоровье",
+    period: "Период",
+    generated: "Сформировано",
+    allTime: "все время",
+    lastDays: (days: number) => `последние ${days} дн.`,
+    summary: "Сводка",
+    feeding: "Кормление",
+    symptoms: "Симптомы",
+    medicines: "Лекарства",
+    weight: "Вес",
+    notes: "Заметки",
+    feedingsCount: "Кормления",
+    symptomsCount: "Симптомы",
+    medicinesCount: "Лекарства",
+    medicinesTaken: "Лекарства приняты",
+    weightRecords: "Записи веса",
+    otherNotes: "Другие заметки",
+    foodType: "Тип корма",
+    amount: "Количество",
+    comment: "Комментарий",
+    symptomType: "Тип симптома",
+    severity: "Тяжесть",
+    medicineName: "Название",
+    dosage: "Дозировка",
+    status: "Статус",
+    taken: "принято",
+    notTaken: "не принято",
+    noRecords: "Нет записей за этот период.",
+    kg: "кг",
+    years: "лет",
+    disclaimer: "PetCare Diary не заменяет ветеринарную помощь. Если симптомы повторяются или состояние ухудшается, обратитесь к ветеринару.",
+    petTypes: { CAT: "Кошка", DOG: "Собака", OTHER: "Другое" },
+    foodLabels: { DRY: "Сухой корм", WET: "Влажный корм", NATURAL: "Натуральная еда", TREAT: "Лакомство", OTHER: "Другое" },
+    symptomLabels: {
+      VOMITING: "Рвота",
+      YELLOW_VOMIT: "Желтая рвота",
+      NO_APPETITE: "Нет аппетита",
+      DIARRHEA: "Диарея",
+      CONSTIPATION: "Запор",
+      LETHARGY: "Вялость",
+      PAIN: "Боль",
+      OTHER: "Другое"
+    }
+  },
+  en: {
+    title: "PetCare Diary Report",
+    pet: "Pet",
+    petType: "Type",
+    age: "Age",
+    currentWeight: "Current weight",
+    healthNotes: "Health notes",
+    period: "Period",
+    generated: "Generated",
+    allTime: "all time",
+    lastDays: (days: number) => `last ${days} days`,
+    summary: "Summary",
+    feeding: "Feeding",
+    symptoms: "Symptoms",
+    medicines: "Medicines",
+    weight: "Weight",
+    notes: "Notes",
+    feedingsCount: "Feedings",
+    symptomsCount: "Symptoms",
+    medicinesCount: "Medicines",
+    medicinesTaken: "Medicines taken",
+    weightRecords: "Weight records",
+    otherNotes: "Other notes",
+    foodType: "Food type",
+    amount: "Amount",
+    comment: "Comment",
+    symptomType: "Symptom type",
+    severity: "Severity",
+    medicineName: "Name",
+    dosage: "Dosage",
+    status: "Status",
+    taken: "taken",
+    notTaken: "not taken",
+    noRecords: "No records for this period.",
+    kg: "kg",
+    years: "years",
+    disclaimer: "PetCare Diary does not replace veterinary care. If symptoms repeat or condition worsens, contact a veterinarian.",
+    petTypes: { CAT: "Cat", DOG: "Dog", OTHER: "Other" },
+    foodLabels: { DRY: "Dry food", WET: "Wet food", NATURAL: "Natural food", TREAT: "Treat", OTHER: "Other" },
+    symptomLabels: {
+      VOMITING: "Vomiting",
+      YELLOW_VOMIT: "Yellow vomit",
+      NO_APPETITE: "No appetite",
+      DIARRHEA: "Diarrhea",
+      CONSTIPATION: "Constipation",
+      LETHARGY: "Lethargy",
+      PAIN: "Pain",
+      OTHER: "Other"
+    }
+  }
 };
 
 const reportQuerySchema = z.object({
@@ -46,7 +134,10 @@ function dayKey(date = new Date()) {
 
 async function buildReport(db: ReportPrisma, userId: string, petId: string, period: number | "all") {
   const from = period === "all" ? null : new Date(Date.now() - period * 24 * 60 * 60 * 1000);
-  const pet = await db.pet.findFirst({ where: { id: petId, userId } });
+  const pet = await db.pet.findFirst({
+    where: { id: petId, userId },
+    select: { id: true, name: true, type: true, weightKg: true, ageYears: true, healthNotes: true }
+  });
   const dateFilter = from ? { gte: from } : undefined;
   const [feeding, symptoms, medicines, medicinesTaken, weights, notes, feedingEntries, symptomEntries, medicineEntries, weightEntries, noteEntries] = await Promise.all([
     db.feedingEntry.count({ where: { userId, petId, dateTime: dateFilter } }),
@@ -58,38 +149,33 @@ async function buildReport(db: ReportPrisma, userId: string, petId: string, peri
     db.feedingEntry.findMany({
       where: { userId, petId, dateTime: dateFilter },
       select: { id: true, dateTime: true, foodType: true, amount: true, note: true },
-      orderBy: { dateTime: "desc" },
-      take: 50
+      orderBy: { dateTime: "asc" }
     }),
     db.symptomEntry.findMany({
       where: { userId, petId, dateTime: dateFilter },
       select: { id: true, dateTime: true, symptomType: true, severity: true, note: true },
-      orderBy: { dateTime: "desc" },
-      take: 50
+      orderBy: { dateTime: "asc" }
     }),
     db.medicineEntry.findMany({
       where: { userId, petId, dateTime: dateFilter },
       select: { id: true, dateTime: true, medicineName: true, dosage: true, taken: true, note: true },
-      orderBy: { dateTime: "desc" },
-      take: 50
+      orderBy: { dateTime: "asc" }
     }),
     db.weightEntry.findMany({
       where: { userId, petId, date: dateFilter },
       select: { id: true, date: true, weightKg: true },
-      orderBy: { date: "desc" },
-      take: 50
+      orderBy: { date: "asc" }
     }),
     db.noteEntry.findMany({
       where: { userId, petId, dateTime: dateFilter },
       select: { id: true, note: true, dateTime: true },
-      orderBy: { dateTime: "desc" },
-      take: 50
+      orderBy: { dateTime: "asc" }
     })
   ]);
 
   const counts = { feeding, symptoms, medicines, medicinesTaken, weights, notes };
   const entries = { feeding: feedingEntries, symptoms: symptomEntries, medicines: medicineEntries, weights: weightEntries, notes: noteEntries };
-  return { period, from, petName: pet?.name ?? "Pet", counts, entries };
+  return { period, from, pet, petName: pet?.name ?? "Pet", counts, entries };
 }
 
 function pdfFont(doc: PDFKit.PDFDocument) {
@@ -104,13 +190,21 @@ function pdfFont(doc: PDFKit.PDFDocument) {
   return "PetCareFont";
 }
 
-function renderReportPdf(report: Awaited<ReturnType<typeof buildReport>>) {
+function reportLanguage(languageCode?: string | null): ReportLanguage {
+  if (languageCode?.toLowerCase().startsWith("en")) return "en";
+  return "ru";
+}
+
+function renderReportPdf(report: Awaited<ReturnType<typeof buildReport>>, languageCode?: string | null) {
   return new Promise<Buffer>((resolve, reject) => {
+    const language = reportLanguage(languageCode);
+    const text = reportText[language];
+    const locale = language === "en" ? "en-US" : "ru-RU";
     const doc = new PDFDocument({
       size: "A4",
       margin: 44,
       info: {
-        Title: "PetCare Diary Report",
+        Title: text.title,
         Author: "PetCare Diary"
       }
     });
@@ -121,24 +215,33 @@ function renderReportPdf(report: Awaited<ReturnType<typeof buildReport>>) {
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
 
-    const periodLabel = report.period === "all" ? "all time" : `last ${report.period} days`;
+    const periodLabel = report.period === "all" ? text.allTime : text.lastDays(report.period);
+    const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+    const value = (label: string, content?: string | null) => {
+      if (!content) return;
+      doc.font(font).fontSize(10).fillColor("#17202a").text(`${label}: ${content}`, { width: pageWidth });
+    };
 
-    doc.font(font).fontSize(22).text("PetCare Diary Report", { align: "left" });
+    doc.font(font).fontSize(22).fillColor("#17202a").text(text.title, { align: "left" });
     doc.moveDown(0.4);
-    doc.font(font).fontSize(11).fillColor("#5f6673").text(`Pet: ${report.petName}`);
-    doc.text(`Period: ${periodLabel}`);
-    doc.text(`Generated: ${new Date().toLocaleString("ru-RU")}`);
+    value(text.pet, report.petName);
+    value(text.petType, report.pet ? text.petTypes[report.pet.type] ?? report.pet.type : null);
+    value(text.age, report.pet?.ageYears ? `${report.pet.ageYears.toString()} ${text.years}` : null);
+    value(text.currentWeight, report.pet?.weightKg ? `${report.pet.weightKg.toString()} ${text.kg}` : null);
+    value(text.healthNotes, report.pet?.healthNotes);
+    value(text.period, periodLabel);
+    value(text.generated, new Date().toLocaleString(locale));
     doc.moveDown(1);
 
-    doc.fillColor("#17202a").fontSize(15).text("Summary");
+    doc.fillColor("#17202a").fontSize(15).text(text.summary);
     doc.moveDown(0.5);
     const rows = [
-      ["Feedings", report.counts.feeding],
-      ["Symptoms", report.counts.symptoms],
-      ["Medicines", report.counts.medicines],
-      ["Medicines taken", report.counts.medicinesTaken],
-      ["Weight records", report.counts.weights],
-      ["Other notes", report.counts.notes]
+      [text.feedingsCount, report.counts.feeding],
+      [text.symptomsCount, report.counts.symptoms],
+      [text.medicinesCount, report.counts.medicines],
+      [text.medicinesTaken, report.counts.medicinesTaken],
+      [text.weightRecords, report.counts.weights],
+      [text.otherNotes, report.counts.notes]
     ] as const;
 
     rows.forEach(([label, count]) => {
@@ -155,45 +258,61 @@ function renderReportPdf(report: Awaited<ReturnType<typeof buildReport>>) {
       doc.fillColor("#17202a").fontSize(15).text(title);
       doc.moveDown(0.35);
     };
-    const empty = () => doc.font(font).fontSize(10).fillColor("#8a91a0").text("No records for this period.");
-    const line = (date: Date, title: string, note?: string | null) => {
+    const empty = () => doc.font(font).fontSize(10).fillColor("#8a91a0").text(text.noRecords);
+    const line = (date: Date, details: Array<[string, string | null | undefined]>) => {
       ensureSpace();
-      doc.font(font).fontSize(10).fillColor("#5f6673").text(new Date(date).toLocaleString("ru-RU"));
-      doc.font(font).fontSize(11).fillColor("#17202a").text(title.slice(0, 220));
-      if (note) doc.font(font).fontSize(10).fillColor("#5f6673").text(note.slice(0, 500));
+      doc.font(font).fontSize(10).fillColor("#5f6673").text(new Date(date).toLocaleString(locale));
+      details.forEach(([label, content]) => {
+        if (!content) return;
+        doc.font(font).fontSize(10).fillColor("#17202a").text(`${label}: ${content}`, { width: pageWidth });
+      });
       doc.moveDown(0.4);
     };
 
-    section("Feeding");
+    section(text.feeding);
     if (report.entries.feeding.length) {
-      report.entries.feeding.forEach((entry) => line(entry.dateTime, `${foodLabels[entry.foodType] ?? entry.foodType} · ${entry.amount}`, entry.note));
+      report.entries.feeding.forEach((entry) => line(entry.dateTime, [
+        [text.foodType, text.foodLabels[entry.foodType] ?? entry.foodType],
+        [text.amount, entry.amount],
+        [text.comment, entry.note]
+      ]));
     } else empty();
 
-    section("Symptoms");
+    section(text.symptoms);
     if (report.entries.symptoms.length) {
-      report.entries.symptoms.forEach((entry) => line(entry.dateTime, `${symptomLabels[entry.symptomType] ?? entry.symptomType} · severity ${entry.severity}/5`, entry.note));
+      report.entries.symptoms.forEach((entry) => line(entry.dateTime, [
+        [text.symptomType, text.symptomLabels[entry.symptomType] ?? entry.symptomType],
+        [text.severity, `${entry.severity}/5`],
+        [text.comment, entry.note]
+      ]));
     } else empty();
 
-    section("Medicines");
+    section(text.medicines);
     if (report.entries.medicines.length) {
-      report.entries.medicines.forEach((entry) => line(entry.dateTime, `${entry.medicineName} · ${entry.dosage} · ${entry.taken ? "taken" : "not taken"}`, entry.note));
+      report.entries.medicines.forEach((entry) => line(entry.dateTime, [
+        [text.medicineName, entry.medicineName],
+        [text.dosage, entry.dosage],
+        [text.status, entry.taken ? text.taken : text.notTaken],
+        [text.comment, entry.note]
+      ]));
     } else empty();
 
-    section("Weight");
+    section(text.weight);
     if (report.entries.weights.length) {
-      report.entries.weights.forEach((entry) => line(entry.date, `${entry.weightKg.toString()} kg`));
+      report.entries.weights.forEach((entry) => line(entry.date, [
+        [text.weight, `${entry.weightKg.toString()} ${text.kg}`]
+      ]));
     } else empty();
 
-    section("Notes");
+    section(text.notes);
     if (report.entries.notes.length) {
-      report.entries.notes.forEach((entry) => line(entry.dateTime, entry.note));
+      report.entries.notes.forEach((entry) => line(entry.dateTime, [
+        [text.notes, entry.note]
+      ]));
     } else empty();
 
     doc.moveDown(1);
-    doc.font(font).fontSize(9).fillColor("#8a91a0").text(
-      "PetCare Diary does not replace veterinary care. If symptoms repeat or condition worsens, contact a veterinarian.",
-      { align: "left" }
-    );
+    doc.font(font).fontSize(9).fillColor("#8a91a0").text(text.disclaimer, { align: "left" });
     doc.end();
   });
 }
@@ -209,7 +328,7 @@ router.get("/summary", async (req, res, next) => {
       petName: report.petName,
       counts: report.counts,
       entries: report.entries,
-      recentNotes: report.entries.notes.slice(0, 10)
+      recentNotes: report.entries.notes.slice(-10).reverse()
     }));
   } catch (error) {
     next(error);
@@ -243,7 +362,7 @@ router.get("/summary.pdf", async (req, res, next) => {
       isolationLevel: Prisma.TransactionIsolationLevel.Serializable
     });
 
-    const body = await renderReportPdf(report);
+    const body = await renderReportPdf(report, req.user!.languageCode);
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="petcare-report-${query.period === "all" ? "all" : `${query.period}d`}.pdf"`);
     res.send(body);

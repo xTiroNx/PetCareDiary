@@ -91,6 +91,7 @@ export function setupTelegramUi() {
   const webApp = getTelegramWebApp();
   webApp?.ready();
   webApp?.expand();
+  requestTelegramFullscreen();
   const theme = webApp?.themeParams;
   if (theme?.bg_color) document.documentElement.style.setProperty("--tg-bg", theme.bg_color);
   if (theme?.text_color) document.documentElement.style.setProperty("--tg-text", theme.text_color);
@@ -153,6 +154,12 @@ export function configureTelegramBackButton(visible: boolean, onClick: () => voi
   backButton.show();
   backButton.onClick(onClick);
   return () => backButton.offClick(onClick);
+}
+
+export function hideTelegramBackButton() {
+  const backButton = getTelegramWebApp()?.BackButton;
+  if (!backButton || !isSupported("6.1")) return;
+  backButton.hide();
 }
 
 export function isTelegramFullscreen() {

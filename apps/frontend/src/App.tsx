@@ -17,7 +17,7 @@ import ReportPage from "./pages/ReportPage";
 import SymptomsPage from "./pages/SymptomsPage";
 import WeightPage from "./pages/WeightPage";
 import { useI18n } from "./utils/i18n";
-import { configureTelegramBackButton, telegramSelection } from "./utils/telegram";
+import { hideTelegramBackButton } from "./utils/telegram";
 
 const freeRoutes = new Set(["/paywall", "/profile", "/admin"]);
 const routesWithoutPet = new Set(["/onboarding", "/paywall", "/profile", "/admin"]);
@@ -52,12 +52,8 @@ export default function App() {
   }, [user, accessStatus, pet, location.pathname, location.search, navigate]);
 
   useEffect(() => {
-    return configureTelegramBackButton(location.pathname !== "/", () => {
-      telegramSelection();
-      if (window.history.length > 1) navigate(-1);
-      else navigate("/", { replace: true });
-    });
-  }, [location.pathname, navigate]);
+    hideTelegramBackButton();
+  }, [location.pathname]);
 
   if (auth.isPending && !user) {
     return <Layout><div className="panel mt-20 text-center">{t("appLoading")}</div></Layout>;

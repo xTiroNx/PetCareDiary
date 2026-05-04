@@ -6,7 +6,7 @@
   --tg-bg: #f7fbfb;
   --tg-text: #17202a;
   --app-inline-padding: 1rem;
-  --bottom-nav-height: 5.625rem;
+  --bottom-nav-height: 4.625rem;
   --tg-safe-top: 0px;
   --tg-safe-right: 0px;
   --tg-safe-bottom: 0px;
@@ -115,6 +115,12 @@ body {
   .icon-btn {
     @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-zinc-100 hover:text-ink dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white;
   }
+  .bottom-nav {
+    @apply fixed z-20 mx-auto grid max-w-md grid-cols-5 gap-1 rounded-full border border-white/70 bg-white/70 p-1.5 shadow-[0_12px_34px_rgba(15,23,42,0.2)] backdrop-blur-md dark:border-white/15 dark:bg-zinc-950/55;
+    left: calc(0.75rem + max(env(safe-area-inset-left), var(--tg-safe-left), var(--tg-content-safe-left)));
+    right: calc(0.75rem + max(env(safe-area-inset-right), var(--tg-safe-right), var(--tg-content-safe-right)));
+    bottom: calc(0.625rem + max(env(safe-area-inset-bottom), var(--tg-safe-bottom), var(--tg-content-safe-bottom)));
+  }
   .quick-action {
     @apply flex min-h-[56px] flex-col px-2 py-2 text-[12.5px] leading-[1.15];
   }
@@ -153,7 +159,7 @@ body {
 @media (max-width: 360px) {
   :root {
     --app-inline-padding: 0.875rem;
-    --bottom-nav-height: 5.35rem;
+    --bottom-nav-height: 4.5rem;
   }
 
   .btn {

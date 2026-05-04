@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
-import { CheckCircle2, Edit3, Home, LogOut, Maximize2, Minimize2, Plus, Save, ShieldCheck, Trash2, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { CheckCircle2, Edit3, Plus, Save, ShieldCheck, Trash2, X } from "lucide-react";
+import { useState } from "react";
 import clsx from "clsx";
 import { api, jsonBody } from "../api/client";
 import type { Pet, PetType } from "../api/types";
@@ -12,17 +12,7 @@ import { RequestError } from "../components/RequestError";
 import { SelectField } from "../components/SelectField";
 import { useAppStore } from "../store/appStore";
 import { languages, useI18n } from "../utils/i18n";
-import {
-  addTelegramHomeScreenShortcut,
-  closeTelegramApp,
-  exitTelegramFullscreen,
-  isTelegramFullscreen,
-  onTelegramEvent,
-  requestTelegramFullscreen,
-  telegramAlert,
-  telegramConfirm,
-  telegramSelection
-} from "../utils/telegram";
+import { telegramSelection } from "../utils/telegram";
 
 type PetDraft = {
   name: string;
@@ -51,7 +41,6 @@ export default function ProfilePage() {
   const setPets = useAppStore((state) => state.setPets);
   const setActivePet = useAppStore((state) => state.setActivePet);
   const isAdmin = useAppStore((state) => state.isAdmin);
-  const [fullscreen, setFullscreen] = useState(isTelegramFullscreen());
   const [editingPetId, setEditingPetId] = useState<string | null>(null);
   const [petDraft, setPetDraft] = useState<PetDraft | null>(null);
   const petTypeLabels: Record<PetType, string> = { CAT: t("cat"), DOG: t("dog"), OTHER: t("otherPet") };
@@ -75,30 +64,6 @@ export default function ProfilePage() {
       if (!nextPets.length) navigate("/onboarding", { replace: true });
     }
   });
-
-  useEffect(() => {
-    return onTelegramEvent("fullscreenChanged", () => setFullscreen(isTelegramFullscreen()));
-  }, []);
-
-  function toggleFullscreen() {
-    telegramSelection();
-    const ok = fullscreen ? exitTelegramFullscreen() : requestTelegramFullscreen();
-    setFullscreen(isTelegramFullscreen());
-    if (!ok) void telegramAlert(t("telegramUnsupported"));
-  }
-
-  function addHomeScreen() {
-    telegramSelection();
-    if (!addTelegramHomeScreenShortcut()) void telegramAlert(t("homeScreenFallback"));
-  }
-
-  async function closeApp() {
-    telegramSelection();
-    const confirmed = await telegramConfirm(t("closeAppConfirm"));
-    if (confirmed === false) return;
-    if (confirmed === null && !window.confirm(t("closeAppConfirm"))) return;
-    if (!closeTelegramApp()) void telegramAlert(t("telegramUnsupported"));
-  }
 
   function startPetEdit(item: Pet) {
     telegramSelection();
@@ -191,24 +156,6 @@ export default function ProfilePage() {
             <option key={item.code} value={item.code}>{item.nativeName}</option>
           ))}
         </SelectField>
-      </section>
-      <section className="panel space-y-3">
-        <div>
-          <h2 className="section-title">{t("telegramTools")}</h2>
-          <p className="muted mt-1">{t("telegramToolsHint")}</p>
-        </div>
-        <div className="grid gap-2">
-          <button className="btn btn-secondary w-full" type="button" onClick={toggleFullscreen}>
-            {fullscreen ? <Minimize2 size={17} /> : <Maximize2 size={17} />}
-            {fullscreen ? t("exitFullscreen") : t("enterFullscreen")}
-          </button>
-          <button className="btn btn-secondary w-full" type="button" onClick={addHomeScreen}>
-            <Home size={17} />{t("addHomeScreen")}
-          </button>
-          <button className="btn btn-muted w-full" type="button" onClick={closeApp}>
-            <LogOut size={17} />{t("closeApp")}
-          </button>
-        </div>
       </section>
       {isAdmin && (
         <Link to="/admin" className="btn btn-primary w-full">

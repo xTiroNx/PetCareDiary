@@ -18,6 +18,14 @@ const telegramUserSchema = z.object({
   language_code: z.string().max(16).optional()
 }).passthrough();
 
+function dataCheckString(params: URLSearchParams, excludeSignature = false) {
+  return Array.from(params.entries())
+    .filter(([key]) => !(excludeSignature && key === "signature"))
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => `${key}=${value}`)
+    .join("\n");
+}
+
 export function validateTelegramInitData(initData: string): ParsedInitData {
   if (!initData) {
     throw new HttpError(401, "INIT_DATA_REQUIRED", "Telegram initData is required.");
@@ -50,14 +58,16 @@ export function validateTelegramInitData(initData: string): ParsedInitData {
   }
 
   params.delete("hash");
-  const dataCheckString = Array.from(params.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([key, value]) => `${key}=${value}`)
-    .join("\n");
-
   const secretKey = crypto.createHmac("sha256", "WebAppData").update(env.BOT_TOKEN).digest();
-  const calculatedHash = crypto.createHmac("sha256", secretKey).update(dataCheckString).digest("hex");
-  const isValid = crypto.timingSafeEqual(Buffer.from(calculatedHash, "hex"), Buffer.from(hash, "hex"));
+  const calculatedHash = crypto.createHmac("sha256", secretKey).update(dataCheckString(params)).digest("hex");
+  const hashBuffer = Buffer.from(hash, "hex");
+  const isValid =
+    crypto.timingSafeEqual(Buffer.from(calculatedHash, "hex"), hashBuffer) ||
+    (params.has("signature") &&
+      crypto.timingSafeEqual(
+        crypto.createHmac("sha256", secretKey).update(dataCheckString(params, true)).digest(),
+        hashBuffer
+      ));
 
   if (!isValid) {
     throw new HttpError(401, "INIT_DATA_INVALID", "Telegram initData signature is invalid.");

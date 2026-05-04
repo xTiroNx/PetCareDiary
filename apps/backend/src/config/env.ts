@@ -18,6 +18,14 @@ const envSchema = z.object({
   ENABLE_DEV_AUTH: z.coerce.boolean().default(false),
   DEV_TELEGRAM_ID: z.coerce.number().int().positive().default(777000001),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development")
+}).superRefine((value, ctx) => {
+  if (value.NODE_ENV === "production" && !value.TELEGRAM_WEBHOOK_SECRET) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["TELEGRAM_WEBHOOK_SECRET"],
+      message: "TELEGRAM_WEBHOOK_SECRET is required in production."
+    });
+  }
 });
 
 export const env = envSchema.parse(process.env);

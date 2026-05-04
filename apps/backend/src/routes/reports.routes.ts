@@ -35,47 +35,51 @@ const reportQuerySchema = z.object({
     z.union([z.literal("all"), z.number().int().refine((value) => [7, 14, 30].includes(value))])
   )
 }).strict();
+type ReportPrisma = Pick<
+  Prisma.TransactionClient,
+  "pet" | "feedingEntry" | "symptomEntry" | "medicineEntry" | "weightEntry" | "noteEntry"
+>;
 
 function dayKey(date = new Date()) {
   return date.toISOString().slice(0, 10);
 }
 
-async function buildReport(userId: string, petId: string, period: number | "all") {
+async function buildReport(db: ReportPrisma, userId: string, petId: string, period: number | "all") {
   const from = period === "all" ? null : new Date(Date.now() - period * 24 * 60 * 60 * 1000);
-  const pet = await prisma.pet.findFirst({ where: { id: petId, userId } });
+  const pet = await db.pet.findFirst({ where: { id: petId, userId } });
   const dateFilter = from ? { gte: from } : undefined;
   const [feeding, symptoms, medicines, medicinesTaken, weights, notes, feedingEntries, symptomEntries, medicineEntries, weightEntries, noteEntries] = await Promise.all([
-    prisma.feedingEntry.count({ where: { userId, petId, dateTime: dateFilter } }),
-    prisma.symptomEntry.count({ where: { userId, petId, dateTime: dateFilter } }),
-    prisma.medicineEntry.count({ where: { userId, petId, dateTime: dateFilter } }),
-    prisma.medicineEntry.count({ where: { userId, petId, dateTime: dateFilter, taken: true } }),
-    prisma.weightEntry.count({ where: { userId, petId, date: dateFilter } }),
-    prisma.noteEntry.count({ where: { userId, petId, dateTime: dateFilter } }),
-    prisma.feedingEntry.findMany({
+    db.feedingEntry.count({ where: { userId, petId, dateTime: dateFilter } }),
+    db.symptomEntry.count({ where: { userId, petId, dateTime: dateFilter } }),
+    db.medicineEntry.count({ where: { userId, petId, dateTime: dateFilter } }),
+    db.medicineEntry.count({ where: { userId, petId, dateTime: dateFilter, taken: true } }),
+    db.weightEntry.count({ where: { userId, petId, date: dateFilter } }),
+    db.noteEntry.count({ where: { userId, petId, dateTime: dateFilter } }),
+    db.feedingEntry.findMany({
       where: { userId, petId, dateTime: dateFilter },
       select: { id: true, dateTime: true, foodType: true, amount: true, note: true },
       orderBy: { dateTime: "desc" },
       take: 50
     }),
-    prisma.symptomEntry.findMany({
+    db.symptomEntry.findMany({
       where: { userId, petId, dateTime: dateFilter },
       select: { id: true, dateTime: true, symptomType: true, severity: true, note: true },
       orderBy: { dateTime: "desc" },
       take: 50
     }),
-    prisma.medicineEntry.findMany({
+    db.medicineEntry.findMany({
       where: { userId, petId, dateTime: dateFilter },
       select: { id: true, dateTime: true, medicineName: true, dosage: true, taken: true, note: true },
       orderBy: { dateTime: "desc" },
       take: 50
     }),
-    prisma.weightEntry.findMany({
+    db.weightEntry.findMany({
       where: { userId, petId, date: dateFilter },
       select: { id: true, date: true, weightKg: true },
       orderBy: { date: "desc" },
       take: 50
     }),
-    prisma.noteEntry.findMany({
+    db.noteEntry.findMany({
       where: { userId, petId, dateTime: dateFilter },
       select: { id: true, note: true, dateTime: true },
       orderBy: { dateTime: "desc" },
@@ -198,7 +202,7 @@ router.get("/summary", async (req, res, next) => {
   try {
     const query = reportQuerySchema.parse(req.query);
     await assertPetBelongsToUser(query.petId, req.user!.id);
-    const report = await buildReport(req.user!.id, query.petId, query.period);
+    const report = await buildReport(prisma, req.user!.id, query.petId, query.period);
     res.json(serialize({
       period: report.period,
       from: report.from,
@@ -232,7 +236,7 @@ router.get("/summary.pdf", async (req, res, next) => {
       if (usedToday >= dailyExportLimit) {
         throw new HttpError(429, "REPORT_EXPORT_LIMIT_REACHED", "Daily report export limit reached.");
       }
-      const built = await buildReport(req.user!.id, query.petId, query.period);
+      const built = await buildReport(tx, req.user!.id, query.petId, query.period);
       await tx.reportExport.create({ data: { userId: req.user!.id, petId: query.petId, period: query.period === "all" ? 0 : query.period, dayKey: todayKey } });
       return built;
     }, {

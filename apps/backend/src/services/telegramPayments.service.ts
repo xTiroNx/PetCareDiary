@@ -71,6 +71,7 @@ export async function answerPreCheckoutQuery(preCheckoutQueryId: string, ok = tr
 
 export async function validatePreCheckoutQuery(query: {
   id: string;
+  from: { id: number };
   invoice_payload: string;
   currency: string;
   total_amount: number;
@@ -82,6 +83,14 @@ export async function validatePreCheckoutQuery(query: {
   if (!payment) {
     await answerPreCheckoutQuery(query.id, false, "Payment payload was not found.");
     throw new HttpError(404, "PAYMENT_NOT_FOUND", "Payment payload not found.");
+  }
+
+  if (payment.userId) {
+    const owner = await prisma.user.findUnique({ where: { id: payment.userId }, select: { telegramId: true } });
+    if (!owner || owner.telegramId !== BigInt(query.from.id)) {
+      await answerPreCheckoutQuery(query.id, false, "Payment belongs to another Telegram user.");
+      throw new HttpError(400, "PAYMENT_USER_MISMATCH", "Payment belongs to another Telegram user.");
+    }
   }
 
   if (payment.status !== "PENDING") {
@@ -99,6 +108,7 @@ export async function validatePreCheckoutQuery(query: {
 }
 
 export async function grantAccessForSuccessfulPayment(paymentUpdate: {
+  payerTelegramId?: number;
   invoice_payload: string;
   currency: string;
   total_amount: number;
@@ -110,8 +120,28 @@ export async function grantAccessForSuccessfulPayment(paymentUpdate: {
     include: { user: true }
   });
   if (!payment) throw new HttpError(404, "PAYMENT_NOT_FOUND", "Payment payload not found.");
-  if (payment.status === "PAID") return payment;
+  if (payment.status === "PAID") {
+    if (
+      payment.currency === paymentUpdate.currency &&
+      payment.amountStars === paymentUpdate.total_amount &&
+      payment.telegramPaymentChargeId === paymentUpdate.telegram_payment_charge_id &&
+      (!paymentUpdate.payerTelegramId || payment.user.telegramId === BigInt(paymentUpdate.payerTelegramId))
+    ) {
+      return payment;
+    }
+    throw new HttpError(409, "PAYMENT_ALREADY_PAID", "Payment payload is already paid by another transaction.");
+  }
   if (payment.status !== "PENDING") throw new HttpError(400, "PAYMENT_NOT_PENDING", "Payment is not pending.");
+  if (paymentUpdate.payerTelegramId && payment.user.telegramId !== BigInt(paymentUpdate.payerTelegramId)) {
+    throw new HttpError(400, "PAYMENT_USER_MISMATCH", "Payment belongs to another Telegram user.");
+  }
+  if (!paymentUpdate.payerTelegramId) {
+    console.warn("Successful payment update is missing message.from.id; falling back to invoice payload owner.", {
+      paymentId: payment.id,
+      invoicePayload: payment.invoicePayload,
+      telegramPaymentChargeId: paymentUpdate.telegram_payment_charge_id
+    });
+  }
   if (payment.currency !== paymentUpdate.currency || payment.amountStars !== paymentUpdate.total_amount) {
     await prisma.payment.update({ where: { id: payment.id }, data: { status: "FAILED" } });
     throw new HttpError(400, "PAYMENT_AMOUNT_MISMATCH", "Payment amount or currency mismatch.");
@@ -119,6 +149,16 @@ export async function grantAccessForSuccessfulPayment(paymentUpdate: {
 
   const now = new Date();
   const paidPayment = await prisma.$transaction(async (tx) => {
+    const duplicateCharge = await tx.payment.findFirst({
+      where: {
+        telegramPaymentChargeId: paymentUpdate.telegram_payment_charge_id,
+        NOT: { id: payment.id }
+      }
+    });
+    if (duplicateCharge) {
+      throw new HttpError(409, "PAYMENT_CHARGE_ALREADY_USED", "Telegram payment charge id was already used.");
+    }
+
     const claimed = await tx.payment.updateMany({
       where: { id: payment.id, status: "PENDING" },
       data: {

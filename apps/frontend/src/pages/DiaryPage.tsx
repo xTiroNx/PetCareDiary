@@ -341,7 +341,7 @@ export default function DiaryPage() {
               </span>
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-2">
-                  <div>
+                  <div className="record-copy">
                     <p className="font-semibold">{entry.title}</p>
                     <p className="text-sm text-zinc-600 dark:text-zinc-300">{entry.detail}</p>
                   </div>

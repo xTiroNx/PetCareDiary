@@ -1,6 +1,7 @@
-import type { Reminder, ReminderType, User } from "@prisma/client";
+import type { Prisma, Reminder, ReminderType, User } from "@prisma/client";
 import { env } from "../config/env.js";
 import { prisma } from "../prisma/client.js";
+import { adminTelegramIds } from "../utils/admin.js";
 
 type DueReminder = Reminder & { user: Pick<User, "telegramId" | "languageCode"> };
 
@@ -36,6 +37,24 @@ function messageFor(reminder: DueReminder) {
   ].join("\n");
 }
 
+function activeAccessFilter(now: Date): Prisma.UserWhereInput {
+  const adminIds = Array.from(adminTelegramIds()).flatMap((value) => {
+    try {
+      return [BigInt(value)];
+    } catch {
+      return [];
+    }
+  });
+  const filters: Prisma.UserWhereInput[] = [
+    { lifetimeAccess: true },
+    { accessUntil: { gt: now } },
+    { trialEndsAt: { gt: now } }
+  ];
+
+  if (adminIds.length > 0) filters.push({ telegramId: { in: adminIds } });
+  return { OR: filters };
+}
+
 async function sendTelegramMessage(chatId: bigint, text: string) {
   const miniAppUrl = env.BOT_USERNAME ? `https://t.me/${env.BOT_USERNAME}?startapp=reminders` : undefined;
   const response = await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/sendMessage`, {
@@ -69,7 +88,7 @@ export async function processDueReminders() {
 
   try {
     const reminders = await prisma.reminder.findMany({
-      where: { active: true, time: { lte: now } },
+      where: { active: true, time: { lte: now }, user: activeAccessFilter(now) },
       orderBy: { time: "asc" },
       take: 25,
       include: { user: { select: { telegramId: true, languageCode: true } } }

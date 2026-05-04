@@ -5,6 +5,9 @@ import { grantAccessForSuccessfulPayment, validatePreCheckoutQuery } from "../se
 import { HttpError } from "../utils/httpError.js";
 
 const router = Router();
+const telegramUserRefSchema = z.object({
+  id: z.number().int().positive()
+}).passthrough();
 
 const telegramPaymentSchema = z.object({
   invoice_payload: z.string().min(1).max(512),
@@ -17,11 +20,13 @@ const telegramPaymentSchema = z.object({
 const telegramUpdateSchema = z.object({
   pre_checkout_query: z.object({
     id: z.string().min(1).max(256),
+    from: telegramUserRefSchema,
     invoice_payload: z.string().min(1).max(512),
     currency: z.literal("XTR"),
     total_amount: z.number().int().positive()
   }).passthrough().optional(),
   message: z.object({
+    from: telegramUserRefSchema.optional(),
     successful_payment: telegramPaymentSchema.optional()
   }).passthrough().optional()
 }).passthrough();
@@ -44,7 +49,7 @@ router.post("/webhook", async (req, res, next) => {
 
     const successfulPayment = update.message?.successful_payment;
     if (successfulPayment) {
-      await grantAccessForSuccessfulPayment(successfulPayment);
+      await grantAccessForSuccessfulPayment({ ...successfulPayment, payerTelegramId: update.message?.from?.id });
       return res.json({ ok: true });
     }
 

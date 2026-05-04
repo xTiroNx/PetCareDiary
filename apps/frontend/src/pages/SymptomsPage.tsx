@@ -103,7 +103,7 @@ export default function SymptomsPage() {
         {entries.items.map((entry) => (
         <div className="panel space-y-3" key={entry.id}>
           <div className="flex items-start justify-between gap-3">
-            <div>
+            <div className="record-copy">
               <p className="font-semibold">{symptomLabels[entry.symptomType] ?? entry.symptomType} · {t("severity")} {entry.severity}/5</p>
               <p className="text-sm text-zinc-500">{new Date(entry.dateTime).toLocaleString(languageLocale(language))}</p>
               {entry.note && <p className="mt-1 text-sm">{entry.note}</p>}

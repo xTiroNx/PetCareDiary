@@ -26,7 +26,6 @@ type NoteDraft = { dateTime: string; note: string };
 type EditableDraft = Record<string, string | boolean>;
 
 const maxRecordingMs = 30000;
-const voiceCommandsEnabled = import.meta.env.VITE_VOICE_COMMANDS_ENABLED === "true";
 
 function asString(value: unknown, fallback = "") {
   return typeof value === "string" ? value : fallback;
@@ -167,7 +166,7 @@ export function AdminVoiceCommand() {
     };
   }, []);
 
-  if (!voiceCommandsEnabled || !isAdmin || !pet) return null;
+  if (!isAdmin || !pet) return null;
 
   function reset() {
     setResult(null);

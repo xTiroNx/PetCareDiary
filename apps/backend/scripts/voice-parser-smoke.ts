@@ -72,6 +72,20 @@ mockMiniMax(JSON.stringify({
 const unknown = await parse("что-то странное");
 assert(unknown.intent === "unknown", "Expected unknown intent.");
 
+mockMiniMax(JSON.stringify({
+  intent: "create_medicine_entry",
+  confidence: "91%",
+  draft: {
+    name: "антепсин",
+    taken: true
+  },
+  warnings: []
+}));
+const normalizedMedicine = await parse("дал лекарство антепсин");
+assert(normalizedMedicine.intent === "create_medicine_entry", "Expected normalized medicine intent.");
+assert(normalizedMedicine.draft.medicineName === "антепсин", "Expected normalized medicine name.");
+assert(normalizedMedicine.draft.dosage === "", "Expected missing dosage to stay empty.");
+
 mockMiniMax("not json");
 try {
   await parse("сломай json");

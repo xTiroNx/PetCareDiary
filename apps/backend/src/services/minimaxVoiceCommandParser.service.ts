@@ -62,6 +62,7 @@ const minimaxResponseSchema = z.object({
 }).passthrough();
 
 export type ParsedVoiceCommand = z.infer<typeof parsedCommandSchema>;
+const validIntents = new Set(["create_reminder", "create_medicine_entry", "create_note", "unknown"]);
 
 function stripThinking(content: string) {
   return content.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
@@ -79,6 +80,85 @@ function parseJsonContent(content: string) {
     }
     throw new HttpError(422, "VOICE_PARSE_FAILED", "Voice command parser returned invalid JSON.");
   }
+}
+
+function confidence(value: unknown) {
+  const number = typeof value === "number" ? value : typeof value === "string" ? Number(value.replace("%", "")) : NaN;
+  if (!Number.isFinite(number)) return 0;
+  return Math.max(0, Math.min(1, number > 1 ? number / 100 : number));
+}
+
+function isoDate(value: unknown, fallback: string) {
+  if (typeof value !== "string") return fallback;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? fallback : date.toISOString();
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function normalizeParsedCommand(value: unknown, input: { clientNow: string }) {
+  const record = asRecord(value);
+  const intent = typeof record.intent === "string" && validIntents.has(record.intent) ? record.intent : "unknown";
+  const rawDraft = asRecord(record.draft);
+  const warnings = Array.isArray(record.warnings) ? record.warnings.filter((item): item is string => typeof item === "string") : [];
+  const normalized = {
+    intent,
+    confidence: confidence(record.confidence),
+    draft: {},
+    warnings
+  };
+
+  if (intent === "create_reminder") {
+    normalized.draft = {
+      type: ["FEEDING", "MEDICINE", "WEIGHT", "VET", "OTHER"].includes(String(rawDraft.type)) ? rawDraft.type : "OTHER",
+      title: typeof rawDraft.title === "string" && rawDraft.title.trim() ? rawDraft.title.trim() : "Voice reminder",
+      time: isoDate(rawDraft.time, input.clientNow),
+      repeatRule: ["daily", "weekly", "monthly"].includes(String(rawDraft.repeatRule)) ? rawDraft.repeatRule : null
+    };
+    return normalized;
+  }
+
+  if (intent === "create_medicine_entry") {
+    const medicineName = typeof rawDraft.medicineName === "string" && rawDraft.medicineName.trim()
+      ? rawDraft.medicineName.trim()
+      : typeof rawDraft.name === "string" && rawDraft.name.trim()
+        ? rawDraft.name.trim()
+        : "";
+    normalized.draft = {
+      medicineName,
+      dosage: typeof rawDraft.dosage === "string" ? rawDraft.dosage : "",
+      taken: typeof rawDraft.taken === "boolean" ? rawDraft.taken : true,
+      dateTime: isoDate(rawDraft.dateTime ?? rawDraft.time, input.clientNow),
+      note: typeof rawDraft.note === "string" ? rawDraft.note : null
+    };
+    return normalized;
+  }
+
+  if (intent === "create_note") {
+    normalized.draft = {
+      dateTime: isoDate(rawDraft.dateTime ?? rawDraft.time, input.clientNow),
+      note: typeof rawDraft.note === "string" && rawDraft.note.trim()
+        ? rawDraft.note.trim()
+        : typeof record.note === "string" && record.note.trim()
+          ? record.note.trim()
+          : ""
+    };
+    return normalized;
+  }
+
+  normalized.draft = {};
+  return normalized;
+}
+
+function fallbackUnknown(warnings: string[]): ParsedVoiceCommand {
+  return {
+    intent: "unknown",
+    confidence: 0,
+    draft: {},
+    warnings: Array.from(new Set(["parser_invalid_draft", ...warnings])).slice(0, 10)
+  } as ParsedVoiceCommand;
 }
 
 function parserSystemPrompt() {
@@ -149,9 +229,16 @@ export async function parseVoiceCommandWithMinimax(input: {
   }
 
   const json = parseJsonContent(parsedResponse.data.choices[0].message.content);
-  const parsedCommand = parsedCommandSchema.safeParse(json);
+  const normalizedJson = normalizeParsedCommand(json, { clientNow: input.clientNow });
+  const parsedCommand = parsedCommandSchema.safeParse(normalizedJson);
   if (!parsedCommand.success) {
-    throw new HttpError(422, "VOICE_PARSE_FAILED", "Voice command parser returned an invalid command draft.");
+    if (env.NODE_ENV !== "production") {
+      console.warn(JSON.stringify({
+        event: "voice_parser_invalid_draft",
+        issues: parsedCommand.error.issues.map((issue) => ({ path: issue.path.join("."), code: issue.code }))
+      }));
+    }
+    return fallbackUnknown(normalizedJson.warnings);
   }
 
   return parsedCommand.data;

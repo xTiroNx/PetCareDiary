@@ -9,6 +9,7 @@ import { requireAdmin } from "./middlewares/admin.middleware.js";
 import { errorMiddleware, notFoundMiddleware } from "./middlewares/error.middleware.js";
 import { rateLimit } from "./middlewares/rateLimit.middleware.js";
 import adminRoutes from "./routes/admin.routes.js";
+import adminVoiceRoutes from "./routes/adminVoice.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import diaryRoutes from "./routes/diary.routes.js";
 import paymentsRoutes from "./routes/payments.routes.js";
@@ -28,6 +29,7 @@ export function createApp() {
   app.get("/health", (_req, res) => res.json({ ok: true }));
   app.use("/api/auth", rateLimit({ keyPrefix: "auth", windowMs: 60_000, max: 30 }), authRoutes);
   app.use("/api/telegram", telegramRoutes);
+  app.use("/api/admin/voice", authMiddleware, requireAdmin, rateLimit({ keyPrefix: "admin-voice", windowMs: 60_000, max: 20 }), adminVoiceRoutes);
   app.use("/api/admin", authMiddleware, requireAdmin, rateLimit({ keyPrefix: "admin", windowMs: 60_000, max: 120 }), adminRoutes);
   app.use("/api/payments", authMiddleware, rateLimit({ keyPrefix: "payments", windowMs: 60_000, max: 20 }), paymentsRoutes);
   app.use("/api/pets", authMiddleware, requireActiveAccess, petsRoutes);

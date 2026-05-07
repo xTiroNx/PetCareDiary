@@ -50,6 +50,33 @@ export async function apiBlob(path: string, options: RequestInit = {}): Promise<
   return response.blob();
 }
 
+export async function apiFormData<T>(path: string, formData: FormData, options: RequestInit = {}): Promise<T> {
+  if (DEMO_MODE && path !== "/api/admin/voice/command") {
+    return demoApi<T>(path, { ...options, method: options.method ?? "POST", body: formData });
+  }
+
+  const response = await fetch(`${API_URL}${path}`, {
+    ...options,
+    method: options.method ?? "POST",
+    body: formData,
+    headers: {
+      "X-Telegram-Init-Data": getInitData(),
+      ...options.headers
+    }
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    const error = new Error(payload?.error?.message ?? "Request failed") as Error & { code?: string; status?: number };
+    error.code = payload?.error?.code;
+    error.status = response.status;
+    throw error;
+  }
+
+  if (response.status === 204) return undefined as T;
+  return response.json() as Promise<T>;
+}
+
 export function jsonBody(value: unknown) {
   return JSON.stringify(value);
 }

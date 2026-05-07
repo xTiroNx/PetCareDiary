@@ -15,6 +15,14 @@ const envSchema = z.object({
   MONTHLY_PRICE_STARS: z.coerce.number().int().positive().default(199),
   LIFETIME_PRICE_STARS: z.coerce.number().int().positive().default(1499),
   TRIAL_DAYS: z.coerce.number().int().positive().default(3),
+  VOICE_COMMANDS_ENABLED: z.coerce.boolean().default(false),
+  VOICE_AUDIO_MAX_MB: z.coerce.number().positive().max(25).default(5),
+  VOICE_DAILY_LIMIT_PER_USER: z.coerce.number().int().positive().default(20),
+  OPENROUTER_API_KEY: z.string().min(1).optional(),
+  OPENROUTER_STT_MODEL: z.string().min(1).default("openai/gpt-4o-mini-transcribe"),
+  MINIMAX_API_KEY: z.string().min(1).optional(),
+  MINIMAX_PARSER_MODEL: z.string().min(1).default("MiniMax-M2.7"),
+  MINIMAX_API_BASE_URL: z.string().url().default("https://api.minimax.io"),
   ENABLE_DEV_AUTH: z.coerce.boolean().default(false),
   DEV_TELEGRAM_ID: z.coerce.number().int().positive().default(777000001),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development")
@@ -24,6 +32,20 @@ const envSchema = z.object({
       code: z.ZodIssueCode.custom,
       path: ["TELEGRAM_WEBHOOK_SECRET"],
       message: "TELEGRAM_WEBHOOK_SECRET is required in production."
+    });
+  }
+  if (value.VOICE_COMMANDS_ENABLED && !value.OPENROUTER_API_KEY) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["OPENROUTER_API_KEY"],
+      message: "OPENROUTER_API_KEY is required when VOICE_COMMANDS_ENABLED=true."
+    });
+  }
+  if (value.VOICE_COMMANDS_ENABLED && !value.MINIMAX_API_KEY) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["MINIMAX_API_KEY"],
+      message: "MINIMAX_API_KEY is required when VOICE_COMMANDS_ENABLED=true."
     });
   }
 });

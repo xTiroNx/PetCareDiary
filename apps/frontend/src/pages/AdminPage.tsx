@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { api, jsonBody } from "../api/client";
 import type { AdminUser } from "../api/types";
 import { AccessBadge } from "../components/AccessBadge";
+import { AdminVoiceCommand } from "../components/AdminVoiceCommand";
 import { EmptyState } from "../components/EmptyState";
 import { useAppStore } from "../store/appStore";
 import { languageLocale, useI18n } from "../utils/i18n";
@@ -59,6 +60,8 @@ export default function AdminPage() {
           <AccessBadge />
         </div>
       </header>
+
+      <AdminVoiceCommand />
 
       <form onSubmit={onSearch} className="panel grid gap-3">
         <label className="section-title" htmlFor="admin-telegram-id">{t("adminSearch")}</label>

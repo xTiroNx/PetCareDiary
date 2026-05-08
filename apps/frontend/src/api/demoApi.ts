@@ -268,7 +268,9 @@ export async function demoApi<T>(path: string, options: RequestInit = {}): Promi
   }
 
   if (path === "/api/payments/create-invoice") {
-    return { invoiceLink: "https://t.me/$demo-invoice", amountStars: 199 } as T;
+    const body = jsonBody(options);
+    const amounts: Record<string, number> = { MONTHLY: 199, SIX_MONTHS: 999, YEARLY: 1799 };
+    return { invoiceLink: "https://t.me/$demo-invoice", amountStars: amounts[String(body.productType)] ?? 199 } as T;
   }
 
   throw new Error(`Demo API route is not implemented: ${method} ${path}`);

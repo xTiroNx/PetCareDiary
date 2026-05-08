@@ -42,6 +42,8 @@ enum ReminderType {
 
 enum PaymentProductType {
   MONTHLY
+  SIX_MONTHS
+  YEARLY
   LIFETIME
 }
 

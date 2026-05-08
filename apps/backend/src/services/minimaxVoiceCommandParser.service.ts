@@ -194,6 +194,120 @@ function isoDate(value: unknown, fallback: string) {
   return Number.isNaN(date.getTime()) ? fallback : date.toISOString();
 }
 
+type WallDateTime = {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+  millisecond: number;
+};
+
+function zonedParts(date: Date, timeZone: string): WallDateTime {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit"
+  }).formatToParts(date);
+  const value = (type: string) => Number(parts.find((part) => part.type === type)?.value);
+  return {
+    year: value("year"),
+    month: value("month"),
+    day: value("day"),
+    hour: value("hour"),
+    minute: value("minute"),
+    second: value("second"),
+    millisecond: date.getUTCMilliseconds()
+  };
+}
+
+function timeZoneOffsetMs(date: Date, timeZone: string) {
+  const parts = zonedParts(date, timeZone);
+  const asUtc = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second, parts.millisecond);
+  return asUtc - date.getTime();
+}
+
+function wallDateTimeToUtc(parts: WallDateTime, timeZone: string) {
+  const wallUtc = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second, parts.millisecond);
+  let utc = wallUtc - timeZoneOffsetMs(new Date(wallUtc), timeZone);
+  utc = wallUtc - timeZoneOffsetMs(new Date(utc), timeZone);
+  return new Date(utc);
+}
+
+function addLocalDays(parts: WallDateTime, days: number): WallDateTime {
+  const date = new Date(Date.UTC(parts.year, parts.month - 1, parts.day + days, parts.hour, parts.minute, parts.second, parts.millisecond));
+  return {
+    year: date.getUTCFullYear(),
+    month: date.getUTCMonth() + 1,
+    day: date.getUTCDate(),
+    hour: date.getUTCHours(),
+    minute: date.getUTCMinutes(),
+    second: date.getUTCSeconds(),
+    millisecond: date.getUTCMilliseconds()
+  };
+}
+
+function wallDateTimeFromValue(value: unknown, fallback: string, timeZone: string): WallDateTime | null {
+  const fallbackDate = new Date(fallback);
+  if (Number.isNaN(fallbackDate.getTime())) return null;
+  const fallbackParts = zonedParts(fallbackDate, timeZone);
+  if (typeof value !== "string") return fallbackParts;
+
+  const full = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?)?/);
+  if (full) {
+    return {
+      year: Number(full[1]),
+      month: Number(full[2]),
+      day: Number(full[3]),
+      hour: full[4] ? Number(full[4]) : 0,
+      minute: full[5] ? Number(full[5]) : 0,
+      second: full[6] ? Number(full[6]) : 0,
+      millisecond: full[7] ? Number(full[7].padEnd(3, "0")) : 0
+    };
+  }
+
+  const timeOnly = value.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (timeOnly) {
+    return {
+      ...fallbackParts,
+      hour: Number(timeOnly[1]),
+      minute: Number(timeOnly[2]),
+      second: timeOnly[3] ? Number(timeOnly[3]) : 0,
+      millisecond: 0
+    };
+  }
+
+  return fallbackParts;
+}
+
+function localIsoDate(value: unknown, fallback: string, timeZone: string) {
+  const parts = wallDateTimeFromValue(value, fallback, timeZone);
+  if (!parts) return isoDate(value, fallback);
+  return wallDateTimeToUtc(parts, timeZone).toISOString();
+}
+
+function reminderIsoDate(value: unknown, clientNow: string, timeZone: string) {
+  const parts = wallDateTimeFromValue(value, clientNow, timeZone);
+  const now = new Date(clientNow);
+  if (!parts || Number.isNaN(now.getTime())) return isoDate(value, clientNow);
+
+  let nextParts = parts;
+  let next = wallDateTimeToUtc(nextParts, timeZone);
+  let guard = 0;
+  while (next <= now && guard < 370) {
+    nextParts = addLocalDays(nextParts, 1);
+    next = wallDateTimeToUtc(nextParts, timeZone);
+    guard += 1;
+  }
+  return next.toISOString();
+}
+
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
@@ -282,7 +396,7 @@ function symptomTypeFor(transcript: string, rawType: unknown) {
   return "OTHER";
 }
 
-function normalizeParsedCommand(value: unknown, input: { clientNow: string; transcript: string }) {
+function normalizeParsedCommand(value: unknown, input: { clientNow: string; timezone: string; transcript: string }) {
   const record = asRecord(value);
   const rawIntent = typeof record.intent === "string" && validIntents.has(record.intent) ? record.intent : "unknown";
   const intent = normalizeIntent(rawIntent, input.transcript);
@@ -301,7 +415,7 @@ function normalizeParsedCommand(value: unknown, input: { clientNow: string; tran
     normalized.draft = {
       type: reminderTypeFor(input.transcript, rawDraft.type),
       title: typeof rawDraft.title === "string" && rawDraft.title.trim() ? rawDraft.title.trim() : "Voice reminder",
-      time: isoDate(rawDraft.time, input.clientNow),
+      time: reminderIsoDate(rawDraft.time, input.clientNow, input.timezone),
       repeatRule: ["daily", "weekly", "monthly"].includes(String(rawDraft.repeatRule)) ? rawDraft.repeatRule : null
     };
     return normalized;
@@ -317,7 +431,7 @@ function normalizeParsedCommand(value: unknown, input: { clientNow: string; tran
       medicineName,
       dosage: typeof rawDraft.dosage === "string" ? rawDraft.dosage : "",
       taken: typeof rawDraft.taken === "boolean" ? rawDraft.taken : true,
-      dateTime: isoDate(rawDraft.dateTime ?? rawDraft.time, input.clientNow),
+      dateTime: rawDraft.dateTime ?? rawDraft.time ? localIsoDate(rawDraft.dateTime ?? rawDraft.time, input.clientNow, input.timezone) : input.clientNow,
       note: typeof rawDraft.note === "string" ? rawDraft.note : null
     };
     return normalized;
@@ -325,7 +439,7 @@ function normalizeParsedCommand(value: unknown, input: { clientNow: string; tran
 
   if (intent === "create_feeding_entry") {
     normalized.draft = {
-      dateTime: isoDate(rawDraft.dateTime ?? rawDraft.time, input.clientNow),
+      dateTime: rawDraft.dateTime ?? rawDraft.time ? localIsoDate(rawDraft.dateTime ?? rawDraft.time, input.clientNow, input.timezone) : input.clientNow,
       foodType: foodTypeFor(input.transcript, rawDraft.foodType),
       amount: typeof rawDraft.amount === "string" && rawDraft.amount.trim() ? rawDraft.amount.trim() : "не указано",
       note: noteValue(rawDraft.note)
@@ -335,7 +449,7 @@ function normalizeParsedCommand(value: unknown, input: { clientNow: string; tran
 
   if (intent === "create_symptom_entry") {
     normalized.draft = {
-      dateTime: isoDate(rawDraft.dateTime ?? rawDraft.time, input.clientNow),
+      dateTime: rawDraft.dateTime ?? rawDraft.time ? localIsoDate(rawDraft.dateTime ?? rawDraft.time, input.clientNow, input.timezone) : input.clientNow,
       symptomType: symptomTypeFor(input.transcript, rawDraft.symptomType),
       severity: clampSeverity(rawDraft.severity),
       note: noteValue(rawDraft.note) ?? input.transcript
@@ -346,7 +460,7 @@ function normalizeParsedCommand(value: unknown, input: { clientNow: string; tran
   if (intent === "create_weight_entry") {
     const weightKg = numberValue(rawDraft.weightKg ?? rawDraft.weight) ?? numberFromTranscript(input.transcript);
     normalized.draft = {
-      date: isoDate(rawDraft.date ?? rawDraft.dateTime ?? rawDraft.time, input.clientNow),
+      date: rawDraft.date ?? rawDraft.dateTime ?? rawDraft.time ? localIsoDate(rawDraft.date ?? rawDraft.dateTime ?? rawDraft.time, input.clientNow, input.timezone) : input.clientNow,
       weightKg: weightKg ?? 0
     };
     return normalized;
@@ -354,7 +468,7 @@ function normalizeParsedCommand(value: unknown, input: { clientNow: string; tran
 
   if (intent === "create_note") {
     normalized.draft = {
-      dateTime: isoDate(rawDraft.dateTime ?? rawDraft.time, input.clientNow),
+      dateTime: rawDraft.dateTime ?? rawDraft.time ? localIsoDate(rawDraft.dateTime ?? rawDraft.time, input.clientNow, input.timezone) : input.clientNow,
       note: typeof rawDraft.note === "string" && rawDraft.note.trim()
         ? rawDraft.note.trim()
         : typeof record.note === "string" && record.note.trim()
@@ -491,7 +605,7 @@ export async function parseVoiceCommandWithMinimax(input: {
   }
 
   const json = parseJsonContent(parsedResponse.data.choices[0].message.content);
-  const normalizedJson = normalizeParsedCommand(json, { clientNow: input.clientNow, transcript: input.transcript });
+  const normalizedJson = normalizeParsedCommand(json, { clientNow: input.clientNow, timezone: input.timezone, transcript: input.transcript });
   const parsedCommand = parsedCommandSchema.safeParse(normalizedJson);
   if (!parsedCommand.success) {
     if (env.NODE_ENV !== "production") {

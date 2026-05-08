@@ -3,7 +3,7 @@ import { Check, Mic, RotateCcw, Send, Square, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api, apiFormData, jsonBody } from "../api/client";
 import { useAppStore } from "../store/appStore";
-import { localDateTimeInputValue } from "../utils/dateTime";
+import { localDateTimeInputValue, utcInstantToLocalDateTimeInput } from "../utils/dateTime";
 import { useI18n } from "../utils/i18n";
 import { telegramError, telegramSelection, telegramSuccess } from "../utils/telegram";
 import { DateField } from "./DateField";
@@ -57,9 +57,7 @@ function asBoolean(value: unknown, fallback = false) {
 }
 
 function normalizeDateTime(value: unknown) {
-  if (typeof value !== "string") return localDateTimeInputValue();
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? localDateTimeInputValue() : localDateTimeInputValue(date);
+  return utcInstantToLocalDateTimeInput(value);
 }
 
 function normalizeDraft(intent: VoiceIntent, draft: Record<string, unknown>): EditableDraft {
@@ -500,6 +498,9 @@ export function VoiceCommand({ endpoint = "/api/voice/command", hint, visible = 
         </div>
         <div className="min-w-0 text-center">
           <p className="muted mt-1">{hint ?? t("voiceCommandHint")}</p>
+          <p className="mx-auto mt-2 max-w-[22rem] rounded-lg border border-mint/20 bg-mint/5 px-3 py-2 text-sm font-semibold leading-5 text-zinc-600 dark:bg-mint/10 dark:text-zinc-300">
+            {t("voiceCommandExample")}
+          </p>
           <p className="mt-1 text-xs font-semibold text-zinc-500 dark:text-zinc-400">{t("voiceDurationHint")}</p>
         </div>
       </div>

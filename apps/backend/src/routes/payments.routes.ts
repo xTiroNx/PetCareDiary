@@ -7,7 +7,7 @@ const router = Router();
 
 router.post("/create-invoice", async (req, res, next) => {
   try {
-    const { productType } = z.object({ productType: z.enum(["MONTHLY", "LIFETIME"]) }).strict().parse(req.body);
+    const { productType } = z.object({ productType: z.enum(["MONTHLY", "SIX_MONTHS", "YEARLY"]) }).strict().parse(req.body);
     const result = await createStarsInvoice(req.user!.id, productType);
     res.status(201).json(serialize({
       paymentId: result.payment.id,

@@ -31,14 +31,14 @@ export function ChangelogModal({ open, onClose }: ChangelogModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-8">
-      <section className="panel w-full max-w-md space-y-4 rounded-2xl border-mint/30 shadow-soft">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-3 py-[calc(0.75rem+env(safe-area-inset-top)+env(safe-area-inset-bottom))]">
+      <section className="panel max-h-[calc(100vh-2rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] w-full max-w-md space-y-4 overflow-y-auto rounded-2xl border-mint/30 shadow-soft">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="inline-flex items-center gap-2 text-sm font-extrabold text-mint"><Sparkles size={17} />{t("changelogTitle")}</p>
             <h2 className="mt-1 text-xl font-extrabold leading-tight">{t("changelogWhatsNew")}</h2>
           </div>
-          <button className="icon-btn shrink-0" type="button" aria-label={t("changelogLater")} title={t("changelogLater")} onClick={close}>
+          <button className="icon-btn shrink-0" type="button" aria-label={t("closeApp")} title={t("closeApp")} onClick={close}>
             <X size={17} />
           </button>
         </div>
@@ -64,9 +64,8 @@ export function ChangelogModal({ open, onClose }: ChangelogModalProps) {
           </ul>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          <button className="btn btn-secondary whitespace-nowrap" type="button" onClick={close}>{t("changelogLater")}</button>
-          <button className="btn btn-primary whitespace-nowrap" type="button" onClick={close}>{t("changelogGotIt")}</button>
+        <div>
+          <button className="btn btn-primary w-full whitespace-nowrap" type="button" onClick={close}>{t("changelogGotIt")}</button>
         </div>
       </section>
     </div>

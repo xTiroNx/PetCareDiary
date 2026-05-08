@@ -3,18 +3,47 @@ import { env } from "../config/env.js";
 import { prisma } from "../prisma/client.js";
 import { HttpError } from "../utils/httpError.js";
 
-type ProductType = "MONTHLY" | "LIFETIME";
+export type CheckoutProductType = "MONTHLY" | "SIX_MONTHS" | "YEARLY";
 
-function priceFor(productType: ProductType) {
-  return productType === "MONTHLY" ? env.MONTHLY_PRICE_STARS : env.LIFETIME_PRICE_STARS;
+const checkoutProducts: Record<CheckoutProductType, { priceStars: number; durationDays: number; title: string; description: string }> = {
+  MONTHLY: {
+    priceStars: env.MONTHLY_PRICE_STARS,
+    durationDays: 30,
+    title: "PetCare Diary: 1 month access",
+    description: "30 days of access to feeding, symptoms, medicines, weight, reminders and reports."
+  },
+  SIX_MONTHS: {
+    priceStars: env.SIX_MONTHS_PRICE_STARS,
+    durationDays: 180,
+    title: "PetCare Diary: 6 months access",
+    description: "180 days of access to feeding, symptoms, medicines, weight, reminders and reports."
+  },
+  YEARLY: {
+    priceStars: env.YEARLY_PRICE_STARS,
+    durationDays: 365,
+    title: "PetCare Diary: 1 year access",
+    description: "365 days of access to feeding, symptoms, medicines, weight, reminders and reports."
+  }
+};
+
+function checkoutProduct(productType: string) {
+  const product = checkoutProducts[productType as CheckoutProductType];
+  if (!product) {
+    throw new HttpError(400, "PAYMENT_PRODUCT_UNAVAILABLE", "Payment product is not available for checkout.");
+  }
+  return product;
 }
 
-function titleFor(productType: ProductType) {
-  return productType === "MONTHLY" ? "PetCare Diary: 30 days access" : "PetCare Diary: lifetime access";
+function accessDurationDays(productType: string) {
+  if (productType === "MONTHLY") return 30;
+  if (productType === "SIX_MONTHS") return 180;
+  if (productType === "YEARLY") return 365;
+  return null;
 }
 
-export async function createStarsInvoice(userId: string, productType: ProductType) {
-  const amountStars = priceFor(productType);
+export async function createStarsInvoice(userId: string, productType: CheckoutProductType) {
+  const product = checkoutProduct(productType);
+  const amountStars = product.priceStars;
   const invoicePayload = `petcare:${productType.toLowerCase()}:${userId}:${nanoid(16)}`;
 
   const payment = await prisma.payment.create({
@@ -32,15 +61,12 @@ export async function createStarsInvoice(userId: string, productType: ProductTyp
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      title: titleFor(productType),
-      description:
-        productType === "MONTHLY"
-          ? "30 days of access to feeding, symptoms, medicines, weight and reports."
-          : "Lifetime access to PetCare Diary.",
+      title: product.title,
+      description: product.description,
       payload: invoicePayload,
       provider_token: "",
       currency: "XTR",
-      prices: [{ label: titleFor(productType), amount: amountStars }]
+      prices: [{ label: product.title, amount: amountStars }]
     })
   });
 
@@ -176,14 +202,14 @@ export async function grantAccessForSuccessfulPayment(paymentUpdate: {
     }
 
     const freshUser = await tx.user.findUniqueOrThrow({ where: { id: payment.userId } });
-    const userUpdate =
-      payment.productType === "LIFETIME"
-        ? { lifetimeAccess: true }
-        : {
-            accessUntil: new Date(
-              Math.max(freshUser.accessUntil?.getTime() ?? 0, now.getTime()) + 30 * 24 * 60 * 60 * 1000
-            )
-          };
+    const durationDays = accessDurationDays(payment.productType);
+    const userUpdate = durationDays
+      ? {
+          accessUntil: new Date(
+            Math.max(freshUser.accessUntil?.getTime() ?? 0, now.getTime()) + durationDays * 24 * 60 * 60 * 1000
+          )
+        }
+      : { lifetimeAccess: true };
     await tx.user.update({ where: { id: payment.userId }, data: userUpdate });
     return tx.payment.findUniqueOrThrow({ where: { id: payment.id } });
   });

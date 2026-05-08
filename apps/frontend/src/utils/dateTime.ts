@@ -14,6 +14,12 @@ export function localDateTimeInputValue(date = new Date()) {
   return `${localDateInputValue(date)}T${localTimeInputValue(date)}`;
 }
 
+export function utcInstantToLocalDateTimeInput(value: unknown, fallback = localDateTimeInputValue()) {
+  if (typeof value !== "string") return fallback;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? fallback : localDateTimeInputValue(date);
+}
+
 export function mergeLocalDateTime(date: string, time: string) {
   return `${date || localDateInputValue()}T${time || localTimeInputValue()}`;
 }

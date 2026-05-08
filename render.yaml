@@ -29,8 +29,10 @@ services:
         value: "60000"
       - key: MONTHLY_PRICE_STARS
         value: "199"
-      - key: LIFETIME_PRICE_STARS
-        value: "1499"
+      - key: SIX_MONTHS_PRICE_STARS
+        value: "999"
+      - key: YEARLY_PRICE_STARS
+        value: "1799"
       - key: TRIAL_DAYS
         value: "3"
       - key: ENABLE_DEV_AUTH

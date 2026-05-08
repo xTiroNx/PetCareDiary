@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 :root {
   --tg-bg: #f7fbfb;
   --tg-text: #17202a;
@@ -52,11 +58,21 @@ body {
 }
 
 button, input, textarea, select {
+  box-sizing: border-box;
   font: inherit;
+  max-width: 100%;
+  min-width: 0;
 }
 
 button, a, input, textarea, select {
   -webkit-tap-highlight-color: transparent;
+}
+
+form,
+.panel,
+.grid,
+.flex {
+  min-width: 0;
 }
 
 button:focus-visible,
@@ -70,9 +86,37 @@ select:focus-visible {
 
 input[type="date"],
 input[type="time"],
-input[type="datetime-local"],
+input[type="datetime-local"] {
+  -webkit-appearance: none;
+  appearance: none;
+  box-sizing: border-box;
+  color-scheme: light dark;
+  display: block;
+  inline-size: 100%;
+  max-inline-size: 100%;
+  max-width: 100%;
+  min-inline-size: 0;
+  min-width: 0;
+  width: 100%;
+}
+
 select {
   color-scheme: light dark;
+  max-width: 100%;
+  min-width: 0;
+}
+
+input[type="date"]::-webkit-date-and-time-value,
+input[type="time"]::-webkit-date-and-time-value,
+input[type="datetime-local"]::-webkit-date-and-time-value {
+  min-width: 0;
+  text-align: center;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  margin-inline-start: 0;
 }
 
 body {
@@ -184,9 +228,11 @@ body {
 @media (max-width: 430px) {
   .datetime-grid {
     grid-template-columns: minmax(0, 1fr);
+    width: 100%;
   }
 
   .date-input {
     min-height: 2.875rem;
+    width: 100%;
   }
 }

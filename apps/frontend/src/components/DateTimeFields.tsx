@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { localDateInputValue, localDateTimeInputValue, localTimeInputValue, mergeLocalDateTime, normalizeTimeText, parseDisplayTime } from "../utils/dateTime";
+import { localDateInputValue, localDateTimeInputValue, localTimeInputValue, mergeLocalDateTime } from "../utils/dateTime";
 import { useI18n } from "../utils/i18n";
 import { DateField } from "./DateField";
 
@@ -16,7 +16,6 @@ export function DateTimeFields({ name = "dateTime", value, defaultValue, onChang
   const initial = useMemo(() => value || defaultValue || localDateTimeInputValue(), [defaultValue, value]);
   const [date, setDate] = useState(localDateInputValue(new Date(initial)));
   const [time, setTime] = useState(localTimeInputValue(new Date(initial)));
-  const [timeText, setTimeText] = useState(localTimeInputValue(new Date(initial)));
   const merged = mergeLocalDateTime(date, time);
 
   useEffect(() => {
@@ -24,7 +23,6 @@ export function DateTimeFields({ name = "dateTime", value, defaultValue, onChang
     const next = new Date(value);
     setDate(localDateInputValue(next));
     setTime(localTimeInputValue(next));
-    setTimeText(localTimeInputValue(next));
   }, [value]);
 
   function update(nextDate: string, nextTime: string) {
@@ -47,28 +45,12 @@ export function DateTimeFields({ name = "dateTime", value, defaultValue, onChang
         {t("time")}
         <input
           className="input date-input mt-1"
-          inputMode="numeric"
-          placeholder="hh:mm"
-          value={timeText}
+          type="time"
+          value={time}
           required={required}
-          onBlur={() => {
-            const parsed = parseDisplayTime(timeText);
-            if (!parsed) {
-              setTimeText(time);
-              return;
-            }
-            setTime(parsed);
-            setTimeText(parsed);
-            update(date, parsed);
-          }}
           onChange={(event) => {
-            const nextText = normalizeTimeText(event.target.value);
-            setTimeText(nextText);
-            const parsed = parseDisplayTime(nextText);
-            if (parsed) {
-              setTime(parsed);
-              update(date, parsed);
-            }
+            setTime(event.target.value);
+            update(date, event.target.value);
           }}
         />
       </label>

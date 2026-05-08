@@ -51,7 +51,8 @@ export async function apiBlob(path: string, options: RequestInit = {}): Promise<
 }
 
 export async function apiFormData<T>(path: string, formData: FormData, options: RequestInit = {}): Promise<T> {
-  if (DEMO_MODE && path !== "/api/admin/voice/command") {
+  const isVoiceCommand = path === "/api/admin/voice/command" || path === "/api/voice/command";
+  if (DEMO_MODE && !isVoiceCommand) {
     return demoApi<T>(path, { ...options, method: options.method ?? "POST", body: formData });
   }
 

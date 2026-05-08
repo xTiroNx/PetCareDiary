@@ -30,7 +30,7 @@ export default function ReportPage() {
       const shareTarget = navigator as Navigator & { canShare?: (data: ShareData) => boolean };
       if (navigator.share && shareTarget.canShare?.({ files: [file] })) {
         try {
-          await navigator.share({ files: [file], title: "PetCare Diary report" });
+          await navigator.share({ files: [file] });
           setMessage(t("exportDownloaded"));
           queryClient.invalidateQueries({ queryKey: ["report-export-status"] });
           return;

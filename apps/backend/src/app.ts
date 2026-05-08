@@ -12,11 +12,13 @@ import adminRoutes from "./routes/admin.routes.js";
 import adminVoiceRoutes from "./routes/adminVoice.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import diaryRoutes from "./routes/diary.routes.js";
+import feedbackRoutes from "./routes/feedback.routes.js";
 import paymentsRoutes from "./routes/payments.routes.js";
 import petsRoutes from "./routes/pets.routes.js";
 import remindersRoutes from "./routes/reminders.routes.js";
 import reportsRoutes from "./routes/reports.routes.js";
 import telegramRoutes from "./routes/telegram.routes.js";
+import voiceRoutes from "./routes/voice.routes.js";
 
 export function createApp() {
   const app = express();
@@ -32,6 +34,8 @@ export function createApp() {
   app.use("/api/admin/voice", authMiddleware, requireAdmin, rateLimit({ keyPrefix: "admin-voice", windowMs: 60_000, max: 20 }), adminVoiceRoutes);
   app.use("/api/admin", authMiddleware, requireAdmin, rateLimit({ keyPrefix: "admin", windowMs: 60_000, max: 120 }), adminRoutes);
   app.use("/api/payments", authMiddleware, rateLimit({ keyPrefix: "payments", windowMs: 60_000, max: 20 }), paymentsRoutes);
+  app.use("/api/feedback", authMiddleware, rateLimit({ keyPrefix: "feedback", windowMs: 10 * 60_000, max: 5 }), feedbackRoutes);
+  app.use("/api/voice", authMiddleware, requireActiveAccess, rateLimit({ keyPrefix: "user-voice", windowMs: 60_000, max: 10 }), voiceRoutes);
   app.use("/api/pets", authMiddleware, requireActiveAccess, petsRoutes);
   app.use("/api", authMiddleware, requireActiveAccess, diaryRoutes);
   app.use("/api/reminders", authMiddleware, requireActiveAccess, remindersRoutes);

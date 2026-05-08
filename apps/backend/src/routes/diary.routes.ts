@@ -36,7 +36,7 @@ const symptomBodySchema = z.object({
 const medicineBodySchema = z.object({
   petId: z.string().min(1).max(128),
   medicineName: z.string().min(1).max(120),
-  dosage: z.string().min(1).max(80),
+  dosage: z.string().max(80).default(""),
   dateTime: z.coerce.date(),
   taken: z.boolean().optional(),
   note: z.string().max(1000).optional().nullable()

@@ -1,12 +1,14 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
-import { CheckCircle2, Edit3, Plus, Save, ShieldCheck, Trash2, X } from "lucide-react";
+import { CheckCircle2, Edit3, Plus, Save, ShieldCheck, Sparkles, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import clsx from "clsx";
 import { api, jsonBody } from "../api/client";
 import type { Pet, PetType } from "../api/types";
 import { AccessBadge } from "../components/AccessBadge";
+import { openChangelogEvent } from "../components/ChangelogModal";
 import { ConfirmAction } from "../components/ConfirmAction";
+import { FeedbackForm } from "../components/FeedbackForm";
 import { MedicalDisclaimer } from "../components/MedicalDisclaimer";
 import { RequestError } from "../components/RequestError";
 import { SelectField } from "../components/SelectField";
@@ -89,6 +91,11 @@ export default function ProfilePage() {
     });
   }
 
+  function openChangelog() {
+    telegramSelection();
+    window.dispatchEvent(new Event(openChangelogEvent));
+  }
+
   return (
     <main className="space-y-4">
       <h1 className="page-title">{t("profile")}</h1>
@@ -163,6 +170,10 @@ export default function ProfilePage() {
         </Link>
       )}
       <Link to="/paywall" className="btn btn-secondary w-full">{t("manageAccess")}</Link>
+      <button type="button" className="btn btn-secondary w-full" onClick={openChangelog}>
+        <Sparkles size={18} />{t("changelogOpenFromProfile")}
+      </button>
+      <FeedbackForm />
       <MedicalDisclaimer />
     </main>
   );

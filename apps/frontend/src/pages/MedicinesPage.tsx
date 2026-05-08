@@ -73,7 +73,7 @@ export default function MedicinesPage() {
       <h1 className="page-title">{t("medicinesTitle")}</h1>
       <form onSubmit={onSubmit} className="panel grid gap-3">
         <input className="input" name="medicineName" placeholder={t("medicineName")} required />
-        <input className="input" name="dosage" placeholder={t("dosage")} required />
+        <input className="input" name="dosage" placeholder={t("dosage")} />
         <DateTimeFields defaultValue={now} required />
         <textarea className="input" name="note" placeholder={t("comment")} />
         <button className="btn btn-primary">{t("add")}</button>
@@ -87,7 +87,7 @@ export default function MedicinesPage() {
         <div className="panel space-y-3" key={entry.id}>
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="font-semibold">{entry.medicineName} · {entry.dosage}</p>
+              <p className="font-semibold">{[entry.medicineName, entry.dosage].filter(Boolean).join(" · ")}</p>
               <p className="text-sm text-zinc-500">{new Date(entry.dateTime).toLocaleString(languageLocale(language))}</p>
               {entry.note && <p className="mt-1 text-sm">{entry.note}</p>}
             </div>

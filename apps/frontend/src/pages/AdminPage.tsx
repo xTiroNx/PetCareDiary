@@ -6,16 +6,13 @@ import type { AdminUser } from "../api/types";
 import { AccessBadge } from "../components/AccessBadge";
 import { AdminVoiceCommand } from "../components/AdminVoiceCommand";
 import { EmptyState } from "../components/EmptyState";
+import { LoadMore } from "../components/LoadMore";
+import { usePaginatedApi } from "../hooks/usePaginatedApi";
 import { useAppStore } from "../store/appStore";
 import { languageLocale, useI18n } from "../utils/i18n";
 
 type AccessPatch = { id: string; body: { mode: "MONTHLY"; days: number } | { mode: "LIFETIME" } | { mode: "REVOKE_PAID" } | { mode: "EXPIRE_ALL" } };
-type AdminUsersResponse = AdminUser[] | { items: AdminUser[]; nextOffset: number | null };
-
-function adminItems(data: AdminUsersResponse | undefined) {
-  if (!data) return [];
-  return Array.isArray(data) ? data : data.items;
-}
+type AdminUsersResponse = { items: AdminUser[]; nextOffset: number | null };
 
 export default function AdminPage() {
   const { language, t } = useI18n();
@@ -23,12 +20,16 @@ export default function AdminPage() {
   const queryClient = useQueryClient();
   const [telegramId, setTelegramId] = useState("");
   const [submittedTelegramId, setSubmittedTelegramId] = useState("");
-  const queryString = submittedTelegramId ? `?telegramId=${encodeURIComponent(submittedTelegramId)}` : "";
-  const users = useQuery({
-    queryKey: ["admin-users", submittedTelegramId],
-    queryFn: () => api<AdminUsersResponse>(`/api/admin/users${queryString}`),
-    enabled: isAdmin
+  const isSearching = Boolean(submittedTelegramId);
+  const recentUsers = usePaginatedApi<AdminUser>(["admin-users", "recent"], "/api/admin/users", isAdmin && !isSearching, 20);
+  const searchUsers = useQuery({
+    queryKey: ["admin-users", "search", submittedTelegramId],
+    queryFn: () => api<AdminUsersResponse>(`/api/admin/users?telegramId=${encodeURIComponent(submittedTelegramId)}`),
+    enabled: isAdmin && isSearching
   });
+  const users = isSearching ? searchUsers.data?.items ?? [] : recentUsers.items;
+  const isLoading = isSearching ? searchUsers.isLoading : recentUsers.isLoading;
+  const error = isSearching ? searchUsers.error : recentUsers.error;
   const updateAccess = useMutation({
     mutationFn: ({ id, body }: AccessPatch) => api<AdminUser>(`/api/admin/users/${id}/access`, { method: "PATCH", body: jsonBody(body) }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-users"] })
@@ -37,6 +38,12 @@ export default function AdminPage() {
   function onSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmittedTelegramId(telegramId.trim());
+  }
+
+  function showRecentUsers() {
+    setTelegramId("");
+    setSubmittedTelegramId("");
+    queryClient.removeQueries({ queryKey: ["admin-users", "recent"] });
   }
 
   if (!isAdmin) {
@@ -79,17 +86,17 @@ export default function AdminPage() {
             <Search size={18} />
           </button>
         </div>
-        <button type="button" className="btn btn-secondary w-full" onClick={() => { setTelegramId(""); setSubmittedTelegramId(""); }}>
+        <button type="button" className="btn btn-secondary w-full" onClick={showRecentUsers}>
           {t("adminShowRecent")}
         </button>
       </form>
 
-      {users.isLoading && <section className="panel text-center">{t("loading")}</section>}
-      {users.error && <section className="panel text-coral">{users.error.message}</section>}
-      {!users.isLoading && !adminItems(users.data).length && <EmptyState title={t("emptyTitle")} text={t("adminNoUsers")} />}
+      {isLoading && <section className="panel text-center">{t("loading")}</section>}
+      {error && <section className="panel text-coral">{error.message}</section>}
+      {!isLoading && !users.length && <EmptyState title={t("emptyTitle")} text={t("adminNoUsers")} />}
 
       <section className="space-y-2">
-        {adminItems(users.data).map((user) => (
+        {users.map((user) => (
           <article className="panel space-y-3" key={user.id}>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -126,6 +133,13 @@ export default function AdminPage() {
             </div>
           </article>
         ))}
+        {!isSearching && recentUsers.hasNextPage ? (
+          <LoadMore
+            shown={recentUsers.totalLoaded}
+            total={recentUsers.totalLoaded + 1}
+            onClick={() => recentUsers.fetchNextPage()}
+          />
+        ) : null}
       </section>
     </main>
   );

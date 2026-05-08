@@ -1,6 +1,7 @@
 import { CalendarPlus, FileText, HeartPulse, Pill, Scale, Utensils } from "lucide-react";
 import { Link, Navigate } from "react-router-dom";
 import { AccessBadge } from "../components/AccessBadge";
+import { VoiceCommand } from "../components/AdminVoiceCommand";
 import { MedicalDisclaimer } from "../components/MedicalDisclaimer";
 import { useAppStore } from "../store/appStore";
 import { useI18n } from "../utils/i18n";
@@ -8,7 +9,9 @@ import { useI18n } from "../utils/i18n";
 export default function DashboardPage() {
   const { t } = useI18n();
   const pet = useAppStore((state) => state.pet);
+  const accessStatus = useAppStore((state) => state.accessStatus);
   if (!pet) return <Navigate to="/onboarding" replace />;
+  const hasActiveAccess = accessStatus !== "expired";
   const petMeta = [
     pet.type === "CAT" ? t("cat") : pet.type === "DOG" ? t("dog") : t("otherPet"),
     pet.weightKg ? `${pet.weightKg} kg` : null,
@@ -39,6 +42,7 @@ export default function DashboardPage() {
           <Link className="btn btn-secondary quick-action col-span-2 min-h-[50px]" to="/notes"><FileText size={18} />{t("otherNote")}</Link>
         </div>
       </section>
+      {hasActiveAccess && <VoiceCommand endpoint="/api/voice/command" />}
       {pet.healthNotes && <section className="panel"><h2 className="section-title">{t("healthFeatures")}</h2><p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">{pet.healthNotes}</p></section>}
       <Link className="btn btn-secondary w-full" to="/reminders"><CalendarPlus size={18} />{t("reminders")}</Link>
       <MedicalDisclaimer />

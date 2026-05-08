@@ -15,6 +15,74 @@ import { languageLocale, useI18n } from "../utils/i18n";
 type WeightEntry = { id: string; date: string; weightKg: string };
 type WeightDraft = { date: string; weightKg: string };
 
+function dateTime(value: string) {
+  const time = new Date(value).getTime();
+  return Number.isNaN(time) ? 0 : time;
+}
+
+function sortWeightsByDate(values: WeightEntry[]) {
+  return [...values].sort((left, right) => dateTime(left.date) - dateTime(right.date));
+}
+
+function chartPoint(entry: WeightEntry, index: number, total: number, min: number, range: number) {
+  const weight = Number(entry.weightKg);
+  const x = total === 1 ? 160 : 24 + (index / (total - 1)) * 272;
+  const y = total === 1 ? 74 : 118 - ((weight - min) / range) * 82;
+  return { x, y, weight, date: new Date(entry.date) };
+}
+
+function WeightChart({ values, locale }: { values: WeightEntry[]; locale: string }) {
+  const numericWeights = values.map((entry) => Number(entry.weightKg)).filter(Number.isFinite);
+  if (!numericWeights.length) {
+    return <div className="mt-4 rounded-lg bg-zinc-50 p-6 text-center text-sm text-zinc-500 dark:bg-zinc-950">—</div>;
+  }
+
+  const min = Math.min(...numericWeights);
+  const max = Math.max(...numericWeights);
+  const range = Math.max(0.5, max - min);
+  const points = values.map((entry, index) => chartPoint(entry, index, values.length, min, range));
+  const line = points.map((point) => `${point.x},${point.y}`).join(" ");
+  const area = points.length > 1
+    ? `M ${points[0].x} 130 L ${points.map((point) => `${point.x} ${point.y}`).join(" L ")} L ${points[points.length - 1].x} 130 Z`
+    : "";
+  const last = points[points.length - 1];
+  const firstDate = points[0].date.toLocaleDateString(locale, { day: "2-digit", month: "2-digit" });
+  const lastDate = last.date.toLocaleDateString(locale, { day: "2-digit", month: "2-digit" });
+
+  return (
+    <div className="mt-4 rounded-xl border border-mint/20 bg-mint/5 p-3">
+      <svg className="h-44 w-full overflow-visible" viewBox="0 0 320 150" role="img" aria-label="Weight chart" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="weight-chart-fill" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="rgb(42 166 147)" stopOpacity="0.35" />
+            <stop offset="100%" stopColor="rgb(42 166 147)" stopOpacity="0.03" />
+          </linearGradient>
+        </defs>
+        {[32, 74, 116].map((y) => (
+          <line key={y} x1="18" x2="302" y1={y} y2={y} stroke="currentColor" strokeOpacity="0.12" strokeWidth="1" />
+        ))}
+        {area && <path d={area} fill="url(#weight-chart-fill)" />}
+        {points.length > 1 ? (
+          <polyline points={line} fill="none" stroke="rgb(42 166 147)" strokeLinecap="round" strokeLinejoin="round" strokeWidth="5" vectorEffect="non-scaling-stroke" />
+        ) : (
+          <line x1="92" x2="228" y1={last.y} y2={last.y} stroke="rgb(42 166 147)" strokeLinecap="round" strokeWidth="5" vectorEffect="non-scaling-stroke" />
+        )}
+        {points.map((point) => (
+          <g key={`${point.date.toISOString()}-${point.weight}`}>
+            <circle cx={point.x} cy={point.y} r="7" fill="rgb(42 166 147)" />
+            <circle cx={point.x} cy={point.y} r="11" fill="none" stroke="rgb(42 166 147)" strokeOpacity="0.24" strokeWidth="5" />
+          </g>
+        ))}
+      </svg>
+      <div className="mt-1 flex items-center justify-between gap-3 text-xs font-semibold text-zinc-500">
+        <span>{firstDate}</span>
+        <span className="rounded-full bg-mint/10 px-2 py-1 text-mint">{last.weight.toFixed(1)} kg</span>
+        <span>{lastDate}</span>
+      </div>
+    </div>
+  );
+}
+
 export default function WeightPage() {
   const { language, t } = useI18n();
   const pet = useAppStore((state) => state.pet);
@@ -35,8 +103,7 @@ export default function WeightPage() {
     mutationFn: (id: string) => api(`/api/weights/${id}`, { method: "DELETE" }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["weights", pet?.id] })
   });
-  const values = [...entries.items].reverse();
-  const max = Math.max(1, ...values.map((entry) => Number(entry.weightKg)));
+  const chartValues = sortWeightsByDate(entries.items);
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -76,9 +143,7 @@ export default function WeightPage() {
       </form>
       <section className="panel">
         <h2 className="section-title">{t("weightChart")}</h2>
-        <div className="mt-4 flex h-32 items-end gap-2">
-          {values.map((entry) => <div key={entry.id} className="flex flex-1 flex-col items-center gap-1"><div className="w-full rounded-t bg-mint" style={{ height: `${Math.max(8, (Number(entry.weightKg) / max) * 100)}%` }} /><span className="text-[10px]">{Number(entry.weightKg).toFixed(1)}</span></div>)}
-        </div>
+        <WeightChart values={chartValues} locale={languageLocale(language)} />
       </section>
       {entries.isLoading && <div className="panel text-center">{t("loading")}</div>}
       {entries.error && <div className="panel text-coral"><RequestError error={entries.error} /></div>}

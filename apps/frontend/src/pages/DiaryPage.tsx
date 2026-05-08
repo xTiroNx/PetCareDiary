@@ -115,7 +115,7 @@ export default function DiaryPage() {
         type: "MEDICINE" as const,
         date: entry.dateTime,
         title: t("medicine"),
-        detail: `${entry.medicineName} · ${entry.dosage} · ${entry.taken ? t("yes") : t("no")}`,
+        detail: [...[entry.medicineName, entry.dosage].filter(Boolean), entry.taken ? t("yes") : t("no")].join(" · "),
         note: entry.note,
         endpoint: "/api/medicines",
         raw: entry

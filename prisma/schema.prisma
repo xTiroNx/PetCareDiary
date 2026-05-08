@@ -74,6 +74,7 @@ model User {
   reportExports  ReportExport[]
   reminders      Reminder[]
   payments       Payment[]
+  feedback        Feedback[]
 }
 
 model Pet {
@@ -216,4 +217,19 @@ model Payment {
   user                    User               @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, status])
+}
+
+model Feedback {
+  id                    String    @id @default(cuid())
+  userId                String
+  message               String
+  page                  String?
+  accessStatus          String
+  telegramSentAt        DateTime?
+  telegramDeliveryError String?
+  createdAt             DateTime  @default(now())
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
 }

@@ -1,5 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { ChangelogModal, changelogSeenKey, openChangelogEvent } from "./components/ChangelogModal";
 import { Layout } from "./components/Layout";
 import { useAuth } from "./hooks/useAuth";
 import { useAppStore } from "./store/appStore";
@@ -22,6 +23,22 @@ import { hideTelegramBackButton } from "./utils/telegram";
 const freeRoutes = new Set(["/paywall", "/profile", "/admin"]);
 const routesWithoutPet = new Set(["/onboarding", "/paywall", "/profile", "/admin"]);
 
+function hasSeenChangelog() {
+  try {
+    return localStorage.getItem(changelogSeenKey) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markChangelogSeen() {
+  try {
+    localStorage.setItem(changelogSeenKey, "1");
+  } catch {
+    // Some restricted WebViews can throw on localStorage access. Session state still closes the sheet.
+  }
+}
+
 function getAuthErrorMessage(error: Error) {
   if (error.message === "Failed to fetch") {
     return "Frontend cannot connect to the backend API. Start backend on http://localhost:3001 and check VITE_API_URL.";
@@ -38,6 +55,7 @@ export default function App() {
   const pet = useAppStore((state) => state.pet);
   const navigate = useNavigate();
   const location = useLocation();
+  const [changelogOpen, setChangelogOpen] = useState(false);
 
   useEffect(() => {
     auth.mutate();
@@ -54,6 +72,25 @@ export default function App() {
   useEffect(() => {
     hideTelegramBackButton();
   }, [location.pathname]);
+
+  useEffect(() => {
+    function openChangelog() {
+      setChangelogOpen(true);
+    }
+
+    window.addEventListener(openChangelogEvent, openChangelog);
+    return () => window.removeEventListener(openChangelogEvent, openChangelog);
+  }, []);
+
+  useEffect(() => {
+    if (!user || location.pathname !== "/" || hasSeenChangelog()) return;
+    setChangelogOpen(true);
+  }, [user, location.pathname]);
+
+  function closeChangelog() {
+    markChangelogSeen();
+    setChangelogOpen(false);
+  }
 
   if (auth.isPending && !user) {
     return <Layout><div className="panel mt-20 text-center">{t("appLoading")}</div></Layout>;
@@ -81,6 +118,7 @@ export default function App() {
         <Route path="/admin" element={<AdminPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <ChangelogModal open={changelogOpen} onClose={closeChangelog} />
     </Layout>
   );
 }

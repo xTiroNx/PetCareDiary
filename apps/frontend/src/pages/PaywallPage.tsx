@@ -1,6 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { Crown, Sparkles } from "lucide-react";
 import { api, jsonBody } from "../api/client";
+import { FeedbackForm } from "../components/FeedbackForm";
 import { openTelegramInvoice } from "../utils/telegram";
 import { useAuth } from "../hooks/useAuth";
 import { useI18n } from "../utils/i18n";
@@ -29,6 +30,7 @@ export default function PaywallPage() {
         <Crown size={18} /> {t("buyLifetime")}
       </button>
       {createInvoice.error && <p className="text-sm text-coral">{createInvoice.error.message}</p>}
+      <FeedbackForm />
     </main>
   );
 }

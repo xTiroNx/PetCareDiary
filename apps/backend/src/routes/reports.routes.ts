@@ -15,7 +15,6 @@ type ReportLanguage = "ru" | "en";
 
 const reportText = {
   ru: {
-    title: "Отчет PetCare Diary",
     pet: "Питомец",
     petType: "Тип",
     age: "Возраст",
@@ -65,7 +64,6 @@ const reportText = {
     }
   },
   en: {
-    title: "PetCare Diary Report",
     pet: "Pet",
     petType: "Type",
     age: "Age",
@@ -204,7 +202,6 @@ function renderReportPdf(report: Awaited<ReturnType<typeof buildReport>>, langua
       size: "A4",
       margin: 44,
       info: {
-        Title: text.title,
         Author: "PetCare Diary"
       }
     });
@@ -222,8 +219,6 @@ function renderReportPdf(report: Awaited<ReturnType<typeof buildReport>>, langua
       doc.font(font).fontSize(10).fillColor("#17202a").text(`${label}: ${content}`, { width: pageWidth });
     };
 
-    doc.font(font).fontSize(22).fillColor("#17202a").text(text.title, { align: "left" });
-    doc.moveDown(0.4);
     value(text.pet, report.petName);
     value(text.petType, report.pet ? text.petTypes[report.pet.type] ?? report.pet.type : null);
     value(text.age, report.pet?.ageYears ? `${report.pet.ageYears.toString()} ${text.years}` : null);

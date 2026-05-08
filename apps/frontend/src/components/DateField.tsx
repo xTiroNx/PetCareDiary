@@ -23,7 +23,7 @@ export function DateField({ name, value, defaultValue, onChange, required, label
   }, [value]);
 
   return (
-    <label className={`min-w-0 text-xs font-semibold text-zinc-500 ${className}`}>
+    <label className={`block w-full min-w-0 text-xs font-semibold text-zinc-500 ${className}`}>
       {label ?? t("date")}
       <input
         className="input date-input mt-1"

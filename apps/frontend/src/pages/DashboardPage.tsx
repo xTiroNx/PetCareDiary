@@ -1,4 +1,4 @@
-import { CalendarPlus, FileText, HeartPulse, Pill, Scale, Utensils } from "lucide-react";
+import { FileText, HeartPulse, Pill, Scale, Utensils } from "lucide-react";
 import { Link, Navigate } from "react-router-dom";
 import { AccessBadge } from "../components/AccessBadge";
 import { VoiceCommand } from "../components/AdminVoiceCommand";
@@ -44,7 +44,6 @@ export default function DashboardPage() {
       </section>
       {hasActiveAccess && <VoiceCommand endpoint="/api/voice/command" />}
       {pet.healthNotes && <section className="panel"><h2 className="section-title">{t("healthFeatures")}</h2><p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">{pet.healthNotes}</p></section>}
-      <Link className="btn btn-secondary w-full" to="/reminders"><CalendarPlus size={18} />{t("reminders")}</Link>
       <MedicalDisclaimer />
     </main>
   );

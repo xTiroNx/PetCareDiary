@@ -433,13 +433,13 @@ export function VoiceCommand({ endpoint = "/api/voice/command", hint, visible = 
       const context = new AudioContextClass();
       const analyser = context.createAnalyser();
       analyser.fftSize = 64;
-      analyser.smoothingTimeConstant = 0.72;
+      analyser.smoothingTimeConstant = 0.48;
       const source = context.createMediaStreamSource(stream);
       source.connect(analyser);
       audioContextRef.current = context;
       const frequencyData = new Uint8Array(analyser.frequencyBinCount);
       const timeData = new Uint8Array(analyser.fftSize);
-      let smoothedVolume = 0.08;
+      let smoothedVolume = 0.12;
 
       function tick() {
         analyser.getByteFrequencyData(frequencyData);
@@ -448,18 +448,18 @@ export function VoiceCommand({ endpoint = "/api/voice/command", hint, visible = 
           const centered = (value - 128) / 128;
           return sum + centered * centered;
         }, 0) / timeData.length);
-        const volume = Math.min(1, Math.max(0, (rms - 0.015) * 7.5));
-        smoothedVolume = smoothedVolume * 0.58 + volume * 0.42;
+        const volume = Math.min(1, Math.pow(Math.max(0, (rms - 0.006) * 18), 0.72));
+        smoothedVolume = smoothedVolume * 0.36 + volume * 0.64;
         const next = Array.from({ length: waveformBars }, (_value, index) => {
           const center = (waveformBars - 1) / 2;
           const distanceFromCenter = Math.abs(index - center) / center;
-          const centerWeight = 1 - distanceFromCenter * 0.68;
+          const centerWeight = 1 - distanceFromCenter * 0.5;
           const pairIndex = Math.min(index, waveformBars - 1 - index);
           const frequencyPosition = Math.floor((pairIndex / (waveformBars / 2)) * frequencyData.length);
-          const frequencyLevel = Math.min(1, (frequencyData[frequencyPosition] / 255) * 2.2);
-          const ripple = 0.12 * Math.sin(Date.now() / 95 + index * 0.85);
-          const level = smoothedVolume * 1.55 * centerWeight + frequencyLevel * 0.32 + ripple;
-          return Math.max(0.08, Math.min(1, level));
+          const frequencyLevel = Math.min(1, Math.pow(frequencyData[frequencyPosition] / 255, 0.58) * 2.8);
+          const ripple = 0.08 * Math.sin(Date.now() / 80 + index * 0.85);
+          const level = smoothedVolume * 2.25 * centerWeight + frequencyLevel * 0.5 + ripple;
+          return Math.max(0.12, Math.min(1, level));
         });
         setWaveform(next);
         animationFrameRef.current = window.requestAnimationFrame(tick);
@@ -480,27 +480,31 @@ export function VoiceCommand({ endpoint = "/api/voice/command", hint, visible = 
 
   return (
     <section className="panel space-y-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+      <div className="grid gap-2.5">
+        <div className="min-w-0 text-center">
           <h2 className="section-title">{t("voiceCommand")}</h2>
+        </div>
+        <div className="flex justify-center">
+          {status === "recording" ? (
+            <button className="btn min-w-[144px] shrink-0 whitespace-nowrap border border-coral/45 bg-coral/10 px-4 text-coral hover:bg-coral/15" type="button" onClick={stopRecording}>
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-coral text-white">
+                <Square size={13} fill="currentColor" strokeWidth={2.4} />
+              </span>
+              {t("stopRecording")}
+            </button>
+          ) : (
+            <button className="btn btn-primary min-w-[156px] shrink-0 whitespace-nowrap px-4" type="button" disabled={pending} onClick={startRecording}>
+              <Mic size={17} />{t("startRecording")}
+            </button>
+          )}
+        </div>
+        <div className="min-w-0 text-center">
           <p className="muted mt-1">{hint ?? t("voiceCommandHint")}</p>
           <p className="mt-1 text-xs font-semibold text-zinc-500 dark:text-zinc-400">{t("voiceDurationHint")}</p>
         </div>
-        {status === "recording" ? (
-          <button className="btn shrink-0 whitespace-nowrap border border-coral/45 bg-coral/10 px-3 text-coral hover:bg-coral/15" type="button" onClick={stopRecording}>
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-coral text-white">
-              <Square size={13} fill="currentColor" strokeWidth={2.4} />
-            </span>
-            {t("stopRecording")}
-          </button>
-        ) : (
-          <button className="btn btn-primary shrink-0 whitespace-nowrap px-3" type="button" disabled={pending} onClick={startRecording}>
-            <Mic size={17} />{t("startRecording")}
-          </button>
-        )}
       </div>
 
-      {status === "recording" && <p className="text-sm font-semibold text-coral">{t("recording")}</p>}
+      {status === "recording" && <p className="text-center text-sm font-semibold text-coral">{t("recording")}</p>}
       {status === "recording" && (
         <VoiceRecordingVisualizer
           audioVisualizerSupported={audioVisualizerSupported}
@@ -508,9 +512,11 @@ export function VoiceCommand({ endpoint = "/api/voice/command", hint, visible = 
           waveform={waveform}
         />
       )}
-      {status === "uploading" && <p className="text-sm font-semibold text-mint">{t("uploadingVoice")}</p>}
-      <RequestError error={localError ?? voiceCommand.error ?? createEntry.error} />
-      {created && <p className="inline-flex items-center gap-2 text-sm font-bold text-mint"><Check size={16} />{t("voiceCreated")}</p>}
+      {status === "uploading" && <p className="text-center text-sm font-semibold text-mint">{t("uploadingVoice")}</p>}
+      <div className="text-center">
+        <RequestError error={localError ?? voiceCommand.error ?? createEntry.error} />
+      </div>
+      {created && <p className="inline-flex w-full items-center justify-center gap-2 text-center text-sm font-bold text-mint"><Check size={16} />{t("voiceCreated")}</p>}
 
       {result && (
         <div className="grid gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-950">

@@ -31,7 +31,7 @@ export function DateTimeFields({ name = "dateTime", value, defaultValue, onChang
   }
 
   return (
-    <div className="datetime-grid grid grid-cols-[minmax(0,1.15fr)_minmax(96px,0.85fr)] gap-2">
+    <div className="datetime-grid grid w-full min-w-0 grid-cols-[minmax(0,1.15fr)_minmax(96px,0.85fr)] gap-2">
       <input type="hidden" name={name} value={merged} />
       <DateField
         value={date}
@@ -41,7 +41,7 @@ export function DateTimeFields({ name = "dateTime", value, defaultValue, onChang
           update(nextDate, time);
         }}
       />
-      <label className="min-w-0 text-xs font-semibold text-zinc-500">
+      <label className="block w-full min-w-0 text-xs font-semibold text-zinc-500">
         {t("time")}
         <input
           className="input date-input mt-1"

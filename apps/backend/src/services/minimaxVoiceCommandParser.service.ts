@@ -116,6 +116,9 @@ const dryFoodWords = /(сух|dry|pienso seco|croquettes?|trocken|干粮)/i;
 const wetFoodWords = /(влаж|wet|h[uú]med|p[aâ]t[eé]|nass|湿粮)/i;
 const naturalFoodWords = /(натурал|natural|naturel|barf|天然)/i;
 const treatFoodWords = /(лаком|treat|premio|friandise|leckerli|零食)/i;
+const temporalWords = /(сегодня|вчера|завтра|утр|вечер|дн[её]м|ноч|полдень|полночь|\btoday\b|\byesterday\b|\btomorrow\b|\bmorning\b|\bevening\b|\btonight\b|\bnight\b|\bnoon\b|\bmañana\b|\bmanana\b|\bhoy\b|\bayer\b|\btarde\b|\bnoche\b|\bdemain\b|\baujourd'hui\b|\baujourdhui\b|\bhier\b|\bmatin\b|\bsoir\b|\bnuit\b|\bmorgen\b|\bheute\b|\bgestern\b|\babend\b|\bnacht\b|今天|昨天|明天|早上|上午|中午|下午|晚上|夜|凌晨)/i;
+const numericClockWords = /(?:^|[^\p{L}\p{N}])(?:[01]?\d|2[0-3])(?:[:.][0-5]\d|\s*(?:час(?:а|ов)?|ч\b|h\b|am\b|pm\b|点|点钟|时|時))(?:$|[^\p{L}\p{N}])/iu;
+const prepositionClockWords = /(?:^|[^\p{L}\p{N}])(?:в|к|at|around|a\s+las|à|um)\s*(?:[01]?\d|2[0-3])(?:$|[^\p{L}\p{N}])/iu;
 const knownMedicineNames = ["антепсин", "antepsin", "омез", "omez", "энтеросгель", "enterosgel", "смекта", "smecta", "фортифлора", "fortiflora", "сукральфат", "sucralfate"];
 const knownMedicineWords = new RegExp(knownMedicineNames.join("|"), "i");
 const wordNumbers: Record<string, number> = {
@@ -292,6 +295,15 @@ function localIsoDate(value: unknown, fallback: string, timeZone: string) {
   return wallDateTimeToUtc(parts, timeZone).toISOString();
 }
 
+function hasTemporalExpression(transcript: string) {
+  return temporalWords.test(transcript) || numericClockWords.test(transcript) || prepositionClockWords.test(transcript);
+}
+
+function diaryIsoDate(value: unknown, input: { clientNow: string; timezone: string; hasTemporalExpression: boolean }) {
+  if (!input.hasTemporalExpression) return input.clientNow;
+  return localIsoDate(value, input.clientNow, input.timezone);
+}
+
 function reminderIsoDate(value: unknown, clientNow: string, timeZone: string) {
   const parts = wallDateTimeFromValue(value, clientNow, timeZone);
   const now = new Date(clientNow);
@@ -402,6 +414,7 @@ function normalizeParsedCommand(value: unknown, input: { clientNow: string; time
   const intent = normalizeIntent(rawIntent, input.transcript);
   const rawDraft = asRecord(record.draft);
   const warnings = Array.isArray(record.warnings) ? record.warnings.filter((item): item is string => typeof item === "string") : [];
+  const hasDiaryTemporalExpression = hasTemporalExpression(input.transcript);
   if (intent !== rawIntent) warnings.push("intent_corrected_by_backend_rules");
   const normalized = {
     intent,
@@ -431,7 +444,7 @@ function normalizeParsedCommand(value: unknown, input: { clientNow: string; time
       medicineName,
       dosage: typeof rawDraft.dosage === "string" ? rawDraft.dosage : "",
       taken: typeof rawDraft.taken === "boolean" ? rawDraft.taken : true,
-      dateTime: rawDraft.dateTime ?? rawDraft.time ? localIsoDate(rawDraft.dateTime ?? rawDraft.time, input.clientNow, input.timezone) : input.clientNow,
+      dateTime: diaryIsoDate(rawDraft.dateTime ?? rawDraft.time, { ...input, hasTemporalExpression: hasDiaryTemporalExpression }),
       note: typeof rawDraft.note === "string" ? rawDraft.note : null
     };
     return normalized;
@@ -439,7 +452,7 @@ function normalizeParsedCommand(value: unknown, input: { clientNow: string; time
 
   if (intent === "create_feeding_entry") {
     normalized.draft = {
-      dateTime: rawDraft.dateTime ?? rawDraft.time ? localIsoDate(rawDraft.dateTime ?? rawDraft.time, input.clientNow, input.timezone) : input.clientNow,
+      dateTime: diaryIsoDate(rawDraft.dateTime ?? rawDraft.time, { ...input, hasTemporalExpression: hasDiaryTemporalExpression }),
       foodType: foodTypeFor(input.transcript, rawDraft.foodType),
       amount: typeof rawDraft.amount === "string" && rawDraft.amount.trim() ? rawDraft.amount.trim() : "не указано",
       note: noteValue(rawDraft.note)
@@ -449,7 +462,7 @@ function normalizeParsedCommand(value: unknown, input: { clientNow: string; time
 
   if (intent === "create_symptom_entry") {
     normalized.draft = {
-      dateTime: rawDraft.dateTime ?? rawDraft.time ? localIsoDate(rawDraft.dateTime ?? rawDraft.time, input.clientNow, input.timezone) : input.clientNow,
+      dateTime: diaryIsoDate(rawDraft.dateTime ?? rawDraft.time, { ...input, hasTemporalExpression: hasDiaryTemporalExpression }),
       symptomType: symptomTypeFor(input.transcript, rawDraft.symptomType),
       severity: clampSeverity(rawDraft.severity),
       note: noteValue(rawDraft.note) ?? input.transcript
@@ -460,7 +473,7 @@ function normalizeParsedCommand(value: unknown, input: { clientNow: string; time
   if (intent === "create_weight_entry") {
     const weightKg = numberValue(rawDraft.weightKg ?? rawDraft.weight) ?? numberFromTranscript(input.transcript);
     normalized.draft = {
-      date: rawDraft.date ?? rawDraft.dateTime ?? rawDraft.time ? localIsoDate(rawDraft.date ?? rawDraft.dateTime ?? rawDraft.time, input.clientNow, input.timezone) : input.clientNow,
+      date: diaryIsoDate(rawDraft.date ?? rawDraft.dateTime ?? rawDraft.time, { ...input, hasTemporalExpression: hasDiaryTemporalExpression }),
       weightKg: weightKg ?? 0
     };
     return normalized;
@@ -468,7 +481,7 @@ function normalizeParsedCommand(value: unknown, input: { clientNow: string; time
 
   if (intent === "create_note") {
     normalized.draft = {
-      dateTime: rawDraft.dateTime ?? rawDraft.time ? localIsoDate(rawDraft.dateTime ?? rawDraft.time, input.clientNow, input.timezone) : input.clientNow,
+      dateTime: diaryIsoDate(rawDraft.dateTime ?? rawDraft.time, { ...input, hasTemporalExpression: hasDiaryTemporalExpression }),
       note: typeof rawDraft.note === "string" && rawDraft.note.trim()
         ? rawDraft.note.trim()
         : typeof record.note === "string" && record.note.trim()
@@ -515,7 +528,7 @@ function parserSystemPrompt() {
     "- If user says feeding happened, use create_feeding_entry.",
     "- If user says weight was measured, use create_weight_entry.",
     "- If user says vomiting/diarrhea/no appetite/lethargy/pain, use create_symptom_entry unless it is just a general note.",
-    "- If medicine command has no time, use clientNow.",
+    "- For diary entries without an explicit date or time in the transcript, use clientNow.",
     "- If reminder has no date, choose the nearest future time relative to clientNow in the provided timezone.",
     "- If reminder time is ambiguous, add warning or return unknown.",
     "- Preserve user-provided comments in note fields.",

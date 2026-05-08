@@ -203,6 +203,48 @@ const medicineWithoutTime = await parse("дал лекарство антепс�
 assert(medicineWithoutTime.draft.dateTime === "2026-05-07T14:36:00.000Z", "Expected medicine without time to use clientNow.");
 
 mockMiniMax(JSON.stringify({
+  intent: "create_feeding_entry",
+  confidence: 0.9,
+  draft: {
+    dateTime: "2026-05-08T17:28:00.000Z",
+    foodType: "OTHER",
+    amount: "не указано",
+    note: null
+  },
+  warnings: []
+}));
+const feedingWithoutTimeCopiedClientNow = await parse("покормил кота", "ru", {
+  clientNow: "2026-05-08T17:28:00.000Z",
+  timezone: "Europe/Moscow"
+});
+assert(
+  feedingWithoutTimeCopiedClientNow.draft.dateTime === "2026-05-08T17:28:00.000Z",
+  `Expected feeding without time to preserve clientNow instant, got ${feedingWithoutTimeCopiedClientNow.draft.dateTime}`
+);
+assert(
+  localHourMinute(feedingWithoutTimeCopiedClientNow.draft.dateTime, "Europe/Moscow") === "20:28",
+  "Expected feeding without time to display current Moscow local time."
+);
+
+mockMiniMax(JSON.stringify({
+  intent: "create_feeding_entry",
+  confidence: 0.9,
+  draft: {
+    dateTime: "2026-05-08T12:28:00.000Z",
+    foodType: "OTHER",
+    amount: "not specified",
+    note: null
+  },
+  warnings: []
+}));
+const parisFeedingWithoutTime = await parse("fed the cat", "en", {
+  clientNow: "2026-05-08T12:28:00.000Z",
+  timezone: "Europe/Paris"
+});
+assert(parisFeedingWithoutTime.draft.dateTime === "2026-05-08T12:28:00.000Z", "Expected Paris feeding without time to preserve clientNow.");
+assert(localHourMinute(parisFeedingWithoutTime.draft.dateTime, "Europe/Paris") === "14:28", "Expected Paris feeding without time to display client local time.");
+
+mockMiniMax(JSON.stringify({
   intent: "create_symptom_entry",
   confidence: 0.9,
   draft: {

@@ -186,6 +186,39 @@ const feedingAtLocalTime = await parse("покормил влажным корм
 assert(feedingAtLocalTime.draft.dateTime === "2026-05-07T15:00:00.000Z", `Expected feeding 18:00 Moscow to be 15:00Z, got ${feedingAtLocalTime.draft.dateTime}`);
 
 mockMiniMax(JSON.stringify({
+  intent: "create_feeding_entry",
+  confidence: 0.95,
+  draft: {
+    foodType: "OTHER",
+    amount: "не указано",
+    note: null
+  },
+  warnings: []
+}));
+const feedingAtTwelve = await parse("I fed a cat at twelve.", "en", {
+  clientNow: "2026-05-11T10:43:00.000Z",
+  timezone: "Europe/Moscow"
+});
+assert(feedingAtTwelve.draft.dateTime === "2026-05-11T09:00:00.000Z", `Expected feeding at twelve Moscow to be 09:00Z, got ${feedingAtTwelve.draft.dateTime}`);
+assert(localHourMinute(feedingAtTwelve.draft.dateTime, "Europe/Moscow") === "12:00", "Expected feeding at twelve to display 12:00 local.");
+
+mockMiniMax(JSON.stringify({
+  intent: "create_reminder",
+  confidence: 0.95,
+  draft: {
+    type: "FEEDING",
+    title: "Покормить",
+    repeatRule: null
+  },
+  warnings: []
+}));
+const reminderAtSixEvening = await parse("напомни покормить в шесть вечера", "ru", {
+  clientNow: "2026-05-11T10:43:00.000Z",
+  timezone: "Europe/Moscow"
+});
+assert(reminderAtSixEvening.draft.time === "2026-05-11T15:00:00.000Z", `Expected six evening Moscow to be 15:00Z, got ${reminderAtSixEvening.draft.time}`);
+
+mockMiniMax(JSON.stringify({
   intent: "create_medicine_entry",
   confidence: 0.9,
   draft: {

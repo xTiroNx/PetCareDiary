@@ -132,6 +132,9 @@ const wordNumbers: Record<string, number> = {
   seven: 7,
   eight: 8,
   nine: 9,
+  ten: 10,
+  eleven: 11,
+  twelve: 12,
   cero: 0,
   uno: 1,
   una: 1,
@@ -143,6 +146,9 @@ const wordNumbers: Record<string, number> = {
   siete: 7,
   ocho: 8,
   nueve: 9,
+  diez: 10,
+  once: 11,
+  doce: 12,
   zéro: 0,
   un: 1,
   une: 1,
@@ -153,6 +159,9 @@ const wordNumbers: Record<string, number> = {
   sept: 7,
   huit: 8,
   neuf: 9,
+  dix: 10,
+  onze: 11,
+  douze: 12,
   null: 0,
   eins: 1,
   ein: 1,
@@ -164,7 +173,26 @@ const wordNumbers: Record<string, number> = {
   sechs: 6,
   sieben: 7,
   acht: 8,
-  neun: 9
+  neun: 9,
+  zehn: 10,
+  elf: 11,
+  zwölf: 12,
+  zwolf: 12,
+  ноль: 0,
+  один: 1,
+  одна: 1,
+  два: 2,
+  две: 2,
+  три: 3,
+  четыре: 4,
+  пять: 5,
+  шесть: 6,
+  семь: 7,
+  восемь: 8,
+  девять: 9,
+  десять: 10,
+  одиннадцать: 11,
+  двенадцать: 12
 };
 
 function stripThinking(content: string) {
@@ -299,6 +327,55 @@ function hasTemporalExpression(transcript: string) {
   return temporalWords.test(transcript) || numericClockWords.test(transcript) || prepositionClockWords.test(transcript);
 }
 
+function chineseHour(value: string) {
+  const digits: Record<string, number> = { 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
+  if (value === "十") return 10;
+  if (value.startsWith("十")) return 10 + (digits[value[1]] ?? 0);
+  if (value.endsWith("十")) return (digits[value[0]] ?? 0) * 10;
+  if (value.includes("十")) {
+    const [tens, ones] = value.split("十");
+    return (digits[tens] ?? 0) * 10 + (digits[ones] ?? 0);
+  }
+  return digits[value] ?? null;
+}
+
+function normalizeSpokenHour(hour: number, transcript: string) {
+  if (/(pm\b|вечер|вечера|дн[её]м|afternoon|evening|tarde|soir|abend|下午|晚上)/i.test(transcript) && hour >= 1 && hour <= 11) {
+    return hour + 12;
+  }
+  if (/(am\b|ноч|утр|morning|mañana|matin|morgen|上午|早上)/i.test(transcript) && hour === 12) return 0;
+  return hour;
+}
+
+function spokenTimeFromTranscript(transcript: string) {
+  const numeric = transcript.match(/(?:^|[^\p{L}\p{N}])(?:at|around|в|во|к|a\s+las|à|um)\s*(\d{1,2})(?::([0-5]\d))?\s*(am|pm|час(?:а|ов)?|h)?(?:$|[^\p{L}\p{N}])/iu);
+  if (numeric) {
+    const hour = normalizeSpokenHour(Number(numeric[1]), transcript);
+    const minute = numeric[2] ? Number(numeric[2]) : 0;
+    if (hour >= 0 && hour <= 23) return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+  }
+
+  const word = transcript.match(/(?:^|[^\p{L}\p{N}])(?:at|around|в|во|к|a\s+las|à|um)\s+([\p{L}]+)(?:\s+(?:o'clock|час(?:а|ов)?|h))?(?:$|[^\p{L}\p{N}])/iu);
+  if (word) {
+    const rawHour = wordNumbers[word[1].toLowerCase()];
+    if (rawHour !== undefined) {
+      const hour = normalizeSpokenHour(rawHour, transcript);
+      if (hour >= 0 && hour <= 23) return `${String(hour).padStart(2, "0")}:00`;
+    }
+  }
+
+  const chinese = transcript.match(/([一二两三四五六七八九十]{1,3})\s*(?:点|点钟|時|时)/u);
+  if (chinese) {
+    const rawHour = chineseHour(chinese[1]);
+    if (rawHour !== null) {
+      const hour = normalizeSpokenHour(rawHour, transcript);
+      if (hour >= 0 && hour <= 23) return `${String(hour).padStart(2, "0")}:00`;
+    }
+  }
+
+  return null;
+}
+
 function diaryIsoDate(value: unknown, input: { clientNow: string; timezone: string; hasTemporalExpression: boolean }) {
   if (!input.hasTemporalExpression) return input.clientNow;
   return localIsoDate(value, input.clientNow, input.timezone);
@@ -414,7 +491,8 @@ function normalizeParsedCommand(value: unknown, input: { clientNow: string; time
   const intent = normalizeIntent(rawIntent, input.transcript);
   const rawDraft = asRecord(record.draft);
   const warnings = Array.isArray(record.warnings) ? record.warnings.filter((item): item is string => typeof item === "string") : [];
-  const hasDiaryTemporalExpression = hasTemporalExpression(input.transcript);
+  const spokenTime = spokenTimeFromTranscript(input.transcript);
+  const hasDiaryTemporalExpression = Boolean(spokenTime) || hasTemporalExpression(input.transcript);
   if (intent !== rawIntent) warnings.push("intent_corrected_by_backend_rules");
   const normalized = {
     intent,
@@ -428,7 +506,7 @@ function normalizeParsedCommand(value: unknown, input: { clientNow: string; time
     normalized.draft = {
       type: reminderTypeFor(input.transcript, rawDraft.type),
       title: typeof rawDraft.title === "string" && rawDraft.title.trim() ? rawDraft.title.trim() : "Voice reminder",
-      time: reminderIsoDate(rawDraft.time, input.clientNow, input.timezone),
+      time: reminderIsoDate(rawDraft.time ?? spokenTime, input.clientNow, input.timezone),
       repeatRule: ["daily", "weekly", "monthly"].includes(String(rawDraft.repeatRule)) ? rawDraft.repeatRule : null
     };
     return normalized;
@@ -444,7 +522,7 @@ function normalizeParsedCommand(value: unknown, input: { clientNow: string; time
       medicineName,
       dosage: typeof rawDraft.dosage === "string" ? rawDraft.dosage : "",
       taken: typeof rawDraft.taken === "boolean" ? rawDraft.taken : true,
-      dateTime: diaryIsoDate(rawDraft.dateTime ?? rawDraft.time, { ...input, hasTemporalExpression: hasDiaryTemporalExpression }),
+      dateTime: diaryIsoDate(rawDraft.dateTime ?? rawDraft.time ?? spokenTime, { ...input, hasTemporalExpression: hasDiaryTemporalExpression }),
       note: typeof rawDraft.note === "string" ? rawDraft.note : null
     };
     return normalized;
@@ -452,7 +530,7 @@ function normalizeParsedCommand(value: unknown, input: { clientNow: string; time
 
   if (intent === "create_feeding_entry") {
     normalized.draft = {
-      dateTime: diaryIsoDate(rawDraft.dateTime ?? rawDraft.time, { ...input, hasTemporalExpression: hasDiaryTemporalExpression }),
+      dateTime: diaryIsoDate(rawDraft.dateTime ?? rawDraft.time ?? spokenTime, { ...input, hasTemporalExpression: hasDiaryTemporalExpression }),
       foodType: foodTypeFor(input.transcript, rawDraft.foodType),
       amount: typeof rawDraft.amount === "string" && rawDraft.amount.trim() ? rawDraft.amount.trim() : "не указано",
       note: noteValue(rawDraft.note)
@@ -462,7 +540,7 @@ function normalizeParsedCommand(value: unknown, input: { clientNow: string; time
 
   if (intent === "create_symptom_entry") {
     normalized.draft = {
-      dateTime: diaryIsoDate(rawDraft.dateTime ?? rawDraft.time, { ...input, hasTemporalExpression: hasDiaryTemporalExpression }),
+      dateTime: diaryIsoDate(rawDraft.dateTime ?? rawDraft.time ?? spokenTime, { ...input, hasTemporalExpression: hasDiaryTemporalExpression }),
       symptomType: symptomTypeFor(input.transcript, rawDraft.symptomType),
       severity: clampSeverity(rawDraft.severity),
       note: noteValue(rawDraft.note) ?? input.transcript
@@ -473,7 +551,7 @@ function normalizeParsedCommand(value: unknown, input: { clientNow: string; time
   if (intent === "create_weight_entry") {
     const weightKg = numberValue(rawDraft.weightKg ?? rawDraft.weight) ?? numberFromTranscript(input.transcript);
     normalized.draft = {
-      date: diaryIsoDate(rawDraft.date ?? rawDraft.dateTime ?? rawDraft.time, { ...input, hasTemporalExpression: hasDiaryTemporalExpression }),
+      date: diaryIsoDate(rawDraft.date ?? rawDraft.dateTime ?? rawDraft.time ?? spokenTime, { ...input, hasTemporalExpression: hasDiaryTemporalExpression }),
       weightKg: weightKg ?? 0
     };
     return normalized;
@@ -481,7 +559,7 @@ function normalizeParsedCommand(value: unknown, input: { clientNow: string; time
 
   if (intent === "create_note") {
     normalized.draft = {
-      dateTime: diaryIsoDate(rawDraft.dateTime ?? rawDraft.time, { ...input, hasTemporalExpression: hasDiaryTemporalExpression }),
+      dateTime: diaryIsoDate(rawDraft.dateTime ?? rawDraft.time ?? spokenTime, { ...input, hasTemporalExpression: hasDiaryTemporalExpression }),
       note: typeof rawDraft.note === "string" && rawDraft.note.trim()
         ? rawDraft.note.trim()
         : typeof record.note === "string" && record.note.trim()

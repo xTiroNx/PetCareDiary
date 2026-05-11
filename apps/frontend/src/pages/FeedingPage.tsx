@@ -10,7 +10,7 @@ import { RequestError } from "../components/RequestError";
 import { SelectField } from "../components/SelectField";
 import { usePaginatedApi } from "../hooks/usePaginatedApi";
 import { useAppStore } from "../store/appStore";
-import { localDateTimeInputValue } from "../utils/dateTime";
+import { localDateTimeInputToUtcIso, localDateTimeInputValue } from "../utils/dateTime";
 import { languageLocale, useI18n } from "../utils/i18n";
 
 type FeedingEntry = { id: string; dateTime: string; foodType: string; amount: string; note?: string };
@@ -45,7 +45,7 @@ export default function FeedingPage() {
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = Object.fromEntries(new FormData(event.currentTarget));
-    add.mutate({ ...data, petId: pet!.id, dateTime: new Date(String(data.dateTime)).toISOString() });
+    add.mutate({ ...data, petId: pet!.id, dateTime: localDateTimeInputToUtcIso(String(data.dateTime)) });
     event.currentTarget.reset();
   }
 
@@ -66,7 +66,7 @@ export default function FeedingPage() {
       body: {
         ...draft,
         petId: pet!.id,
-        dateTime: new Date(draft.dateTime).toISOString()
+        dateTime: localDateTimeInputToUtcIso(draft.dateTime)
       }
     });
   }

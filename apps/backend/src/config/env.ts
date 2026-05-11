@@ -22,6 +22,7 @@ const envSchema = z.object({
   VOICE_DAILY_LIMIT_PER_USER: z.coerce.number().int().positive().default(20),
   VOICE_ADMIN_DAILY_LIMIT_PER_USER: z.coerce.number().int().positive().optional(),
   VOICE_USER_DAILY_LIMIT_PER_USER: z.coerce.number().int().positive().optional(),
+  VOICE_PARSER_DEBUG_LOGS: z.coerce.boolean().default(false),
   OPENROUTER_API_KEY: z.string().min(1).optional(),
   OPENROUTER_STT_MODEL: z.string().min(1).default("openai/gpt-4o-mini-transcribe"),
   MINIMAX_API_KEY: z.string().min(1).optional(),

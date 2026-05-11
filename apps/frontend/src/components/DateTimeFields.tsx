@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { localDateInputValue, localDateTimeInputValue, localTimeInputValue, mergeLocalDateTime } from "../utils/dateTime";
+import { localDateInputValue, localDateTimeInputValue, localTimeInputValue, mergeLocalDateTime, parseLocalDateTimeInput } from "../utils/dateTime";
 import { useI18n } from "../utils/i18n";
 import { DateField } from "./DateField";
 
@@ -14,12 +14,19 @@ type DateTimeFieldsProps = {
 export function DateTimeFields({ name = "dateTime", value, defaultValue, onChange, required }: DateTimeFieldsProps) {
   const { t } = useI18n();
   const initial = useMemo(() => value || defaultValue || localDateTimeInputValue(), [defaultValue, value]);
-  const [date, setDate] = useState(localDateInputValue(new Date(initial)));
-  const [time, setTime] = useState(localTimeInputValue(new Date(initial)));
+  const initialLocal = parseLocalDateTimeInput(initial);
+  const [date, setDate] = useState(initialLocal?.date ?? localDateInputValue(new Date(initial)));
+  const [time, setTime] = useState(initialLocal?.time ?? localTimeInputValue(new Date(initial)));
   const merged = mergeLocalDateTime(date, time);
 
   useEffect(() => {
     if (!value) return;
+    const local = parseLocalDateTimeInput(value);
+    if (local) {
+      setDate(local.date);
+      setTime(local.time);
+      return;
+    }
     const next = new Date(value);
     setDate(localDateInputValue(next));
     setTime(localTimeInputValue(next));

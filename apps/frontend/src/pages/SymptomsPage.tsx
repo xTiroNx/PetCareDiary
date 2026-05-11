@@ -11,7 +11,7 @@ import { SelectField } from "../components/SelectField";
 import { SeverityScale } from "../components/SeverityScale";
 import { usePaginatedApi } from "../hooks/usePaginatedApi";
 import { useAppStore } from "../store/appStore";
-import { localDateTimeInputValue } from "../utils/dateTime";
+import { localDateTimeInputToUtcIso, localDateTimeInputValue } from "../utils/dateTime";
 import { languageLocale, useI18n } from "../utils/i18n";
 
 type SymptomEntry = { id: string; dateTime: string; symptomType: string; severity: number; note?: string };
@@ -55,7 +55,7 @@ export default function SymptomsPage() {
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = Object.fromEntries(new FormData(event.currentTarget));
-    add.mutate({ ...data, petId: pet!.id, severity: Number(data.severity), dateTime: new Date(String(data.dateTime)).toISOString() });
+    add.mutate({ ...data, petId: pet!.id, severity: Number(data.severity), dateTime: localDateTimeInputToUtcIso(String(data.dateTime)) });
     event.currentTarget.reset();
   }
 
@@ -77,7 +77,7 @@ export default function SymptomsPage() {
         ...draft,
         petId: pet!.id,
         severity: Number(draft.severity),
-        dateTime: new Date(draft.dateTime).toISOString()
+        dateTime: localDateTimeInputToUtcIso(draft.dateTime)
       }
     });
   }

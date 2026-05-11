@@ -9,7 +9,7 @@ import { LoadMore } from "../components/LoadMore";
 import { RequestError } from "../components/RequestError";
 import { usePaginatedApi } from "../hooks/usePaginatedApi";
 import { useAppStore } from "../store/appStore";
-import { localDateTimeInputValue } from "../utils/dateTime";
+import { localDateTimeInputToUtcIso, localDateTimeInputValue } from "../utils/dateTime";
 import { languageLocale, useI18n } from "../utils/i18n";
 
 type NoteEntry = { id: string; dateTime: string; note: string };
@@ -43,7 +43,7 @@ export default function NotePage() {
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = Object.fromEntries(new FormData(event.currentTarget));
-    add.mutate({ ...data, petId: pet!.id, dateTime: new Date(String(data.dateTime)).toISOString() });
+    add.mutate({ ...data, petId: pet!.id, dateTime: localDateTimeInputToUtcIso(String(data.dateTime)) });
     event.currentTarget.reset();
   }
 
@@ -62,7 +62,7 @@ export default function NotePage() {
       body: {
         ...draft,
         petId: pet!.id,
-        dateTime: new Date(draft.dateTime).toISOString()
+        dateTime: localDateTimeInputToUtcIso(draft.dateTime)
       }
     });
   }

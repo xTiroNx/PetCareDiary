@@ -14,6 +14,46 @@ export function localDateTimeInputValue(date = new Date()) {
   return `${localDateInputValue(date)}T${localTimeInputValue(date)}`;
 }
 
+export function parseLocalDateTimeInput(value: string) {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    !Number.isInteger(day) ||
+    !Number.isInteger(hour) ||
+    !Number.isInteger(minute) ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > 31 ||
+    hour < 0 ||
+    hour > 23 ||
+    minute < 0 ||
+    minute > 59
+  ) return null;
+
+  const date = new Date(year, month - 1, day, hour, minute, 0, 0);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+
+  return {
+    date: `${year}-${pad(month)}-${pad(day)}`,
+    time: `${pad(hour)}:${pad(minute)}`,
+    toDate: () => date
+  };
+}
+
+export function localDateTimeInputToUtcIso(value: string) {
+  const parsed = parseLocalDateTimeInput(value);
+  return (parsed?.toDate() ?? new Date(value)).toISOString();
+}
+
 export function utcInstantToLocalDateTimeInput(value: unknown, fallback = localDateTimeInputValue()) {
   if (typeof value !== "string") return fallback;
   const date = new Date(value);

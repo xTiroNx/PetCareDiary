@@ -7,6 +7,7 @@ import { env } from "../config/env.js";
 import { parseVoiceCommandWithMinimax } from "../services/minimaxVoiceCommandParser.service.js";
 import { transcribeAudioWithOpenRouter, type AudioFormat } from "../services/openRouterTranscription.service.js";
 import { HttpError } from "../utils/httpError.js";
+import { isAdminUser } from "../utils/admin.js";
 import { assertPetBelongsToUser } from "../utils/petOwnership.js";
 import { serialize } from "../utils/serialize.js";
 
@@ -134,7 +135,12 @@ export function createVoiceCommandRouter(options: VoiceCommandRouterOptions) {
         transcript,
         clientNow: body.clientNow,
         timezone: body.timezone,
-        locale: body.locale
+        locale: body.locale,
+        debug: {
+          requestId,
+          userId: req.user!.id,
+          logTranscript: isAdminUser(req.user!)
+        }
       });
 
       status = "ok";

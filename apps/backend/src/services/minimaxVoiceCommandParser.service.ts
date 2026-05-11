@@ -116,9 +116,6 @@ const dryFoodWords = /(сух|dry|pienso seco|croquettes?|trocken|干粮)/i;
 const wetFoodWords = /(влаж|wet|h[uú]med|p[aâ]t[eé]|nass|湿粮)/i;
 const naturalFoodWords = /(натурал|natural|naturel|barf|天然)/i;
 const treatFoodWords = /(лаком|treat|premio|friandise|leckerli|零食)/i;
-const temporalWords = /(сегодня|вчера|завтра|утр|вечер|дн[её]м|ноч|полдень|полночь|\btoday\b|\byesterday\b|\btomorrow\b|\bmorning\b|\bevening\b|\btonight\b|\bnight\b|\bnoon\b|\bmañana\b|\bmanana\b|\bhoy\b|\bayer\b|\btarde\b|\bnoche\b|\bdemain\b|\baujourd'hui\b|\baujourdhui\b|\bhier\b|\bmatin\b|\bsoir\b|\bnuit\b|\bmorgen\b|\bheute\b|\bgestern\b|\babend\b|\bnacht\b|今天|昨天|明天|早上|上午|中午|下午|晚上|夜|凌晨)/i;
-const numericClockWords = /(?:^|[^\p{L}\p{N}])(?:[01]?\d|2[0-3])(?:[:.][0-5]\d|\s*(?:час(?:а|ов)?|ч\b|h\b|am\b|pm\b|点|点钟|时|時))(?:$|[^\p{L}\p{N}])/iu;
-const prepositionClockWords = /(?:^|[^\p{L}\p{N}])(?:в|к|at|around|a\s+las|à|um)\s*(?:[01]?\d|2[0-3])(?:$|[^\p{L}\p{N}])/iu;
 const knownMedicineNames = ["антепсин", "antepsin", "омез", "omez", "энтеросгель", "enterosgel", "смекта", "smecta", "фортифлора", "fortiflora", "сукральфат", "sucralfate"];
 const knownMedicineWords = new RegExp(knownMedicineNames.join("|"), "i");
 const wordNumbers: Record<string, number> = {
@@ -220,12 +217,6 @@ function confidence(value: unknown) {
   return Math.max(0, Math.min(1, number > 1 ? number / 100 : number));
 }
 
-function isoDate(value: unknown, fallback: string) {
-  if (typeof value !== "string") return fallback;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? fallback : date.toISOString();
-}
-
 type WallDateTime = {
   year: number;
   month: number;
@@ -318,14 +309,107 @@ function wallDateTimeFromValue(value: unknown, fallback: string, timeZone: strin
   return fallbackParts;
 }
 
-function localIsoDate(value: unknown, fallback: string, timeZone: string) {
-  const parts = wallDateTimeFromValue(value, fallback, timeZone);
-  if (!parts) return isoDate(value, fallback);
-  return wallDateTimeToUtc(parts, timeZone).toISOString();
+function localDateString(value: unknown) {
+  if (typeof value !== "string") return null;
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() + 1 !== month || date.getUTCDate() !== day) return null;
+  return `${match[1]}-${match[2]}-${match[3]}`;
 }
 
-function hasTemporalExpression(transcript: string) {
-  return temporalWords.test(transcript) || numericClockWords.test(transcript) || prepositionClockWords.test(transcript);
+function localTimeString(value: unknown) {
+  if (typeof value !== "string") return null;
+  const match = value.match(/^([01]?\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?$/);
+  if (!match) return null;
+  return `${String(Number(match[1])).padStart(2, "0")}:${match[2]}`;
+}
+
+function rawLocalDate(rawDraft: Record<string, unknown>) {
+  if (rawDraft.hasExplicitDate !== true) return null;
+  const direct = localDateString(rawDraft.localDate);
+  if (direct) return direct;
+  return localDateString(rawDraft.date) ?? localDateString(rawDraft.dateTime) ?? localDateString(rawDraft.time);
+}
+
+function rawLocalTime(rawDraft: Record<string, unknown>) {
+  if (rawDraft.hasExplicitTime !== true) return null;
+  return localTimeString(rawDraft.localTime);
+}
+
+function localDateTimeToUtcIso(input: { localDate?: string | null; localTime?: string | null; clientNow: string; timezone: string }) {
+  const now = new Date(input.clientNow);
+  if (Number.isNaN(now.getTime())) return input.clientNow;
+  const fallbackParts = zonedParts(now, input.timezone);
+  const date = input.localDate?.split("-").map(Number);
+  const time = input.localTime?.split(":").map(Number);
+  const parts: WallDateTime = {
+    year: date?.[0] ?? fallbackParts.year,
+    month: date?.[1] ?? fallbackParts.month,
+    day: date?.[2] ?? fallbackParts.day,
+    hour: time?.[0] ?? fallbackParts.hour,
+    minute: time?.[1] ?? fallbackParts.minute,
+    second: 0,
+    millisecond: 0
+  };
+  return wallDateTimeToUtc(parts, input.timezone).toISOString();
+}
+
+function diaryIsoDateFromTemporal(input: {
+  rawDraft: Record<string, unknown>;
+  clientNow: string;
+  timezone: string;
+  explicitTime: string | null;
+}) {
+  const localDate = rawLocalDate(input.rawDraft);
+  if (input.explicitTime) {
+    return localDateTimeToUtcIso({
+      localDate,
+      localTime: input.explicitTime,
+      clientNow: input.clientNow,
+      timezone: input.timezone
+    });
+  }
+  if (localDate) {
+    return localDateTimeToUtcIso({
+      localDate,
+      clientNow: input.clientNow,
+      timezone: input.timezone
+    });
+  }
+  return input.clientNow;
+}
+
+function reminderIsoDateFromTemporal(input: {
+  rawDraft: Record<string, unknown>;
+  clientNow: string;
+  timezone: string;
+  explicitTime: string | null;
+}) {
+  const now = new Date(input.clientNow);
+  if (Number.isNaN(now.getTime())) return input.clientNow;
+  const localDate = rawLocalDate(input.rawDraft);
+  const localTime = input.explicitTime ?? rawLocalTime(input.rawDraft);
+  let nextParts = wallDateTimeFromValue(localTime, input.clientNow, input.timezone);
+  if (!nextParts) return input.clientNow;
+  if (localDate) {
+    const [year, month, day] = localDate.split("-").map(Number);
+    nextParts = { ...nextParts, year, month, day };
+  }
+
+  let next = wallDateTimeToUtc(nextParts, input.timezone);
+  if (!localDate) {
+    let guard = 0;
+    while (next <= now && guard < 370) {
+      nextParts = addLocalDays(nextParts, 1);
+      next = wallDateTimeToUtc(nextParts, input.timezone);
+      guard += 1;
+    }
+  }
+  return next.toISOString();
 }
 
 function chineseHour(value: string) {
@@ -370,6 +454,24 @@ function latestPastAmbiguousDiaryTime(spokenTime: string | null, input: { client
   return spokenTime;
 }
 
+function nearestFutureAmbiguousReminderTime(spokenTime: string | null, input: { clientNow: string; timezone: string; transcript: string }) {
+  if (!spokenTime || hasExplicitDaypart(input.transcript)) return spokenTime;
+  const [hourRaw, minuteRaw] = spokenTime.split(":");
+  const hour = Number(hourRaw);
+  const minute = Number(minuteRaw);
+  if (!Number.isInteger(hour) || !Number.isInteger(minute) || hour < 1 || hour > 11) return spokenTime;
+
+  const now = new Date(input.clientNow);
+  if (Number.isNaN(now.getTime())) return spokenTime;
+  const nowParts = zonedParts(now, input.timezone);
+  const currentMinutes = nowParts.hour * 60 + nowParts.minute;
+  const morningMinutes = hour * 60 + minute;
+  const afternoonMinutes = (hour + 12) * 60 + minute;
+  if (morningMinutes > currentMinutes) return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+  if (afternoonMinutes > currentMinutes) return `${String(hour + 12).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
 function spokenTimeFromTranscript(transcript: string) {
   const numeric = transcript.match(/(?:^|[^\p{L}\p{N}])(?:at|around|в|во|к|a\s+las|à|um)\s*(\d{1,2})(?::([0-5]\d))?\s*(am|pm|час(?:а|ов)?|h)?(?:$|[^\p{L}\p{N}])/iu);
   if (numeric) {
@@ -387,6 +489,13 @@ function spokenTimeFromTranscript(transcript: string) {
     }
   }
 
+  const chineseNumeric = transcript.match(/(\d{1,2})(?::([0-5]\d))?\s*(?:点|点钟|時|时)/u);
+  if (chineseNumeric) {
+    const hour = normalizeSpokenHour(Number(chineseNumeric[1]), transcript);
+    const minute = chineseNumeric[2] ? Number(chineseNumeric[2]) : 0;
+    if (hour >= 0 && hour <= 23) return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+  }
+
   const chinese = transcript.match(/([一二两三四五六七八九十]{1,3})\s*(?:点|点钟|時|时)/u);
   if (chinese) {
     const rawHour = chineseHour(chinese[1]);
@@ -397,27 +506,6 @@ function spokenTimeFromTranscript(transcript: string) {
   }
 
   return null;
-}
-
-function diaryIsoDate(value: unknown, input: { clientNow: string; timezone: string; hasTemporalExpression: boolean }) {
-  if (!input.hasTemporalExpression) return input.clientNow;
-  return localIsoDate(value, input.clientNow, input.timezone);
-}
-
-function reminderIsoDate(value: unknown, clientNow: string, timeZone: string) {
-  const parts = wallDateTimeFromValue(value, clientNow, timeZone);
-  const now = new Date(clientNow);
-  if (!parts || Number.isNaN(now.getTime())) return isoDate(value, clientNow);
-
-  let nextParts = parts;
-  let next = wallDateTimeToUtc(nextParts, timeZone);
-  let guard = 0;
-  while (next <= now && guard < 370) {
-    nextParts = addLocalDays(nextParts, 1);
-    next = wallDateTimeToUtc(nextParts, timeZone);
-    guard += 1;
-  }
-  return next.toISOString();
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -516,7 +604,9 @@ function normalizeParsedCommand(value: unknown, input: { clientNow: string; time
   const warnings = Array.isArray(record.warnings) ? record.warnings.filter((item): item is string => typeof item === "string") : [];
   const spokenTime = spokenTimeFromTranscript(input.transcript);
   const diarySpokenTime = latestPastAmbiguousDiaryTime(spokenTime, input);
-  const hasDiaryTemporalExpression = Boolean(spokenTime) || hasTemporalExpression(input.transcript);
+  const reminderSpokenTime = nearestFutureAmbiguousReminderTime(spokenTime, input);
+  const explicitDiaryTime = diarySpokenTime ?? rawLocalTime(rawDraft);
+  const explicitReminderTime = reminderSpokenTime ?? rawLocalTime(rawDraft);
   if (intent !== rawIntent) warnings.push("intent_corrected_by_backend_rules");
   const normalized = {
     intent,
@@ -530,7 +620,12 @@ function normalizeParsedCommand(value: unknown, input: { clientNow: string; time
     normalized.draft = {
       type: reminderTypeFor(input.transcript, rawDraft.type),
       title: typeof rawDraft.title === "string" && rawDraft.title.trim() ? rawDraft.title.trim() : "Voice reminder",
-      time: reminderIsoDate(rawDraft.time ?? spokenTime, input.clientNow, input.timezone),
+      time: reminderIsoDateFromTemporal({
+        rawDraft,
+        clientNow: input.clientNow,
+        timezone: input.timezone,
+        explicitTime: explicitReminderTime
+      }),
       repeatRule: ["daily", "weekly", "monthly"].includes(String(rawDraft.repeatRule)) ? rawDraft.repeatRule : null
     };
     return normalized;
@@ -546,7 +641,12 @@ function normalizeParsedCommand(value: unknown, input: { clientNow: string; time
       medicineName,
       dosage: typeof rawDraft.dosage === "string" ? rawDraft.dosage : "",
       taken: typeof rawDraft.taken === "boolean" ? rawDraft.taken : true,
-      dateTime: diaryIsoDate(rawDraft.dateTime ?? rawDraft.time ?? diarySpokenTime, { ...input, hasTemporalExpression: hasDiaryTemporalExpression }),
+      dateTime: diaryIsoDateFromTemporal({
+        rawDraft,
+        clientNow: input.clientNow,
+        timezone: input.timezone,
+        explicitTime: explicitDiaryTime
+      }),
       note: typeof rawDraft.note === "string" ? rawDraft.note : null
     };
     return normalized;
@@ -554,7 +654,12 @@ function normalizeParsedCommand(value: unknown, input: { clientNow: string; time
 
   if (intent === "create_feeding_entry") {
     normalized.draft = {
-      dateTime: diaryIsoDate(rawDraft.dateTime ?? rawDraft.time ?? diarySpokenTime, { ...input, hasTemporalExpression: hasDiaryTemporalExpression }),
+      dateTime: diaryIsoDateFromTemporal({
+        rawDraft,
+        clientNow: input.clientNow,
+        timezone: input.timezone,
+        explicitTime: explicitDiaryTime
+      }),
       foodType: foodTypeFor(input.transcript, rawDraft.foodType),
       amount: typeof rawDraft.amount === "string" && rawDraft.amount.trim() ? rawDraft.amount.trim() : "не указано",
       note: noteValue(rawDraft.note)
@@ -564,7 +669,12 @@ function normalizeParsedCommand(value: unknown, input: { clientNow: string; time
 
   if (intent === "create_symptom_entry") {
     normalized.draft = {
-      dateTime: diaryIsoDate(rawDraft.dateTime ?? rawDraft.time ?? diarySpokenTime, { ...input, hasTemporalExpression: hasDiaryTemporalExpression }),
+      dateTime: diaryIsoDateFromTemporal({
+        rawDraft,
+        clientNow: input.clientNow,
+        timezone: input.timezone,
+        explicitTime: explicitDiaryTime
+      }),
       symptomType: symptomTypeFor(input.transcript, rawDraft.symptomType),
       severity: clampSeverity(rawDraft.severity),
       note: noteValue(rawDraft.note) ?? input.transcript
@@ -575,7 +685,12 @@ function normalizeParsedCommand(value: unknown, input: { clientNow: string; time
   if (intent === "create_weight_entry") {
     const weightKg = numberValue(rawDraft.weightKg ?? rawDraft.weight) ?? numberFromTranscript(input.transcript);
     normalized.draft = {
-      date: diaryIsoDate(rawDraft.date ?? rawDraft.dateTime ?? rawDraft.time ?? diarySpokenTime, { ...input, hasTemporalExpression: hasDiaryTemporalExpression }),
+      date: diaryIsoDateFromTemporal({
+        rawDraft,
+        clientNow: input.clientNow,
+        timezone: input.timezone,
+        explicitTime: explicitDiaryTime
+      }),
       weightKg: weightKg ?? 0
     };
     return normalized;
@@ -583,7 +698,12 @@ function normalizeParsedCommand(value: unknown, input: { clientNow: string; time
 
   if (intent === "create_note") {
     normalized.draft = {
-      dateTime: diaryIsoDate(rawDraft.dateTime ?? rawDraft.time ?? diarySpokenTime, { ...input, hasTemporalExpression: hasDiaryTemporalExpression }),
+      dateTime: diaryIsoDateFromTemporal({
+        rawDraft,
+        clientNow: input.clientNow,
+        timezone: input.timezone,
+        explicitTime: explicitDiaryTime
+      }),
       note: typeof rawDraft.note === "string" && rawDraft.note.trim()
         ? rawDraft.note.trim()
         : typeof record.note === "string" && record.note.trim()
@@ -607,6 +727,52 @@ function fallbackUnknown(warnings: string[]): ParsedVoiceCommand {
   } as ParsedVoiceCommand;
 }
 
+function temporalDraftValue(draft: Record<string, unknown>, key: string) {
+  const value = draft[key];
+  return typeof value === "string" || typeof value === "boolean" || value === null ? value : undefined;
+}
+
+function normalizedTemporalValue(command: { intent?: unknown; draft?: unknown }) {
+  const draft = asRecord(command.draft);
+  if (command.intent === "create_reminder") return temporalDraftValue(draft, "time");
+  if (command.intent === "create_weight_entry") return temporalDraftValue(draft, "date");
+  return temporalDraftValue(draft, "dateTime");
+}
+
+function logVoiceParserTemporalDebug(input: {
+  transcript: string;
+  clientNow: string;
+  timezone: string;
+  debug?: { requestId?: string; userId?: string; logTranscript?: boolean };
+  raw: unknown;
+  normalized: unknown;
+}) {
+  if (!env.VOICE_PARSER_DEBUG_LOGS || !input.debug?.logTranscript) return;
+  const rawRecord = asRecord(input.raw);
+  const rawDraft = asRecord(rawRecord.draft);
+  const normalizedRecord = asRecord(input.normalized);
+  console.info(JSON.stringify({
+    event: "voice_parser_temporal_debug",
+    requestId: input.debug.requestId,
+    userId: input.debug.userId,
+    transcript: input.transcript,
+    timezone: input.timezone,
+    clientNow: input.clientNow,
+    intent: normalizedRecord.intent,
+    target: normalizedRecord.target,
+    rawIntent: rawRecord.intent,
+    rawTarget: rawRecord.target,
+    rawDraftDateTime: temporalDraftValue(rawDraft, "dateTime"),
+    rawDraftTime: temporalDraftValue(rawDraft, "time"),
+    rawDraftDate: temporalDraftValue(rawDraft, "date"),
+    rawDraftLocalDate: temporalDraftValue(rawDraft, "localDate"),
+    rawDraftLocalTime: temporalDraftValue(rawDraft, "localTime"),
+    rawDraftHasExplicitDate: temporalDraftValue(rawDraft, "hasExplicitDate"),
+    rawDraftHasExplicitTime: temporalDraftValue(rawDraft, "hasExplicitTime"),
+    normalizedTemporal: normalizedTemporalValue(normalizedRecord)
+  }));
+}
+
 function parserSystemPrompt() {
   return [
     "You parse short PetCare Diary voice command transcripts into strict JSON only.",
@@ -615,13 +781,18 @@ function parserSystemPrompt() {
     "Always return needsConfirmation outside this parser is true, so do not create database records.",
     "Supported intents: create_reminder, create_feeding_entry, create_medicine_entry, create_symptom_entry, create_weight_entry, create_note, unknown.",
     "Also return target: reminder for create_reminder, diary for diary entries, unknown for unknown.",
-    "For create_reminder draft: type FEEDING/MEDICINE/WEIGHT/VET/OTHER, title, time ISO string, repeatRule null/daily/weekly/monthly.",
-    "For create_feeding_entry draft: dateTime ISO string, foodType DRY/WET/NATURAL/TREAT/OTHER, amount string, note null or string.",
-    "For create_medicine_entry draft: medicineName, dosage, taken, dateTime ISO string, note null or string.",
-    "For create_symptom_entry draft: dateTime ISO string, symptomType VOMITING/YELLOW_VOMIT/NO_APPETITE/DIARRHEA/CONSTIPATION/LETHARGY/PAIN/OTHER, severity 1-5, note null or string.",
-    "For create_weight_entry draft: date ISO string, weightKg number.",
-    "For create_note draft: dateTime ISO string, note.",
+    "For create_reminder draft: type FEEDING/MEDICINE/WEIGHT/VET/OTHER, title, repeatRule null/daily/weekly/monthly, plus localDate YYYY-MM-DD or null, localTime HH:mm or null, hasExplicitDate boolean, hasExplicitTime boolean.",
+    "For create_feeding_entry draft: foodType DRY/WET/NATURAL/TREAT/OTHER, amount string, note null or string, plus localDate/localTime/hasExplicitDate/hasExplicitTime.",
+    "For create_medicine_entry draft: medicineName, dosage, taken, note null or string, plus localDate/localTime/hasExplicitDate/hasExplicitTime.",
+    "For create_symptom_entry draft: symptomType VOMITING/YELLOW_VOMIT/NO_APPETITE/DIARRHEA/CONSTIPATION/LETHARGY/PAIN/OTHER, severity 1-5, note null or string, plus localDate/localTime/hasExplicitDate/hasExplicitTime.",
+    "For create_weight_entry draft: weightKg number, plus localDate/localTime/hasExplicitDate/hasExplicitTime.",
+    "For create_note draft: note, plus localDate/localTime/hasExplicitDate/hasExplicitTime.",
     "Rules:",
+    "- Interpret all dates/times as local wall-clock components in the provided timezone. Do not convert them to UTC yourself.",
+    "- If user says an explicit local time, put only that local wall-clock time in localTime, for example one in the afternoon => 13:00, 18:00 => 18:00.",
+    "- If user says an explicit date or relative day, put the resulting local calendar date in localDate and hasExplicitDate=true.",
+    "- If user does not say an explicit date, set localDate=null and hasExplicitDate=false.",
+    "- If user does not say an explicit time, set localTime=null and hasExplicitTime=false.",
     "- If transcript asks to remind, use create_reminder even when it mentions feeding/medicine/weight.",
     "- Reminder phrases include: remind me, recuérdame/avísame, rappelle-moi/rappel, erinnere mich/Erinnerung, 提醒.",
     "- Explicit note phrases include: note/write note, nota, note, Notiz, 备注. If present, prefer create_note unless it asks to remind.",
@@ -630,7 +801,7 @@ function parserSystemPrompt() {
     "- If user says feeding happened, use create_feeding_entry.",
     "- If user says weight was measured, use create_weight_entry.",
     "- If user says vomiting/diarrhea/no appetite/lethargy/pain, use create_symptom_entry unless it is just a general note.",
-    "- For diary entries without an explicit date or time in the transcript, use clientNow.",
+    "- For diary entries without an explicit date or time in the transcript, leave localDate/localTime null; backend will use clientNow.",
     "- If reminder has no date, choose the nearest future time relative to clientNow in the provided timezone.",
     "- If reminder time is ambiguous, add warning or return unknown.",
     "- Preserve user-provided comments in note fields.",
@@ -669,7 +840,7 @@ function parserSystemPrompt() {
     "体重4.2公斤 => create_weight_entry, target diary",
     "запиши заметку плохо ел утром => create_note, target diary",
     "Return exactly this JSON shape with no Markdown:",
-    "{\"intent\":\"create_reminder|create_feeding_entry|create_medicine_entry|create_symptom_entry|create_weight_entry|create_note|unknown\",\"target\":\"reminder|diary|unknown\",\"confidence\":0.0,\"draft\":{},\"warnings\":[]}"
+    "{\"intent\":\"create_reminder|create_feeding_entry|create_medicine_entry|create_symptom_entry|create_weight_entry|create_note|unknown\",\"target\":\"reminder|diary|unknown\",\"confidence\":0.0,\"draft\":{\"localDate\":null,\"localTime\":null,\"hasExplicitDate\":false,\"hasExplicitTime\":false},\"warnings\":[]}"
   ].join("\n");
 }
 
@@ -678,6 +849,11 @@ export async function parseVoiceCommandWithMinimax(input: {
   clientNow: string;
   timezone: string;
   locale?: string;
+  debug?: {
+    requestId?: string;
+    userId?: string;
+    logTranscript?: boolean;
+  };
 }) {
   if (!env.MINIMAX_API_KEY) {
     throw new HttpError(422, "VOICE_PARSE_FAILED", "MiniMax API key is not configured.");
@@ -721,6 +897,14 @@ export async function parseVoiceCommandWithMinimax(input: {
 
   const json = parseJsonContent(parsedResponse.data.choices[0].message.content);
   const normalizedJson = normalizeParsedCommand(json, { clientNow: input.clientNow, timezone: input.timezone, transcript: input.transcript });
+  logVoiceParserTemporalDebug({
+    transcript: input.transcript,
+    clientNow: input.clientNow,
+    timezone: input.timezone,
+    debug: input.debug,
+    raw: json,
+    normalized: normalizedJson
+  });
   const parsedCommand = parsedCommandSchema.safeParse(normalizedJson);
   if (!parsedCommand.success) {
     if (env.NODE_ENV !== "production") {

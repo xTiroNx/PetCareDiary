@@ -13,7 +13,7 @@ import { SelectField } from "../components/SelectField";
 import { SeverityScale } from "../components/SeverityScale";
 import { usePaginatedApi } from "../hooks/usePaginatedApi";
 import { useAppStore } from "../store/appStore";
-import { localDateInputValue, localDateTimeInputValue } from "../utils/dateTime";
+import { localDateInputValue, localDateTimeInputToUtcIso, localDateTimeInputValue } from "../utils/dateTime";
 import { languageLocale, useI18n } from "../utils/i18n";
 
 type DiaryType = "ALL" | "FEEDING" | "SYMPTOM" | "MEDICINE" | "WEIGHT" | "NOTE";
@@ -222,19 +222,19 @@ export default function DiaryPage() {
   function saveEdit(entry: TimelineEntry) {
     if (!pet) return;
     if (entry.type === "FEEDING") {
-      updateEntry.mutate({ entry, body: { petId: pet.id, dateTime: new Date(String(draft.dateTime)).toISOString(), foodType: draft.foodType, amount: draft.amount, note: draft.note || null } });
+      updateEntry.mutate({ entry, body: { petId: pet.id, dateTime: localDateTimeInputToUtcIso(String(draft.dateTime)), foodType: draft.foodType, amount: draft.amount, note: draft.note || null } });
     }
     if (entry.type === "SYMPTOM") {
-      updateEntry.mutate({ entry, body: { petId: pet.id, dateTime: new Date(String(draft.dateTime)).toISOString(), symptomType: draft.symptomType, severity: Number(draft.severity), note: draft.note || null } });
+      updateEntry.mutate({ entry, body: { petId: pet.id, dateTime: localDateTimeInputToUtcIso(String(draft.dateTime)), symptomType: draft.symptomType, severity: Number(draft.severity), note: draft.note || null } });
     }
     if (entry.type === "MEDICINE") {
-      updateEntry.mutate({ entry, body: { petId: pet.id, dateTime: new Date(String(draft.dateTime)).toISOString(), medicineName: draft.medicineName, dosage: draft.dosage, taken: Boolean(draft.taken), note: draft.note || null } });
+      updateEntry.mutate({ entry, body: { petId: pet.id, dateTime: localDateTimeInputToUtcIso(String(draft.dateTime)), medicineName: draft.medicineName, dosage: draft.dosage, taken: Boolean(draft.taken), note: draft.note || null } });
     }
     if (entry.type === "WEIGHT") {
       updateEntry.mutate({ entry, body: { petId: pet.id, date: new Date(String(draft.date)).toISOString(), weightKg: Number(draft.weightKg) } });
     }
     if (entry.type === "NOTE") {
-      updateEntry.mutate({ entry, body: { petId: pet.id, dateTime: new Date(String(draft.dateTime)).toISOString(), note: draft.note } });
+      updateEntry.mutate({ entry, body: { petId: pet.id, dateTime: localDateTimeInputToUtcIso(String(draft.dateTime)), note: draft.note } });
     }
   }
 

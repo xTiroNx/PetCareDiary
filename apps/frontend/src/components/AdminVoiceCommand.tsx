@@ -3,7 +3,7 @@ import { Check, Mic, RotateCcw, Send, Square, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api, apiFormData, jsonBody } from "../api/client";
 import { useAppStore } from "../store/appStore";
-import { localDateTimeInputValue, utcInstantToLocalDateTimeInput } from "../utils/dateTime";
+import { localDateTimeInputToUtcIso, localDateTimeInputValue, utcInstantToLocalDateTimeInput } from "../utils/dateTime";
 import { useI18n } from "../utils/i18n";
 import { telegramError, telegramSelection, telegramSuccess } from "../utils/telegram";
 import { DateField } from "./DateField";
@@ -253,21 +253,21 @@ export function VoiceCommand({ endpoint = "/api/voice/command", hint, visible = 
         const body = draft as ReminderDraft;
         return api("/api/reminders", {
           method: "POST",
-          body: jsonBody({ ...body, petId: pet.id, time: new Date(body.time).toISOString(), repeatRule: body.repeatRule || null })
+          body: jsonBody({ ...body, petId: pet.id, time: localDateTimeInputToUtcIso(body.time), repeatRule: body.repeatRule || null })
         });
       }
       if (result.target === "diary" && result.intent === "create_feeding_entry") {
         const body = draft as FeedingDraft;
         return api("/api/feeding", {
           method: "POST",
-          body: jsonBody({ ...body, petId: pet.id, dateTime: new Date(body.dateTime).toISOString(), note: body.note || null })
+          body: jsonBody({ ...body, petId: pet.id, dateTime: localDateTimeInputToUtcIso(body.dateTime), note: body.note || null })
         });
       }
       if (result.target === "diary" && result.intent === "create_medicine_entry") {
         const body = draft as MedicineDraft;
         return api("/api/medicines", {
           method: "POST",
-          body: jsonBody({ ...body, petId: pet.id, dateTime: new Date(body.dateTime).toISOString(), note: body.note || null })
+          body: jsonBody({ ...body, petId: pet.id, dateTime: localDateTimeInputToUtcIso(body.dateTime), note: body.note || null })
         });
       }
       if (result.target === "diary" && result.intent === "create_symptom_entry") {
@@ -278,7 +278,7 @@ export function VoiceCommand({ endpoint = "/api/voice/command", hint, visible = 
             ...body,
             petId: pet.id,
             severity: Number(body.severity),
-            dateTime: new Date(body.dateTime).toISOString(),
+            dateTime: localDateTimeInputToUtcIso(body.dateTime),
             note: body.note || null
           })
         });
@@ -294,7 +294,7 @@ export function VoiceCommand({ endpoint = "/api/voice/command", hint, visible = 
         const body = draft as NoteDraft;
         return api("/api/notes", {
           method: "POST",
-          body: jsonBody({ ...body, petId: pet.id, dateTime: new Date(body.dateTime).toISOString() })
+          body: jsonBody({ ...body, petId: pet.id, dateTime: localDateTimeInputToUtcIso(body.dateTime) })
         });
       }
       throw new Error(t("voiceUnknown"));

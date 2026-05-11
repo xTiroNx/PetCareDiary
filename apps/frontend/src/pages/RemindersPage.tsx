@@ -10,7 +10,7 @@ import { RequestError } from "../components/RequestError";
 import { SelectField } from "../components/SelectField";
 import { usePaginatedApi } from "../hooks/usePaginatedApi";
 import { useAppStore } from "../store/appStore";
-import { localDateTimeInputValue } from "../utils/dateTime";
+import { localDateTimeInputToUtcIso, localDateTimeInputValue } from "../utils/dateTime";
 import { languageLocale, useI18n } from "../utils/i18n";
 import { telegramSelection, telegramSuccess } from "../utils/telegram";
 
@@ -66,7 +66,7 @@ export default function RemindersPage() {
     add.mutate({
       ...data,
       petId: pet!.id,
-      time: new Date(String(data.time)).toISOString(),
+      time: localDateTimeInputToUtcIso(String(data.time)),
       repeatRule: data.repeatRule ? String(data.repeatRule) : null
     });
   }
@@ -90,7 +90,7 @@ export default function RemindersPage() {
         petId: pet!.id,
         type: draft.type,
         title: draft.title,
-        time: new Date(String(draft.time)).toISOString(),
+        time: localDateTimeInputToUtcIso(String(draft.time)),
         repeatRule: draft.repeatRule || null,
         active: Boolean(draft.active)
       }

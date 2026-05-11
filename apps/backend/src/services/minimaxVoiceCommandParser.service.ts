@@ -192,7 +192,8 @@ const wordNumbers: Record<string, number> = {
   девять: 9,
   десять: 10,
   одиннадцать: 11,
-  двенадцать: 12
+  двенадцать: 12,
+  час: 1
 };
 
 function stripThinking(content: string) {
@@ -339,12 +340,34 @@ function chineseHour(value: string) {
   return digits[value] ?? null;
 }
 
+function hasExplicitDaypart(transcript: string) {
+  return /(am\b|pm\b|ноч|ночи|утр|вечер|вечера|дн[её]м|дня|morning|afternoon|evening|tonight|mañana|tarde|noche|matin|soir|nuit|morgen|abend|nacht|上午|早上|下午|晚上|夜|凌晨)/i.test(transcript);
+}
+
 function normalizeSpokenHour(hour: number, transcript: string) {
-  if (/(pm\b|вечер|вечера|дн[её]м|afternoon|evening|tarde|soir|abend|下午|晚上)/i.test(transcript) && hour >= 1 && hour <= 11) {
+  if (/(pm\b|вечер|вечера|дн[её]м|дня|afternoon|evening|tarde|soir|abend|下午|晚上)/i.test(transcript) && hour >= 1 && hour <= 11) {
     return hour + 12;
   }
-  if (/(am\b|ноч|утр|morning|mañana|matin|morgen|上午|早上)/i.test(transcript) && hour === 12) return 0;
+  if (/(am\b|ноч|ночи|утр|morning|mañana|matin|morgen|上午|早上)/i.test(transcript) && hour === 12) return 0;
   return hour;
+}
+
+function latestPastAmbiguousDiaryTime(spokenTime: string | null, input: { clientNow: string; timezone: string; transcript: string }) {
+  if (!spokenTime || hasExplicitDaypart(input.transcript)) return spokenTime;
+  const [hourRaw, minuteRaw] = spokenTime.split(":");
+  const hour = Number(hourRaw);
+  const minute = Number(minuteRaw);
+  if (!Number.isInteger(hour) || !Number.isInteger(minute) || hour < 1 || hour > 11) return spokenTime;
+
+  const now = new Date(input.clientNow);
+  if (Number.isNaN(now.getTime())) return spokenTime;
+  const nowParts = zonedParts(now, input.timezone);
+  const currentMinutes = nowParts.hour * 60 + nowParts.minute;
+  const morningMinutes = hour * 60 + minute;
+  const afternoonMinutes = (hour + 12) * 60 + minute;
+  if (afternoonMinutes <= currentMinutes) return `${String(hour + 12).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+  if (morningMinutes <= currentMinutes) return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+  return spokenTime;
 }
 
 function spokenTimeFromTranscript(transcript: string) {
@@ -492,6 +515,7 @@ function normalizeParsedCommand(value: unknown, input: { clientNow: string; time
   const rawDraft = asRecord(record.draft);
   const warnings = Array.isArray(record.warnings) ? record.warnings.filter((item): item is string => typeof item === "string") : [];
   const spokenTime = spokenTimeFromTranscript(input.transcript);
+  const diarySpokenTime = latestPastAmbiguousDiaryTime(spokenTime, input);
   const hasDiaryTemporalExpression = Boolean(spokenTime) || hasTemporalExpression(input.transcript);
   if (intent !== rawIntent) warnings.push("intent_corrected_by_backend_rules");
   const normalized = {
@@ -522,7 +546,7 @@ function normalizeParsedCommand(value: unknown, input: { clientNow: string; time
       medicineName,
       dosage: typeof rawDraft.dosage === "string" ? rawDraft.dosage : "",
       taken: typeof rawDraft.taken === "boolean" ? rawDraft.taken : true,
-      dateTime: diaryIsoDate(rawDraft.dateTime ?? rawDraft.time ?? spokenTime, { ...input, hasTemporalExpression: hasDiaryTemporalExpression }),
+      dateTime: diaryIsoDate(rawDraft.dateTime ?? rawDraft.time ?? diarySpokenTime, { ...input, hasTemporalExpression: hasDiaryTemporalExpression }),
       note: typeof rawDraft.note === "string" ? rawDraft.note : null
     };
     return normalized;
@@ -530,7 +554,7 @@ function normalizeParsedCommand(value: unknown, input: { clientNow: string; time
 
   if (intent === "create_feeding_entry") {
     normalized.draft = {
-      dateTime: diaryIsoDate(rawDraft.dateTime ?? rawDraft.time ?? spokenTime, { ...input, hasTemporalExpression: hasDiaryTemporalExpression }),
+      dateTime: diaryIsoDate(rawDraft.dateTime ?? rawDraft.time ?? diarySpokenTime, { ...input, hasTemporalExpression: hasDiaryTemporalExpression }),
       foodType: foodTypeFor(input.transcript, rawDraft.foodType),
       amount: typeof rawDraft.amount === "string" && rawDraft.amount.trim() ? rawDraft.amount.trim() : "не указано",
       note: noteValue(rawDraft.note)
@@ -540,7 +564,7 @@ function normalizeParsedCommand(value: unknown, input: { clientNow: string; time
 
   if (intent === "create_symptom_entry") {
     normalized.draft = {
-      dateTime: diaryIsoDate(rawDraft.dateTime ?? rawDraft.time ?? spokenTime, { ...input, hasTemporalExpression: hasDiaryTemporalExpression }),
+      dateTime: diaryIsoDate(rawDraft.dateTime ?? rawDraft.time ?? diarySpokenTime, { ...input, hasTemporalExpression: hasDiaryTemporalExpression }),
       symptomType: symptomTypeFor(input.transcript, rawDraft.symptomType),
       severity: clampSeverity(rawDraft.severity),
       note: noteValue(rawDraft.note) ?? input.transcript
@@ -551,7 +575,7 @@ function normalizeParsedCommand(value: unknown, input: { clientNow: string; time
   if (intent === "create_weight_entry") {
     const weightKg = numberValue(rawDraft.weightKg ?? rawDraft.weight) ?? numberFromTranscript(input.transcript);
     normalized.draft = {
-      date: diaryIsoDate(rawDraft.date ?? rawDraft.dateTime ?? rawDraft.time ?? spokenTime, { ...input, hasTemporalExpression: hasDiaryTemporalExpression }),
+      date: diaryIsoDate(rawDraft.date ?? rawDraft.dateTime ?? rawDraft.time ?? diarySpokenTime, { ...input, hasTemporalExpression: hasDiaryTemporalExpression }),
       weightKg: weightKg ?? 0
     };
     return normalized;
@@ -559,7 +583,7 @@ function normalizeParsedCommand(value: unknown, input: { clientNow: string; time
 
   if (intent === "create_note") {
     normalized.draft = {
-      dateTime: diaryIsoDate(rawDraft.dateTime ?? rawDraft.time ?? spokenTime, { ...input, hasTemporalExpression: hasDiaryTemporalExpression }),
+      dateTime: diaryIsoDate(rawDraft.dateTime ?? rawDraft.time ?? diarySpokenTime, { ...input, hasTemporalExpression: hasDiaryTemporalExpression }),
       note: typeof rawDraft.note === "string" && rawDraft.note.trim()
         ? rawDraft.note.trim()
         : typeof record.note === "string" && record.note.trim()

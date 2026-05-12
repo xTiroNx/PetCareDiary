@@ -260,6 +260,150 @@ mockMiniMax(JSON.stringify({
   intent: "create_feeding_entry",
   confidence: 0.96,
   draft: {
+    localDate: null,
+    localTime: "12:15",
+    hasExplicitDate: false,
+    hasExplicitTime: true,
+    foodType: "OTHER",
+    amount: "не указано",
+    note: null
+  },
+  warnings: []
+}));
+const russianQuarterAfterNoon = await parse("Покормил кота в пятнадцать минут первого.", "ru", {
+  clientNow: "2026-05-11T11:49:00.000Z",
+  timezone: "Europe/Moscow"
+});
+assert(russianQuarterAfterNoon.draft.dateTime === "2026-05-11T09:15:00.000Z", `Expected fifteen minutes of first to be 09:15Z, got ${russianQuarterAfterNoon.draft.dateTime}`);
+assert(localHourMinute(russianQuarterAfterNoon.draft.dateTime, "Europe/Moscow") === "12:15", "Expected fifteen minutes of first to display 12:15 local.");
+
+mockMiniMax(JSON.stringify({
+  intent: "create_feeding_entry",
+  confidence: 0.96,
+  draft: {
+    localDate: null,
+    localTime: "12:40",
+    hasExplicitDate: false,
+    hasExplicitTime: true,
+    foodType: "OTHER",
+    amount: "не указано",
+    note: null
+  },
+  warnings: []
+}));
+const russianTwentyToOne = await parse("Покормил кота без двадцати час.", "ru", {
+  clientNow: "2026-05-11T11:49:00.000Z",
+  timezone: "Europe/Moscow"
+});
+assert(russianTwentyToOne.draft.dateTime === "2026-05-11T09:40:00.000Z", `Expected twenty to one to be 09:40Z, got ${russianTwentyToOne.draft.dateTime}`);
+assert(localHourMinute(russianTwentyToOne.draft.dateTime, "Europe/Moscow") === "12:40", "Expected twenty to one to display 12:40 local.");
+
+mockMiniMax(JSON.stringify({
+  intent: "create_reminder",
+  confidence: 0.92,
+  draft: {
+    type: "FEEDING",
+    title: "Feed",
+    localDate: null,
+    localTime: "01:15",
+    hasExplicitDate: false,
+    hasExplicitTime: true,
+    repeatRule: null
+  },
+  warnings: []
+}));
+const englishQuarterPastOneReminder = await parse("remind me to feed at quarter past one", "en", {
+  clientNow: "2026-05-11T09:00:00.000Z",
+  timezone: "Europe/Moscow"
+});
+assert(englishQuarterPastOneReminder.draft.time === "2026-05-11T10:15:00.000Z", `Expected quarter past one reminder to choose 13:15 Moscow, got ${englishQuarterPastOneReminder.draft.time}`);
+assert(localHourMinute(englishQuarterPastOneReminder.draft.time, "Europe/Moscow") === "13:15", "Expected quarter past one reminder to display nearest future 13:15 local.");
+
+mockMiniMax(JSON.stringify({
+  intent: "create_reminder",
+  confidence: 0.92,
+  draft: {
+    type: "FEEDING",
+    title: "Feed",
+    localDate: null,
+    localTime: "12:40",
+    hasExplicitDate: false,
+    hasExplicitTime: true,
+    repeatRule: null
+  },
+  warnings: []
+}));
+const englishTwentyToOneReminder = await parse("remind me to feed at twenty to one", "en", {
+  clientNow: "2026-05-11T09:00:00.000Z",
+  timezone: "Europe/Moscow"
+});
+assert(englishTwentyToOneReminder.draft.time === "2026-05-11T09:40:00.000Z", `Expected twenty to one reminder to choose 12:40 Moscow, got ${englishTwentyToOneReminder.draft.time}`);
+assert(localHourMinute(englishTwentyToOneReminder.draft.time, "Europe/Moscow") === "12:40", "Expected twenty to one reminder to display nearest future 12:40 local.");
+
+mockMiniMax(JSON.stringify({
+  intent: "create_feeding_entry",
+  confidence: 0.92,
+  draft: {
+    localDate: null,
+    localTime: "01:15",
+    hasExplicitDate: false,
+    hasExplicitTime: true,
+    foodType: "OTHER",
+    amount: "no especificado",
+    note: null
+  },
+  warnings: []
+}));
+const spanishQuarterPastOne = await parse("comió a la una y cuarto", "es", {
+  clientNow: "2026-05-11T11:49:00.000Z",
+  timezone: "Europe/Moscow"
+});
+assert(spanishQuarterPastOne.draft.dateTime === "2026-05-11T10:15:00.000Z", `Expected Spanish una y cuarto to choose 13:15 Moscow, got ${spanishQuarterPastOne.draft.dateTime}`);
+
+mockMiniMax(JSON.stringify({
+  intent: "create_feeding_entry",
+  confidence: 0.92,
+  draft: {
+    localDate: null,
+    localTime: "12:40",
+    hasExplicitDate: false,
+    hasExplicitTime: true,
+    foodType: "OTHER",
+    amount: "non spécifié",
+    note: null
+  },
+  warnings: []
+}));
+const frenchTwentyToOne = await parse("a mangé à une heure moins vingt", "fr", {
+  clientNow: "2026-05-11T11:49:00.000Z",
+  timezone: "Europe/Moscow"
+});
+assert(frenchTwentyToOne.draft.dateTime === "2026-05-11T09:40:00.000Z", `Expected French moins vingt to be 12:40 Moscow, got ${frenchTwentyToOne.draft.dateTime}`);
+
+mockMiniMax(JSON.stringify({
+  intent: "create_feeding_entry",
+  confidence: 0.92,
+  draft: {
+    localDate: null,
+    localTime: "01:15",
+    hasExplicitDate: false,
+    hasExplicitTime: true,
+    foodType: "OTHER",
+    amount: "nicht angegeben",
+    note: null
+  },
+  warnings: []
+}));
+const germanQuarterPastOne = await parse("gefüttert um Viertel nach eins", "de", {
+  clientNow: "2026-05-11T11:49:00.000Z",
+  timezone: "Europe/Moscow"
+});
+assert(germanQuarterPastOne.draft.dateTime === "2026-05-11T10:15:00.000Z", `Expected German Viertel nach eins to choose 13:15 Moscow, got ${germanQuarterPastOne.draft.dateTime}`);
+
+mockMiniMax(JSON.stringify({
+  intent: "create_feeding_entry",
+  confidence: 0.96,
+  draft: {
     foodType: "WET",
     amount: "1 пакетик",
     note: null

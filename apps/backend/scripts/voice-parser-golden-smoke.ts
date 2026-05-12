@@ -26,6 +26,8 @@ const clientNow = "2026-05-07T12:00:00.000Z";
 const cases: Case[] = [
   { phrase: "напомни дать антепсин в 17", locale: "ru", expected: { intent: "create_reminder", target: "reminder", draft: { type: "MEDICINE" } } },
   { phrase: "напомни покормить в 5", locale: "ru", expected: { intent: "create_reminder", target: "reminder", draft: { type: "FEEDING" } } },
+  { phrase: "покормил кота в пятнадцать минут первого", locale: "ru", expected: { intent: "create_feeding_entry", target: "diary" } },
+  { phrase: "покормил кота без двадцати час", locale: "ru", expected: { intent: "create_feeding_entry", target: "diary" } },
   { phrase: "дала антепсин", locale: "ru", expected: { intent: "create_medicine_entry", target: "diary", draft: { medicineName: "антепсин" } } },
   { phrase: "покормила влажным кормом", locale: "ru", expected: { intent: "create_feeding_entry", target: "diary", draft: { foodType: "WET" } } },
   { phrase: "сегодня плохо ел", locale: "ru", expected: { intent: "create_symptom_entry", target: "diary", draft: { symptomType: "NO_APPETITE" } } },
@@ -35,6 +37,8 @@ const cases: Case[] = [
 
   { phrase: "remind me to give antepsin at 5", locale: "en", expected: { intent: "create_reminder", target: "reminder", draft: { type: "MEDICINE" } } },
   { phrase: "remind me to feed at 5", locale: "en", expected: { intent: "create_reminder", target: "reminder", draft: { type: "FEEDING" } } },
+  { phrase: "remind me to feed at quarter past one", locale: "en", expected: { intent: "create_reminder", target: "reminder", draft: { type: "FEEDING" } } },
+  { phrase: "remind me to feed at twenty to one", locale: "en", expected: { intent: "create_reminder", target: "reminder", draft: { type: "FEEDING" } } },
   { phrase: "gave antepsin", locale: "en", expected: { intent: "create_medicine_entry", target: "diary", draft: { medicineName: "antepsin" } } },
   { phrase: "fed wet food this morning", locale: "en", expected: { intent: "create_feeding_entry", target: "diary", draft: { foodType: "WET" } } },
   { phrase: "no appetite today", locale: "en", expected: { intent: "create_symptom_entry", target: "diary", draft: { symptomType: "NO_APPETITE" } } },
@@ -43,6 +47,7 @@ const cases: Case[] = [
   { phrase: "write note no appetite in the morning", locale: "en", expected: { intent: "create_note", target: "diary" } },
 
   { phrase: "recuérdame darle medicina a las 17", locale: "es", expected: { intent: "create_reminder", target: "reminder", draft: { type: "MEDICINE" } } },
+  { phrase: "comió a la una y cuarto", locale: "es", expected: { intent: "create_feeding_entry", target: "diary" } },
   { phrase: "di antepsin", locale: "es", expected: { intent: "create_medicine_entry", target: "diary", draft: { medicineName: "antepsin" } } },
   { phrase: "comió comida húmeda por la mañana", locale: "es", expected: { intent: "create_feeding_entry", target: "diary", draft: { foodType: "WET" } } },
   { phrase: "sin apetito hoy", locale: "es", expected: { intent: "create_symptom_entry", target: "diary", draft: { symptomType: "NO_APPETITE" } } },
@@ -51,6 +56,7 @@ const cases: Case[] = [
   { phrase: "nota sin apetito por la mañana", locale: "es", expected: { intent: "create_note", target: "diary" } },
 
   { phrase: "rappelle-moi de donner le médicament à 17h", locale: "fr", expected: { intent: "create_reminder", target: "reminder", draft: { type: "MEDICINE" } } },
+  { phrase: "a mangé à une heure moins vingt", locale: "fr", expected: { intent: "create_feeding_entry", target: "diary" } },
   { phrase: "médicament donné antepsin", locale: "fr", expected: { intent: "create_medicine_entry", target: "diary", draft: { medicineName: "antepsin" } } },
   { phrase: "a mangé de la pâtée ce matin", locale: "fr", expected: { intent: "create_feeding_entry", target: "diary", draft: { foodType: "WET" } } },
   { phrase: "pas d'appétit aujourd'hui", locale: "fr", expected: { intent: "create_symptom_entry", target: "diary", draft: { symptomType: "NO_APPETITE" } } },
@@ -59,6 +65,7 @@ const cases: Case[] = [
   { phrase: "note pas d'appétit ce matin", locale: "fr", expected: { intent: "create_note", target: "diary" } },
 
   { phrase: "erinnere mich um 17 Uhr an Medikament", locale: "de", expected: { intent: "create_reminder", target: "reminder", draft: { type: "MEDICINE" } } },
+  { phrase: "gefüttert um Viertel nach eins", locale: "de", expected: { intent: "create_feeding_entry", target: "diary" } },
   { phrase: "Antepsin gegeben", locale: "de", expected: { intent: "create_medicine_entry", target: "diary", draft: { medicineName: "antepsin" } } },
   { phrase: "heute Morgen Nassfutter gefressen", locale: "de", expected: { intent: "create_feeding_entry", target: "diary", draft: { foodType: "WET" } } },
   { phrase: "kein Appetit heute", locale: "de", expected: { intent: "create_symptom_entry", target: "diary", draft: { symptomType: "NO_APPETITE" } } },

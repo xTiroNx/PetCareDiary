@@ -603,10 +603,13 @@ function normalizeParsedCommand(value: unknown, input: { clientNow: string; time
   const rawDraft = asRecord(record.draft);
   const warnings = Array.isArray(record.warnings) ? record.warnings.filter((item): item is string => typeof item === "string") : [];
   const spokenTime = spokenTimeFromTranscript(input.transcript);
-  const diarySpokenTime = latestPastAmbiguousDiaryTime(spokenTime, input);
-  const reminderSpokenTime = nearestFutureAmbiguousReminderTime(spokenTime, input);
-  const explicitDiaryTime = diarySpokenTime ?? rawLocalTime(rawDraft);
-  const explicitReminderTime = reminderSpokenTime ?? rawLocalTime(rawDraft);
+  const modelLocalTime = rawLocalTime(rawDraft);
+  const explicitDiaryTime = modelLocalTime
+    ? latestPastAmbiguousDiaryTime(modelLocalTime, input)
+    : latestPastAmbiguousDiaryTime(spokenTime, input);
+  const explicitReminderTime = modelLocalTime
+    ? nearestFutureAmbiguousReminderTime(modelLocalTime, input)
+    : nearestFutureAmbiguousReminderTime(spokenTime, input);
   if (intent !== rawIntent) warnings.push("intent_corrected_by_backend_rules");
   const normalized = {
     intent,
@@ -790,6 +793,13 @@ function parserSystemPrompt() {
     "Rules:",
     "- Interpret all dates/times as local wall-clock components in the provided timezone. Do not convert them to UTC yourself.",
     "- If user says an explicit local time, put only that local wall-clock time in localTime, for example one in the afternoon => 13:00, 18:00 => 18:00.",
+    "- You are responsible for normalizing conversational time expressions across supported languages into localTime HH:mm.",
+    "- Russian examples: пятнадцать минут первого => 12:15, без двадцати час => 12:40, полвторого => 13:30.",
+    "- English examples: quarter past one => 01:15 or 13:15 by context, twenty to one => 00:40 or 12:40 by context, half past two => 02:30 or 14:30 by context.",
+    "- Spanish examples: una y cuarto => 01:15 or 13:15 by context, una menos veinte => 00:40 or 12:40 by context, dos y media => 02:30 or 14:30 by context.",
+    "- French examples: une heure et quart => 01:15 or 13:15 by context, une heure moins vingt => 00:40 or 12:40 by context, deux heures et demie => 02:30 or 14:30 by context.",
+    "- German examples: Viertel nach eins => 01:15 or 13:15 by context, zwanzig vor eins => 00:40 or 12:40 by context, halb zwei => 01:30 or 13:30 by context.",
+    "- Chinese examples: 一点一刻 => 01:15 or 13:15 by context, 差二十点一点 => 00:40 or 12:40 by context, 两点半 => 02:30 or 14:30 by context.",
     "- If user says an explicit date or relative day, put the resulting local calendar date in localDate and hasExplicitDate=true.",
     "- If user does not say an explicit date, set localDate=null and hasExplicitDate=false.",
     "- If user does not say an explicit time, set localTime=null and hasExplicitTime=false.",
@@ -808,11 +818,19 @@ function parserSystemPrompt() {
     "- For unknown or unsafe medical advice requests, return intent unknown.",
     "Examples:",
     "напомни покормить в 5 => create_reminder, target reminder, type FEEDING",
+    "покормил кота в пятнадцать минут первого => create_feeding_entry, target diary, localTime 12:15",
+    "покормил кота без двадцати час => create_feeding_entry, target diary, localTime 12:40",
     "remind me to feed at 5 => create_reminder, target reminder, type FEEDING",
+    "remind me to feed at quarter past one => create_reminder, target reminder, type FEEDING, localTime 01:15 or 13:15 by context",
+    "fed the cat at twenty to one => create_feeding_entry, target diary, localTime 00:40 or 12:40 by context",
     "recuérdame darle medicina a las 5 => create_reminder, target reminder, type MEDICINE",
+    "comió a la una y cuarto => create_feeding_entry, target diary, localTime 01:15 or 13:15 by context",
     "rappelle-moi de le nourrir à 17h => create_reminder, target reminder, type FEEDING",
+    "a mangé à une heure moins vingt => create_feeding_entry, target diary, localTime 00:40 or 12:40 by context",
     "erinnere mich um 5 ans Füttern => create_reminder, target reminder, type FEEDING",
+    "gefüttert um Viertel nach eins => create_feeding_entry, target diary, localTime 01:15 or 13:15 by context",
     "提醒我五点喂食 => create_reminder, target reminder, type FEEDING",
+    "一点一刻喂了猫 => create_feeding_entry, target diary, localTime 01:15 or 13:15 by context",
     "покормил влажным кормом утром => create_feeding_entry, target diary",
     "fed wet food this morning => create_feeding_entry, target diary",
     "comió comida húmeda por la mañana => create_feeding_entry, target diary",

@@ -4,6 +4,7 @@ import type { Request } from "express";
 import multer from "multer";
 import { z } from "zod";
 import { env } from "../config/env.js";
+import { trackAnalyticsEvent } from "../services/analytics.service.js";
 import { parseVoiceCommandWithMinimax } from "../services/minimaxVoiceCommandParser.service.js";
 import { transcribeAudioWithOpenRouter, type AudioFormat } from "../services/openRouterTranscription.service.js";
 import { HttpError } from "../utils/httpError.js";
@@ -141,6 +142,12 @@ export function createVoiceCommandRouter(options: VoiceCommandRouterOptions) {
           userId: req.user!.id,
           logTranscript: isAdminUser(req.user!)
         }
+      });
+      await trackAnalyticsEvent({
+        userId: req.user!.id,
+        event: "voice_draft_created",
+        languageCode: body.locale,
+        metadata: { petId: body.petId, intent: parsed.intent, target: parsed.target, warnings: parsed.warnings }
       });
 
       status = "ok";

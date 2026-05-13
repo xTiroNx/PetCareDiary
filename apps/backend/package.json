@@ -13,6 +13,7 @@
     "voice:parser-smoke": "tsx scripts/voice-parser-smoke.ts",
     "voice:golden-smoke": "tsx scripts/voice-parser-golden-smoke.ts",
     "voice:endpoint-smoke": "tsx scripts/voice-endpoint-smoke.ts",
+    "report:pdf-smoke": "tsx scripts/report-pdf-smoke.ts",
     "lint": "tsc -p tsconfig.json --noEmit",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

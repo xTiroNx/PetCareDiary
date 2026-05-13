@@ -273,5 +273,44 @@ export async function demoApi<T>(path: string, options: RequestInit = {}): Promi
     return { invoiceLink: "https://t.me/$demo-invoice", amountStars: amounts[String(body.productType)] ?? 199 } as T;
   }
 
+  if (path === "/api/analytics/event") {
+    return { ok: true } as T;
+  }
+
+  if (path.startsWith("/api/admin/analytics/summary")) {
+    return {
+      period: new URL(path, "http://demo.local").searchParams.get("period") ?? "30d",
+      from: new Date(Date.now() - 30 * 86400000).toISOString(),
+      to: new Date().toISOString(),
+      totals: { users: 50, usersWithPets: 20, usersWithEntries: 8, activePaidUsers: 0, paymentsCount: 0, paymentsStars: 0 },
+      funnel: [
+        { key: "app_opened", label: "Opened app", count: 50, conversionFromPrevious: null },
+        { key: "pet_created", label: "Created pet", count: 20, conversionFromPrevious: 40 },
+        { key: "first_entry_created", label: "Created first entry", count: 8, conversionFromPrevious: 40 },
+        { key: "paywall_opened", label: "Opened paywall", count: 3, conversionFromPrevious: 37.5 },
+        { key: "invoice_opened", label: "Opened invoice", count: 1, conversionFromPrevious: 33.3 },
+        { key: "payment_success", label: "Paid", count: 0, conversionFromPrevious: 0 }
+      ],
+      eventsByDay: [{ date: new Date().toISOString().slice(0, 10), app_opened: 10, pet_created: 4, first_entry_created: 2, paywall_opened: 1, payment_success: 0 }],
+      topEvents: [{ event: "app_opened", count: 50 }, { event: "pet_created", count: 20 }],
+      breakdowns: {
+        languages: [{ languageCode: "ru", users: 30, appOpened: 30, petCreated: 12, firstEntryCreated: 5, paywallOpened: 2, invoiceOpened: 0, paymentSuccess: 0, petConversion: 40, firstEntryConversion: 16.7, paymentConversion: 0 }],
+        platforms: [{ platform: "ios", users: 20, petCreated: 8, firstEntryCreated: 3, paymentSuccess: 0, petConversion: 40 }],
+        sources: [
+          { source: "aff_en", startParam: "aff_en", users: 20, petCreated: 1, firstEntryCreated: 1, paywallOpened: 0, invoiceOpened: 0, paymentSuccess: 0, petConversion: 5, paymentConversion: 0 },
+          { source: "aff_ru", startParam: "aff_ru", users: 10, petCreated: 6, firstEntryCreated: 3, paywallOpened: 1, invoiceOpened: 0, paymentSuccess: 0, petConversion: 60, paymentConversion: 0 }
+        ]
+      }
+    } as T;
+  }
+
+  if (path.startsWith("/api/admin/analytics/events")) {
+    return {
+      events: [
+        { createdAt: new Date().toISOString(), event: "app_opened", userId: "demo-user", telegramId: "777000001", languageCode: "ru", platform: "ios", startParam: "aff_ru", source: "aff_ru", metadata: { path: "/" } }
+      ]
+    } as T;
+  }
+
   throw new Error(`Demo API route is not implemented: ${method} ${path}`);
 }

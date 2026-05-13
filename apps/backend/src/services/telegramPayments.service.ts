@@ -1,6 +1,7 @@
 import { nanoid } from "nanoid";
 import { env } from "../config/env.js";
 import { prisma } from "../prisma/client.js";
+import { trackAnalyticsEvent } from "./analytics.service.js";
 import { HttpError } from "../utils/httpError.js";
 
 export type CheckoutProductType = "MONTHLY" | "SIX_MONTHS" | "YEARLY";
@@ -212,6 +213,18 @@ export async function grantAccessForSuccessfulPayment(paymentUpdate: {
       : { lifetimeAccess: true };
     await tx.user.update({ where: { id: payment.userId }, data: userUpdate });
     return tx.payment.findUniqueOrThrow({ where: { id: payment.id } });
+  });
+
+  await trackAnalyticsEvent({
+    userId: payment.userId,
+    telegramId: payment.user.telegramId,
+    event: "payment_success",
+    metadata: {
+      paymentId: paidPayment.id,
+      productType: payment.productType,
+      amountStars: payment.amountStars,
+      currency: payment.currency
+    }
   });
 
   return paidPayment;

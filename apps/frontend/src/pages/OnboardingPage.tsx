@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { PawPrint } from "lucide-react";
-import { FormEvent } from "react";
+import { FormEvent, useEffect } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { api, jsonBody } from "../api/client";
 import type { Pet } from "../api/types";
@@ -8,6 +8,7 @@ import { MedicalDisclaimer } from "../components/MedicalDisclaimer";
 import { SelectField } from "../components/SelectField";
 import { useAppStore } from "../store/appStore";
 import { useI18n } from "../utils/i18n";
+import { trackEvent } from "../utils/telegramAnalytics";
 
 export default function OnboardingPage() {
   const { t } = useI18n();
@@ -24,9 +25,14 @@ export default function OnboardingPage() {
     }
   });
 
+  useEffect(() => {
+    if (!pet || isAddingPet) trackEvent("onboarding_started", { isAddingPet });
+  }, [isAddingPet, pet]);
+
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = Object.fromEntries(new FormData(event.currentTarget));
+    trackEvent("pet_create_clicked", { type: String(data.type ?? "") });
     createPet.mutate({
       ...data,
       weightKg: data.weightKg ? data.weightKg : null,

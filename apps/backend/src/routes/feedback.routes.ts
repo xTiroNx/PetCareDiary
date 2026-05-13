@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../prisma/client.js";
+import { trackAnalyticsEvent } from "../services/analytics.service.js";
 import { sendFeedbackNotification } from "../services/feedbackNotification.service.js";
 import { getAccessStatus } from "../utils/access.js";
 import { serialize } from "../utils/serialize.js";
@@ -28,6 +29,11 @@ router.post("/", async (req, res, next) => {
         page: body.page,
         accessStatus
       }
+    });
+    await trackAnalyticsEvent({
+      userId: user.id,
+      event: "feedback_sent",
+      metadata: { feedbackId: feedback.id, page: body.page, accessStatus }
     });
 
     try {

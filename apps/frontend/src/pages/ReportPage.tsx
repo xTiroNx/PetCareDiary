@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Download } from "lucide-react";
 import { api, apiBlob } from "../api/client";
 import { SelectField } from "../components/SelectField";
 import { useAppStore } from "../store/appStore";
 import { useI18n } from "../utils/i18n";
+import { trackEvent } from "../utils/telegramAnalytics";
 
 type StructuredReport = {
   petName: string;
@@ -14,16 +15,44 @@ type StructuredReport = {
 type ExportStatus = { usedToday: number; limit: number; remaining: number };
 type ReportPeriod = "7" | "14" | "30" | "all";
 
+function getDeviceTimeZone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch {
+    return "UTC";
+  }
+}
+
+function reportSearchParams({ petId, period, timezone, locale }: { petId: string; period: ReportPeriod; timezone: string; locale: string }) {
+  const params = new URLSearchParams();
+  params.set("petId", petId);
+  params.set("period", period);
+  params.set("timezone", timezone);
+  params.set("locale", locale);
+  return params;
+}
+
 export default function ReportPage() {
-  const { t } = useI18n();
+  const { language, t } = useI18n();
   const pet = useAppStore((state) => state.pet);
   const [period, setPeriod] = useState<ReportPeriod>("7");
   const [message, setMessage] = useState("");
   const queryClient = useQueryClient();
-  const report = useQuery({ queryKey: ["report", pet?.id, period], queryFn: () => api<StructuredReport>(`/api/reports/summary?petId=${pet!.id}&period=${period}`), enabled: Boolean(pet) });
+  const timezone = getDeviceTimeZone();
+  const locale = language;
+  const report = useQuery({
+    queryKey: ["report", pet?.id, period, timezone, locale],
+    queryFn: () => api<StructuredReport>(`/api/reports/summary?${reportSearchParams({ petId: pet!.id, period, timezone, locale })}`),
+    enabled: Boolean(pet)
+  });
+
+  useEffect(() => {
+    if (!pet) return;
+    trackEvent("report_preview_opened", { period });
+  }, [pet, period]);
   const exportStatus = useQuery({ queryKey: ["report-export-status"], queryFn: () => api<ExportStatus>("/api/reports/exports/status"), enabled: Boolean(pet) });
   const exportPdf = useMutation({
-    mutationFn: () => apiBlob(`/api/reports/summary.pdf?petId=${pet!.id}&period=${period}`),
+    mutationFn: () => apiBlob(`/api/reports/summary.pdf?${reportSearchParams({ petId: pet!.id, period, timezone, locale })}`),
     onSuccess: async (blob) => {
       const filename = `petcare-report-${period === "all" ? "all" : `${period}d`}.pdf`;
       const file = new File([blob], filename, { type: "application/pdf" });

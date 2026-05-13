@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../prisma/client.js";
+import { trackAnalyticsEvent } from "../services/analytics.service.js";
 import { HttpError } from "../utils/httpError.js";
 import { serialize } from "../utils/serialize.js";
 import { idParamSchema } from "../utils/validation.js";
@@ -32,6 +33,11 @@ router.post("/", async (req, res, next) => {
   try {
     const data = petSchema.parse(req.body);
     const pet = await prisma.pet.create({ data: { ...data, userId: req.user!.id } });
+    await trackAnalyticsEvent({
+      userId: req.user!.id,
+      event: "pet_created",
+      metadata: { petId: pet.id, petType: pet.type }
+    });
     res.status(201).json(serialize(pet));
   } catch (error) {
     next(error);

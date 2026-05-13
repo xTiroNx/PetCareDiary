@@ -61,8 +61,13 @@ model User {
   firstName      String?
   lastName       String?
   languageCode   String?
+  platform       String?
+  firstStartParam String?
+  lastStartParam  String?
+  source          String?
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
+  lastSeenAt      DateTime?
   trialStartedAt DateTime
   trialEndsAt    DateTime
   accessUntil    DateTime?
@@ -77,6 +82,7 @@ model User {
   reminders      Reminder[]
   payments       Payment[]
   feedback        Feedback[]
+  analyticsEvents AnalyticsEvent[]
 }
 
 model Pet {
@@ -233,5 +239,28 @@ model Feedback {
   user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+  @@index([createdAt])
+}
+
+model AnalyticsEvent {
+  id           String   @id @default(cuid())
+  userId       String?
+  telegramId   BigInt?
+  event        String
+  languageCode String?
+  platform     String?
+  startParam   String?
+  source       String?
+  metadata     Json?
+  createdAt    DateTime @default(now())
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([event, createdAt])
+  @@index([userId, createdAt])
+  @@index([telegramId, createdAt])
+  @@index([languageCode, createdAt])
+  @@index([platform, createdAt])
+  @@index([startParam, createdAt])
+  @@index([source, createdAt])
   @@index([createdAt])
 }

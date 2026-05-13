@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../prisma/client.js";
+import { hasAnyDiaryEntry, trackAnalyticsEvent, type AnalyticsEventName } from "../services/analytics.service.js";
 import { HttpError } from "../utils/httpError.js";
 import { assertPetBelongsToUser } from "../utils/petOwnership.js";
 import { serialize } from "../utils/serialize.js";
@@ -80,6 +81,13 @@ function pageResponse<T>(items: T[], query: z.infer<typeof rangeQuery>) {
   };
 }
 
+async function trackEntryCreated(userId: string, event: AnalyticsEventName, metadata: Record<string, unknown>, hadAnyEntry: boolean) {
+  await trackAnalyticsEvent({ userId, event, metadata });
+  if (!hadAnyEntry) {
+    await trackAnalyticsEvent({ userId, event: "first_entry_created", metadata });
+  }
+}
+
 router.get("/feeding", async (req, res, next) => {
   try {
     const query = rangeQuery.parse(req.query);
@@ -99,7 +107,9 @@ router.post("/feeding", async (req, res, next) => {
   try {
     const body = feedingBodySchema.parse(req.body);
     await assertPetBelongsToUser(body.petId, req.user!.id);
+    const hadAnyEntry = await hasAnyDiaryEntry(req.user!.id);
     const entry = await prisma.feedingEntry.create({ data: { ...body, userId: req.user!.id } });
+    await trackEntryCreated(req.user!.id, "feeding_created", { petId: body.petId, entryId: entry.id, foodType: entry.foodType }, hadAnyEntry);
     res.status(201).json(serialize(entry));
   } catch (error) {
     next(error);
@@ -149,7 +159,9 @@ router.post("/symptoms", async (req, res, next) => {
   try {
     const body = symptomBodySchema.parse(req.body);
     await assertPetBelongsToUser(body.petId, req.user!.id);
+    const hadAnyEntry = await hasAnyDiaryEntry(req.user!.id);
     const entry = await prisma.symptomEntry.create({ data: { ...body, userId: req.user!.id } });
+    await trackEntryCreated(req.user!.id, "symptom_created", { petId: body.petId, entryId: entry.id, symptomType: entry.symptomType, severity: entry.severity }, hadAnyEntry);
     res.status(201).json(serialize(entry));
   } catch (error) {
     next(error);
@@ -215,7 +227,9 @@ router.post("/medicines", async (req, res, next) => {
   try {
     const body = medicineBodySchema.parse(req.body);
     await assertPetBelongsToUser(body.petId, req.user!.id);
+    const hadAnyEntry = await hasAnyDiaryEntry(req.user!.id);
     const entry = await prisma.medicineEntry.create({ data: { ...body, userId: req.user!.id } });
+    await trackEntryCreated(req.user!.id, "medicine_created", { petId: body.petId, entryId: entry.id, taken: entry.taken }, hadAnyEntry);
     res.status(201).json(serialize(entry));
   } catch (error) {
     next(error);
@@ -277,7 +291,9 @@ router.post("/weights", async (req, res, next) => {
   try {
     const body = weightBodySchema.parse(req.body);
     await assertPetBelongsToUser(body.petId, req.user!.id);
+    const hadAnyEntry = await hasAnyDiaryEntry(req.user!.id);
     const entry = await prisma.weightEntry.create({ data: { ...body, userId: req.user!.id, weightKg: new Prisma.Decimal(body.weightKg) } });
+    await trackEntryCreated(req.user!.id, "weight_created", { petId: body.petId, entryId: entry.id }, hadAnyEntry);
     res.status(201).json(serialize(entry));
   } catch (error) {
     next(error);
@@ -327,7 +343,9 @@ router.post("/notes", async (req, res, next) => {
   try {
     const body = noteBodySchema.parse(req.body);
     await assertPetBelongsToUser(body.petId, req.user!.id);
+    const hadAnyEntry = await hasAnyDiaryEntry(req.user!.id);
     const entry = await prisma.noteEntry.create({ data: { ...body, userId: req.user!.id } });
+    await trackEntryCreated(req.user!.id, "note_created", { petId: body.petId, entryId: entry.id }, hadAnyEntry);
     res.status(201).json(serialize(entry));
   } catch (error) {
     next(error);

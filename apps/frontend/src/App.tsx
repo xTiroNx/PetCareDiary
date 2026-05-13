@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { ChangelogModal, changelogSeenKey, openChangelogEvent } from "./components/ChangelogModal";
 import { Layout } from "./components/Layout";
@@ -19,9 +19,11 @@ import SymptomsPage from "./pages/SymptomsPage";
 import WeightPage from "./pages/WeightPage";
 import { useI18n } from "./utils/i18n";
 import { hideTelegramBackButton } from "./utils/telegram";
+import { trackEvent } from "./utils/telegramAnalytics";
 
 const freeRoutes = new Set(["/paywall", "/profile", "/admin"]);
 const routesWithoutPet = new Set(["/onboarding", "/paywall", "/profile", "/admin"]);
+const appOpenedSessionKey = "petcare-analytics-app-opened";
 
 function hasSeenChangelog() {
   try {
@@ -56,10 +58,24 @@ export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const [changelogOpen, setChangelogOpen] = useState(false);
+  const appOpenedTrackedRef = useRef(false);
 
   useEffect(() => {
     auth.mutate();
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    if (appOpenedTrackedRef.current) return;
+    try {
+      if (sessionStorage.getItem(appOpenedSessionKey) === "1") return;
+      sessionStorage.setItem(appOpenedSessionKey, "1");
+    } catch {
+      // Restricted WebViews may deny sessionStorage; analytics still stays non-blocking.
+    }
+    appOpenedTrackedRef.current = true;
+    trackEvent("app_opened", { path: location.pathname });
+  }, [user, location.pathname]);
 
   useEffect(() => {
     if (!user) return;

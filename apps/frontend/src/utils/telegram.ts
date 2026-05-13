@@ -3,6 +3,12 @@ declare global {
     Telegram?: {
       WebApp?: {
         initData: string;
+        initDataUnsafe?: {
+          start_param?: string;
+          user?: {
+            language_code?: string;
+          };
+        };
         version?: string;
         platform?: string;
         isFullscreen?: boolean;

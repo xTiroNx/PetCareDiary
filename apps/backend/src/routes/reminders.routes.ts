@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../prisma/client.js";
+import { trackAnalyticsEvent } from "../services/analytics.service.js";
 import { HttpError } from "../utils/httpError.js";
 import { assertPetBelongsToUser } from "../utils/petOwnership.js";
 import { serialize } from "../utils/serialize.js";
@@ -55,6 +56,11 @@ router.post("/", async (req, res, next) => {
     const body = reminderSchema.parse(req.body);
     await assertPetBelongsToUser(body.petId, req.user!.id);
     const reminder = await prisma.reminder.create({ data: { ...body, repeatRule: body.repeatRule || null, userId: req.user!.id } });
+    await trackAnalyticsEvent({
+      userId: req.user!.id,
+      event: "reminder_created",
+      metadata: { petId: body.petId, reminderId: reminder.id, type: reminder.type, repeatRule: reminder.repeatRule }
+    });
     res.status(201).json(serialize(reminder));
   } catch (error) {
     next(error);

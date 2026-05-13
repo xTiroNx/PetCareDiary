@@ -5,6 +5,8 @@ import { FeedbackForm } from "../components/FeedbackForm";
 import { openTelegramInvoice } from "../utils/telegram";
 import { useAuth } from "../hooks/useAuth";
 import { useI18n } from "../utils/i18n";
+import { trackEvent } from "../utils/telegramAnalytics";
+import { useEffect } from "react";
 
 type InvoiceResponse = { invoiceLink: string; amountStars: number };
 type ProductType = "MONTHLY" | "SIX_MONTHS" | "YEARLY";
@@ -20,8 +22,14 @@ export default function PaywallPage() {
   const auth = useAuth();
   const createInvoice = useMutation({
     mutationFn: (productType: ProductType) => api<InvoiceResponse>("/api/payments/create-invoice", { method: "POST", body: jsonBody({ productType }) }),
-    onSuccess: ({ invoiceLink }) => openTelegramInvoice(invoiceLink, () => auth.mutate())
+    onSuccess: ({ invoiceLink }) => {
+      openTelegramInvoice(invoiceLink, () => auth.mutate());
+    }
   });
+
+  useEffect(() => {
+    trackEvent("paywall_opened");
+  }, []);
 
   return (
     <main className="space-y-4">

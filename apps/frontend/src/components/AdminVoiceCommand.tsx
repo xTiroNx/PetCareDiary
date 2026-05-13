@@ -6,6 +6,7 @@ import { useAppStore } from "../store/appStore";
 import { localDateTimeInputToUtcIso, localDateTimeInputValue, utcInstantToLocalDateTimeInput } from "../utils/dateTime";
 import { useI18n } from "../utils/i18n";
 import { telegramError, telegramSelection, telegramSuccess } from "../utils/telegram";
+import { trackEvent } from "../utils/telegramAnalytics";
 import { DateField } from "./DateField";
 import { DateTimeFields } from "./DateTimeFields";
 import { RequestError } from "./RequestError";
@@ -341,6 +342,7 @@ export function VoiceCommand({ endpoint = "/api/voice/command", hint, visible = 
 
   async function startRecording() {
     telegramSelection();
+    trackEvent("voice_clicked", { endpoint });
     setLocalError(null);
     setCreated(false);
     setRecordingMs(0);

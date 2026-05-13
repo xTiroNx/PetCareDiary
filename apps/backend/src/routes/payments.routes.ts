@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { createStarsInvoice } from "../services/telegramPayments.service.js";
+import { trackAnalyticsEvent } from "../services/analytics.service.js";
 import { serialize } from "../utils/serialize.js";
 
 const router = Router();
@@ -9,6 +10,11 @@ router.post("/create-invoice", async (req, res, next) => {
   try {
     const { productType } = z.object({ productType: z.enum(["MONTHLY", "SIX_MONTHS", "YEARLY"]) }).strict().parse(req.body);
     const result = await createStarsInvoice(req.user!.id, productType);
+    await trackAnalyticsEvent({
+      userId: req.user!.id,
+      event: "invoice_opened",
+      metadata: { paymentId: result.payment.id, productType: result.payment.productType, amountStars: result.payment.amountStars }
+    });
     res.status(201).json(serialize({
       paymentId: result.payment.id,
       invoicePayload: result.payment.invoicePayload,

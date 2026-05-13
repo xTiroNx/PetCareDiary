@@ -27,6 +27,7 @@ const envSchema = z.object({
   OPENROUTER_STT_MODEL: z.string().min(1).default("openai/gpt-4o-mini-transcribe"),
   MINIMAX_API_KEY: z.string().min(1).optional(),
   MINIMAX_PARSER_MODEL: z.string().min(1).default("MiniMax-M2.7"),
+  MINIMAX_REPORT_MODEL: z.string().min(1).optional(),
   MINIMAX_API_BASE_URL: z.string().url().default("https://api.minimax.io"),
   ENABLE_DEV_AUTH: z.coerce.boolean().default(false),
   DEV_TELEGRAM_ID: z.coerce.number().int().positive().default(777000001),

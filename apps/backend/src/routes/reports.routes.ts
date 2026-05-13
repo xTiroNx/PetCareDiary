@@ -504,7 +504,7 @@ function aiPromptLanguage(language: ReportLanguage) {
 async function buildAiVetSummary(report: Awaited<ReturnType<typeof buildReport>>, language: ReportLanguage) {
   if (!env.MINIMAX_API_KEY) return null;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30_000);
+  const timeout = setTimeout(() => controller.abort(), env.MINIMAX_REPORT_TIMEOUT_MS);
   try {
     const response = await fetch(`${env.MINIMAX_API_BASE_URL.replace(/\/$/, "")}/v1/chat/completions`, {
       method: "POST",
@@ -541,6 +541,7 @@ async function buildAiVetSummary(report: Awaited<ReturnType<typeof buildReport>>
       console.warn(JSON.stringify({
         event: "report_ai_summary_failed",
         status: response.status,
+        timeoutMs: env.MINIMAX_REPORT_TIMEOUT_MS,
         reason: !response.ok ? "provider_non_ok" : "invalid_provider_response"
       }));
       return null;
@@ -550,6 +551,7 @@ async function buildAiVetSummary(report: Awaited<ReturnType<typeof buildReport>>
   } catch (error) {
     console.warn(JSON.stringify({
       event: "report_ai_summary_failed",
+      timeoutMs: env.MINIMAX_REPORT_TIMEOUT_MS,
       error: error instanceof Error ? error.name : "unknown"
     }));
     return null;
@@ -882,7 +884,6 @@ router.get("/summary.pdf", async (req, res, next) => {
     });
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="petcare-report-${query.period === "all" ? "all" : `${query.period}d`}.pdf"`);
-    res.setHeader("Access-Control-Allow-Origin", "https://web.telegram.org");
     res.send(body);
   } catch (error) {
     next(error);

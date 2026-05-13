@@ -344,7 +344,8 @@ const reportQuerySchema = z.object({
     z.union([z.literal("all"), z.number().int().refine((value) => [7, 14, 30].includes(value))])
   ),
   timezone: z.string().min(1).max(80).optional(),
-  locale: z.string().min(2).max(16).optional()
+  locale: z.string().min(2).max(16).optional(),
+  tgInitData: z.string().min(1).max(12000).optional()
 }).strict();
 type ReportPrisma = Pick<
   Prisma.TransactionClient,
@@ -503,7 +504,7 @@ function aiPromptLanguage(language: ReportLanguage) {
 async function buildAiVetSummary(report: Awaited<ReturnType<typeof buildReport>>, language: ReportLanguage) {
   if (!env.MINIMAX_API_KEY) return null;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 12_000);
+  const timeout = setTimeout(() => controller.abort(), 30_000);
   try {
     const response = await fetch(`${env.MINIMAX_API_BASE_URL.replace(/\/$/, "")}/v1/chat/completions`, {
       method: "POST",
@@ -536,7 +537,14 @@ async function buildAiVetSummary(report: Awaited<ReturnType<typeof buildReport>>
       })
     });
     const data = await response.json().catch(() => null);
-    if (!response.ok || !data || !Array.isArray(data.choices)) return null;
+    if (!response.ok || !data || !Array.isArray(data.choices)) {
+      console.warn(JSON.stringify({
+        event: "report_ai_summary_failed",
+        status: response.status,
+        reason: !response.ok ? "provider_non_ok" : "invalid_provider_response"
+      }));
+      return null;
+    }
     const content = data.choices[0]?.message?.content;
     return typeof content === "string" && content.trim() ? content.trim().slice(0, 2500) : null;
   } catch (error) {
@@ -764,8 +772,10 @@ export async function renderReportPdf(report: Awaited<ReturnType<typeof buildRep
     section(text.notesSummary);
     statLine(text.otherNotes, analytics.notes.count);
 
-    section(text.importantForVet);
-    doc.font(font).fontSize(10).fillColor(aiSummary ? "#17202a" : "#8a91a0").text(aiSummary ?? text.aiUnavailable, { width: pageWidth });
+    if (aiSummary) {
+      section(text.importantForVet);
+      doc.font(font).fontSize(10).fillColor("#17202a").text(aiSummary, { width: pageWidth });
+    }
 
     section(text.feeding);
     if (report.entries.feeding.length) {
@@ -872,6 +882,7 @@ router.get("/summary.pdf", async (req, res, next) => {
     });
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="petcare-report-${query.period === "all" ? "all" : `${query.period}d`}.pdf"`);
+    res.setHeader("Access-Control-Allow-Origin", "https://web.telegram.org");
     res.send(body);
   } catch (error) {
     next(error);

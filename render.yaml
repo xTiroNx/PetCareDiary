@@ -10,7 +10,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: FRONTEND_URL
-        value: https://petcare-diary.netlify.app
+        value: https://pcd.tiron.dev
       - key: DATABASE_URL
         fromDatabase:
           name: petcare-diary-db

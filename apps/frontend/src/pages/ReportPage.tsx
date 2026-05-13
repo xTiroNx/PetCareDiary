@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Download } from "lucide-react";
-import { api, apiBlob } from "../api/client";
+import { API_URL, api, apiBlob } from "../api/client";
 import { SelectField } from "../components/SelectField";
 import { useAppStore } from "../store/appStore";
 import { useI18n } from "../utils/i18n";
+import { downloadTelegramFile, getInitData, isTelegram } from "../utils/telegram";
 import { trackEvent } from "../utils/telegramAnalytics";
 
 type StructuredReport = {
@@ -32,6 +33,60 @@ function reportSearchParams({ petId, period, timezone, locale }: { petId: string
   return params;
 }
 
+function reportDownloadUrl({ petId, period, timezone, locale }: { petId: string; period: ReportPeriod; timezone: string; locale: string }) {
+  const url = new URL("/api/reports/summary.pdf", API_URL);
+  const params = reportSearchParams({ petId, period, timezone, locale });
+  params.set("tgInitData", getInitData());
+  url.search = params.toString();
+  return url.toString();
+}
+
+function reportPdfPath(options: { petId: string; period: ReportPeriod; timezone: string; locale: string }) {
+  return `/api/reports/summary.pdf?${reportSearchParams(options)}`;
+}
+
+function canSharePdfFile(fileName: string) {
+  if (!navigator.share || typeof File === "undefined") return false;
+  if (!navigator.canShare) return true;
+
+  try {
+    return navigator.canShare({
+      files: [new File(["pdf"], fileName, { type: "application/pdf" })]
+    });
+  } catch {
+    return false;
+  }
+}
+
+async function sharePdfBlob(blob: Blob, fileName: string) {
+  const file = new File([blob], fileName, { type: blob.type || "application/pdf" });
+  const shareData: ShareData = {
+    files: [file],
+    title: "PetCare Diary",
+    text: "PetCare Diary PDF report"
+  };
+
+  if (!navigator.share || navigator.canShare?.(shareData) === false) return false;
+  await navigator.share(shareData);
+  return true;
+}
+
+function downloadBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  link.rel = "noopener";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function isShareCancelled(error: unknown) {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
 export default function ReportPage() {
   const { language, t } = useI18n();
   const pet = useAppStore((state) => state.pet);
@@ -52,30 +107,42 @@ export default function ReportPage() {
   }, [pet, period]);
   const exportStatus = useQuery({ queryKey: ["report-export-status"], queryFn: () => api<ExportStatus>("/api/reports/exports/status"), enabled: Boolean(pet) });
   const exportPdf = useMutation({
-    mutationFn: () => apiBlob(`/api/reports/summary.pdf?${reportSearchParams({ petId: pet!.id, period, timezone, locale })}`),
-    onSuccess: async (blob) => {
+    mutationFn: async () => {
       const filename = `petcare-report-${period === "all" ? "all" : `${period}d`}.pdf`;
-      const file = new File([blob], filename, { type: "application/pdf" });
-      const shareTarget = navigator as Navigator & { canShare?: (data: ShareData) => boolean };
-      if (navigator.share && shareTarget.canShare?.({ files: [file] })) {
+      const reportOptions = { petId: pet!.id, period, timezone, locale };
+
+      if (canSharePdfFile(filename)) {
+        const blob = await apiBlob(reportPdfPath(reportOptions));
         try {
-          await navigator.share({ files: [file] });
-          setMessage(t("exportDownloaded"));
-          queryClient.invalidateQueries({ queryKey: ["report-export-status"] });
-          return;
-        } catch {
-          // Fall through to a single file download when native sharing is unavailable or cancelled.
+          if (await sharePdfBlob(blob, filename)) {
+            return { pendingNativeDownload: false, cancelled: false };
+          }
+        } catch (error) {
+          if (isShareCancelled(error)) return { pendingNativeDownload: false, cancelled: true };
+          throw error;
         }
+        if (isTelegram()) throw new Error(t("telegramUnsupported"));
+        downloadBlob(blob, filename);
+        return { pendingNativeDownload: false, cancelled: false };
       }
 
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+      const started = downloadTelegramFile(reportDownloadUrl(reportOptions), filename, (accepted) => {
+        if (!accepted) return;
+        setMessage(t("exportDownloaded"));
+        queryClient.invalidateQueries({ queryKey: ["report-export-status"] });
+      });
+      if (started) return { pendingNativeDownload: true, cancelled: false };
+
+      if (isTelegram()) {
+        throw new Error(t("telegramUnsupported"));
+      }
+
+      const blob = await apiBlob(reportPdfPath(reportOptions));
+      downloadBlob(blob, filename);
+      return { pendingNativeDownload: false, cancelled: false };
+    },
+    onSuccess: ({ pendingNativeDownload, cancelled }) => {
+      if (pendingNativeDownload || cancelled) return;
       setMessage(t("exportDownloaded"));
       queryClient.invalidateQueries({ queryKey: ["report-export-status"] });
     },

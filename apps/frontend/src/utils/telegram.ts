@@ -43,6 +43,7 @@ declare global {
         addToHomeScreen?: () => void;
         checkHomeScreenStatus?: (callback: (status: string) => void) => void;
         openInvoice?: (url: string, callback?: (status: "paid" | "cancelled" | "failed" | "pending") => void) => void;
+        downloadFile?: (params: { url: string; file_name: string }, callback?: (accepted: boolean) => void) => void;
       };
     };
   }
@@ -230,4 +231,11 @@ export function openTelegramInvoice(invoiceLink: string, onDone: () => void) {
     return;
   }
   window.location.href = invoiceLink;
+}
+
+export function downloadTelegramFile(url: string, fileName: string, onDone?: (accepted: boolean) => void) {
+  const webApp = getTelegramWebApp();
+  if (!webApp?.downloadFile || !isSupported("8.0")) return false;
+  webApp.downloadFile({ url, file_name: fileName }, onDone);
+  return true;
 }

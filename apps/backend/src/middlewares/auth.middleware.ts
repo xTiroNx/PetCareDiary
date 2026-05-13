@@ -6,7 +6,9 @@ import { HttpError } from "../utils/httpError.js";
 
 export async function authMiddleware(req: Request, _res: Response, next: NextFunction) {
   try {
-    const initData = req.header("X-Telegram-Init-Data") ?? req.header("Authorization")?.replace(/^tma\s+/i, "");
+    const allowQueryInitData = req.baseUrl === "/api/reports" && req.path === "/summary.pdf";
+    const queryInitData = allowQueryInitData && typeof req.query.tgInitData === "string" ? req.query.tgInitData : undefined;
+    const initData = req.header("X-Telegram-Init-Data") ?? req.header("Authorization")?.replace(/^tma\s+/i, "") ?? queryInitData;
     if (!initData) throw new HttpError(401, "INIT_DATA_REQUIRED", "Telegram initData is required.");
 
     const parsed = validateTelegramInitData(initData);

@@ -2,7 +2,7 @@
 
 ## Stack
 
-PetCare Diary is a Telegram Mini App with a React frontend, Node.js backend, PostgreSQL database, Telegram Bot API integrations, and production deploys on Netlify and Render.
+PetCare Diary is a Telegram Mini App with a React frontend, Node.js backend, PostgreSQL database, Telegram Bot API integrations, a self-hosted frontend, and a Render backend.
 
 ### Frontend
 
@@ -28,17 +28,17 @@ PetCare Diary is a Telegram Mini App with a React frontend, Node.js backend, Pos
 
 ### Infrastructure
 
-- Frontend: Netlify, `https://petcare-diary.netlify.app`
+- Frontend: VPS, `https://pcd.tiron.dev`
 - Backend: Render Frankfurt, `https://petcare-diary-api-frankfurt.onrender.com`
 - Database: Render PostgreSQL
-- Frontend config: `netlify.toml`
+- Frontend self-hosting: Caddy behind HAProxy on VPS
 - Backend config: `render.yaml`
 
 ## MVP
 
 Production MVP for cat and dog owners to track pet care inside Telegram.
 
-- Telegram Mini App frontend deployed to Netlify.
+- Telegram Mini App frontend deployed to VPS.
 - Backend API deployed to Render.
 - PostgreSQL schema and migrations managed with Prisma.
 - Telegram initData auth verified on the backend.
@@ -66,7 +66,7 @@ Production MVP for cat and dog owners to track pet care inside Telegram.
 - Review payment webhook idempotency under duplicate Telegram updates.
 - Consider moving reminder scheduling to a dedicated worker if traffic grows.
 - Confirm Render env vars match `.env.example`.
-- Confirm Netlify `VITE_API_URL` points to the Frankfurt Render backend.
+- Confirm frontend `VITE_API_URL` points to the Frankfurt Render backend.
 - Confirm Telegram webhook uses the current backend URL and webhook secret.
 - Keep deploy commands using env vars, not inline secrets.
 - Run secret scans before commits.

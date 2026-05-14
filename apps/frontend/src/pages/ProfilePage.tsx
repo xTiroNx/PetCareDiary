@@ -6,6 +6,7 @@ import clsx from "clsx";
 import { api, jsonBody } from "../api/client";
 import type { Pet, PetType } from "../api/types";
 import { AccessBadge } from "../components/AccessBadge";
+import { AccessNotice } from "../components/AccessNotice";
 import { openChangelogEvent } from "../components/ChangelogModal";
 import { ConfirmAction } from "../components/ConfirmAction";
 import { FeedbackForm } from "../components/FeedbackForm";
@@ -106,6 +107,7 @@ export default function ProfilePage() {
           <p className="text-sm text-zinc-600 dark:text-zinc-300">{t("pet")}: <span className="font-semibold text-ink dark:text-white">{pet?.name ?? t("noPet")}</span></p>
         </div>
       </section>
+      <AccessNotice />
       <section className="panel space-y-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="section-title">{t("pets")}</h2>

@@ -37,6 +37,7 @@ enum ReminderType {
   MEDICINE
   WEIGHT
   VET
+  VACCINATION
   OTHER
 }
 
@@ -52,6 +53,20 @@ enum PaymentStatus {
   PAID
   FAILED
   CANCELED
+}
+
+enum VaccinationProcedureType {
+  VACCINE
+  DEWORMING
+  FLEA_TICK
+  OTHER
+}
+
+enum AccessNotificationType {
+  TRIAL_ENDING_SOON
+  PAID_ENDING_SOON
+  ACCESS_EXPIRED
+  PAYMENT_RECEIPT
 }
 
 model User {
@@ -78,11 +93,14 @@ model User {
   medicineEntries MedicineEntry[]
   weightEntries  WeightEntry[]
   noteEntries    NoteEntry[]
+  waterEntries   WaterEntry[]
+  vaccinationEntries VaccinationEntry[]
   reportExports  ReportExport[]
   reminders      Reminder[]
   payments       Payment[]
   feedback        Feedback[]
   analyticsEvents AnalyticsEvent[]
+  accessNotificationLogs AccessNotificationLog[]
 }
 
 model Pet {
@@ -101,6 +119,8 @@ model Pet {
   medicineEntries MedicineEntry[]
   weightEntries   WeightEntry[]
   noteEntries     NoteEntry[]
+  waterEntries    WaterEntry[]
+  vaccinationEntries VaccinationEntry[]
   reportExports   ReportExport[]
   reminders       Reminder[]
 
@@ -177,6 +197,38 @@ model NoteEntry {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, petId, dateTime])
+}
+
+model WaterEntry {
+  id        String   @id @default(cuid())
+  petId     String
+  userId    String
+  dateTime  DateTime
+  amountMl  Int
+  note      String?
+  createdAt DateTime @default(now())
+  pet       Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, petId, dateTime])
+}
+
+model VaccinationEntry {
+  id            String                   @id @default(cuid())
+  petId         String
+  userId        String
+  procedureType VaccinationProcedureType
+  title         String
+  date          DateTime
+  nextDueDate   DateTime?
+  note          String?
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+  pet           Pet                      @relation(fields: [petId], references: [id], onDelete: Cascade)
+  user          User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, petId, date])
+  @@index([userId, petId, nextDueDate])
 }
 
 model ReportExport {
@@ -263,4 +315,19 @@ model AnalyticsEvent {
   @@index([startParam, createdAt])
   @@index([source, createdAt])
   @@index([createdAt])
+}
+
+model AccessNotificationLog {
+  id               String                 @id @default(cuid())
+  userId           String
+  type             AccessNotificationType
+  dayKey           String?
+  relatedPaymentId String?
+  createdAt        DateTime               @default(now())
+  user             User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type, dayKey])
+  @@unique([userId, type, relatedPaymentId])
+  @@index([userId, createdAt])
+  @@index([type, createdAt])
 }

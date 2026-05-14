@@ -40,6 +40,18 @@ const reportText = {
     symptomsByType: "Симптомы по типам и тяжести",
     medicinesStatus: "Лекарства: принято / не принято",
     notesSummary: "Заметки",
+    waterIntake: "Питье",
+    waterByDay: "Питье по дням",
+    waterRecords: "Записи питья",
+    totalWater: "Всего воды",
+    averageWaterPerDay: "Среднее в день",
+    amountMl: "Количество, мл",
+    vaccinations: "Вакцинации и обработки",
+    vaccinationsByType: "Вакцинации/обработки по типам",
+    procedureType: "Тип процедуры",
+    nextDueDate: "Следующая дата",
+    upcomingReminders: "Ближайшие напоминания",
+    reminderType: "Тип напоминания",
     feeding: "Кормление",
     symptoms: "Симптомы",
     medicines: "Лекарства",
@@ -76,7 +88,9 @@ const reportText = {
       LETHARGY: "Вялость",
       PAIN: "Боль",
       OTHER: "Другое"
-    }
+    },
+    procedureLabels: { VACCINE: "Вакцина", DEWORMING: "Дегельминтизация", FLEA_TICK: "Блохи/клещи", OTHER: "Другое" },
+    reminderLabels: { FEEDING: "Кормление", MEDICINE: "Лекарство", WEIGHT: "Взвешивание", VET: "Ветеринар", VACCINATION: "Вакцинация/обработка", OTHER: "Другое" }
   },
   en: {
     pet: "Pet",
@@ -102,6 +116,18 @@ const reportText = {
     symptomsByType: "Symptoms by type and severity",
     medicinesStatus: "Medicines: taken / not taken",
     notesSummary: "Notes",
+    waterIntake: "Water intake",
+    waterByDay: "Water by day",
+    waterRecords: "Water records",
+    totalWater: "Total water",
+    averageWaterPerDay: "Average per day",
+    amountMl: "Amount, ml",
+    vaccinations: "Vaccinations and treatments",
+    vaccinationsByType: "Vaccinations/treatments by type",
+    procedureType: "Procedure type",
+    nextDueDate: "Next due date",
+    upcomingReminders: "Upcoming reminders",
+    reminderType: "Reminder type",
     feeding: "Feeding",
     symptoms: "Symptoms",
     medicines: "Medicines",
@@ -138,7 +164,9 @@ const reportText = {
       LETHARGY: "Lethargy",
       PAIN: "Pain",
       OTHER: "Other"
-    }
+    },
+    procedureLabels: { VACCINE: "Vaccine", DEWORMING: "Deworming", FLEA_TICK: "Flea/tick", OTHER: "Other" },
+    reminderLabels: { FEEDING: "Feeding", MEDICINE: "Medicine", WEIGHT: "Weight", VET: "Veterinarian", VACCINATION: "Vaccination/treatment", OTHER: "Other" }
   }
 };
 
@@ -166,6 +194,18 @@ const localizedReportText: Record<ReportLanguage, ReportText> = {
     feedingByType: "Comidas por tipo",
     symptomsByType: "Sintomas por tipo y gravedad",
     medicinesStatus: "Medicinas: tomadas / no tomadas",
+    waterIntake: "Agua",
+    waterByDay: "Agua por dia",
+    waterRecords: "Registros de agua",
+    totalWater: "Agua total",
+    averageWaterPerDay: "Promedio por dia",
+    amountMl: "Cantidad, ml",
+    vaccinations: "Vacunas y tratamientos",
+    vaccinationsByType: "Vacunas/tratamientos por tipo",
+    procedureType: "Tipo de procedimiento",
+    nextDueDate: "Proxima fecha",
+    upcomingReminders: "Recordatorios proximos",
+    reminderType: "Tipo de recordatorio",
     feeding: "Alimentacion",
     symptoms: "Sintomas",
     medicines: "Medicinas",
@@ -192,7 +232,9 @@ const localizedReportText: Record<ReportLanguage, ReportText> = {
     disclaimer: "PetCare Diary no reemplaza la atencion veterinaria. Si los sintomas se repiten o el estado empeora, contacte a un veterinario.",
     petTypes: { CAT: "Gato", DOG: "Perro", OTHER: "Otro" },
     foodLabels: { DRY: "Comida seca", WET: "Comida humeda", NATURAL: "Comida natural", TREAT: "Premio", OTHER: "Otro" },
-    symptomLabels: { VOMITING: "Vomitos", YELLOW_VOMIT: "Vomito amarillo", NO_APPETITE: "Sin apetito", DIARRHEA: "Diarrea", CONSTIPATION: "Estrenimiento", LETHARGY: "Letargo", PAIN: "Dolor", OTHER: "Otro" }
+    symptomLabels: { VOMITING: "Vomitos", YELLOW_VOMIT: "Vomito amarillo", NO_APPETITE: "Sin apetito", DIARRHEA: "Diarrea", CONSTIPATION: "Estrenimiento", LETHARGY: "Letargo", PAIN: "Dolor", OTHER: "Otro" },
+    procedureLabels: { VACCINE: "Vacuna", DEWORMING: "Desparasitacion", FLEA_TICK: "Pulgas/garrapatas", OTHER: "Otro" },
+    reminderLabels: { FEEDING: "Alimentacion", MEDICINE: "Medicina", WEIGHT: "Peso", VET: "Veterinario", VACCINATION: "Vacuna/tratamiento", OTHER: "Otro" }
   },
   fr: {
     ...reportText.en,
@@ -213,6 +255,18 @@ const localizedReportText: Record<ReportLanguage, ReportText> = {
     feedingByType: "Repas par type",
     symptomsByType: "Symptomes par type et gravite",
     medicinesStatus: "Medicaments: pris / non pris",
+    waterIntake: "Eau",
+    waterByDay: "Eau par jour",
+    waterRecords: "Releves d'eau",
+    totalWater: "Eau totale",
+    averageWaterPerDay: "Moyenne par jour",
+    amountMl: "Quantite, ml",
+    vaccinations: "Vaccinations et traitements",
+    vaccinationsByType: "Vaccinations/traitements par type",
+    procedureType: "Type de procedure",
+    nextDueDate: "Prochaine date",
+    upcomingReminders: "Rappels a venir",
+    reminderType: "Type de rappel",
     feeding: "Alimentation",
     symptoms: "Symptomes",
     medicines: "Medicaments",
@@ -239,7 +293,9 @@ const localizedReportText: Record<ReportLanguage, ReportText> = {
     disclaimer: "PetCare Diary ne remplace pas les soins veterinaires. Si les symptomes se repetent ou l'etat s'aggrave, contactez un veterinaire.",
     petTypes: { CAT: "Chat", DOG: "Chien", OTHER: "Autre" },
     foodLabels: { DRY: "Aliment sec", WET: "Aliment humide", NATURAL: "Aliment naturel", TREAT: "Friandise", OTHER: "Autre" },
-    symptomLabels: { VOMITING: "Vomissements", YELLOW_VOMIT: "Vomissement jaune", NO_APPETITE: "Pas d'appetit", DIARRHEA: "Diarrhee", CONSTIPATION: "Constipation", LETHARGY: "Lethargie", PAIN: "Douleur", OTHER: "Autre" }
+    symptomLabels: { VOMITING: "Vomissements", YELLOW_VOMIT: "Vomissement jaune", NO_APPETITE: "Pas d'appetit", DIARRHEA: "Diarrhee", CONSTIPATION: "Constipation", LETHARGY: "Lethargie", PAIN: "Douleur", OTHER: "Autre" },
+    procedureLabels: { VACCINE: "Vaccin", DEWORMING: "Vermifuge", FLEA_TICK: "Puces/tiques", OTHER: "Autre" },
+    reminderLabels: { FEEDING: "Alimentation", MEDICINE: "Medicament", WEIGHT: "Poids", VET: "Veterinaire", VACCINATION: "Vaccin/traitement", OTHER: "Autre" }
   },
   de: {
     ...reportText.en,
@@ -260,6 +316,18 @@ const localizedReportText: Record<ReportLanguage, ReportText> = {
     feedingByType: "Futterungen nach Typ",
     symptomsByType: "Symptome nach Typ und Schwere",
     medicinesStatus: "Medikamente: genommen / nicht genommen",
+    waterIntake: "Wasseraufnahme",
+    waterByDay: "Wasser pro Tag",
+    waterRecords: "Wassereintraege",
+    totalWater: "Wasser gesamt",
+    averageWaterPerDay: "Durchschnitt pro Tag",
+    amountMl: "Menge, ml",
+    vaccinations: "Impfungen und Behandlungen",
+    vaccinationsByType: "Impfungen/Behandlungen nach Typ",
+    procedureType: "Verfahrenstyp",
+    nextDueDate: "Naechster Termin",
+    upcomingReminders: "Kommende Erinnerungen",
+    reminderType: "Erinnerungstyp",
     feeding: "Futterung",
     symptoms: "Symptome",
     medicines: "Medikamente",
@@ -286,7 +354,9 @@ const localizedReportText: Record<ReportLanguage, ReportText> = {
     disclaimer: "PetCare Diary ersetzt keine tierarztliche Versorgung. Wenn Symptome wiederkehren oder sich der Zustand verschlechtert, kontaktieren Sie einen Tierarzt.",
     petTypes: { CAT: "Katze", DOG: "Hund", OTHER: "Andere" },
     foodLabels: { DRY: "Trockenfutter", WET: "Nassfutter", NATURAL: "Naturlich", TREAT: "Leckerli", OTHER: "Andere" },
-    symptomLabels: { VOMITING: "Erbrechen", YELLOW_VOMIT: "Gelbes Erbrechen", NO_APPETITE: "Kein Appetit", DIARRHEA: "Durchfall", CONSTIPATION: "Verstopfung", LETHARGY: "Lethargie", PAIN: "Schmerz", OTHER: "Andere" }
+    symptomLabels: { VOMITING: "Erbrechen", YELLOW_VOMIT: "Gelbes Erbrechen", NO_APPETITE: "Kein Appetit", DIARRHEA: "Durchfall", CONSTIPATION: "Verstopfung", LETHARGY: "Lethargie", PAIN: "Schmerz", OTHER: "Andere" },
+    procedureLabels: { VACCINE: "Impfung", DEWORMING: "Entwurmung", FLEA_TICK: "Floh/Zecke", OTHER: "Andere" },
+    reminderLabels: { FEEDING: "Futterung", MEDICINE: "Medikament", WEIGHT: "Gewicht", VET: "Tierarzt", VACCINATION: "Impfung/Behandlung", OTHER: "Andere" }
   },
   zh: {
     ...reportText.en,
@@ -307,6 +377,18 @@ const localizedReportText: Record<ReportLanguage, ReportText> = {
     feedingByType: "按类型统计喂食",
     symptomsByType: "按类型和严重程度统计症状",
     medicinesStatus: "用药：已服 / 未服",
+    waterIntake: "饮水",
+    waterByDay: "每日饮水",
+    waterRecords: "饮水记录",
+    totalWater: "总饮水量",
+    averageWaterPerDay: "每日平均",
+    amountMl: "数量，ml",
+    vaccinations: "疫苗和护理",
+    vaccinationsByType: "按类型统计疫苗/护理",
+    procedureType: "项目类型",
+    nextDueDate: "下次日期",
+    upcomingReminders: "即将到来的提醒",
+    reminderType: "提醒类型",
     feeding: "喂食",
     symptoms: "症状",
     medicines: "药物",
@@ -333,7 +415,9 @@ const localizedReportText: Record<ReportLanguage, ReportText> = {
     disclaimer: "PetCare Diary 不能替代兽医诊疗。如果症状反复或情况恶化，请联系兽医。",
     petTypes: { CAT: "猫", DOG: "狗", OTHER: "其他" },
     foodLabels: { DRY: "干粮", WET: "湿粮", NATURAL: "天然食物", TREAT: "零食", OTHER: "其他" },
-    symptomLabels: { VOMITING: "呕吐", YELLOW_VOMIT: "黄色呕吐", NO_APPETITE: "没有食欲", DIARRHEA: "腹泻", CONSTIPATION: "便秘", LETHARGY: "嗜睡", PAIN: "疼痛", OTHER: "其他" }
+    symptomLabels: { VOMITING: "呕吐", YELLOW_VOMIT: "黄色呕吐", NO_APPETITE: "没有食欲", DIARRHEA: "腹泻", CONSTIPATION: "便秘", LETHARGY: "嗜睡", PAIN: "疼痛", OTHER: "其他" },
+    procedureLabels: { VACCINE: "疫苗", DEWORMING: "驱虫", FLEA_TICK: "跳蚤/蜱虫", OTHER: "其他" },
+    reminderLabels: { FEEDING: "喂食", MEDICINE: "药物", WEIGHT: "体重", VET: "兽医", VACCINATION: "疫苗/护理", OTHER: "其他" }
   }
 };
 
@@ -341,7 +425,7 @@ const reportQuerySchema = z.object({
   petId: z.string().min(1).max(128),
   period: z.preprocess(
     (value) => value === "all" ? "all" : Number(value),
-    z.union([z.literal("all"), z.number().int().refine((value) => [7, 14, 30].includes(value))])
+    z.union([z.literal("all"), z.number().int().refine((value) => [7, 14, 30, 90].includes(value))])
   ),
   timezone: z.string().min(1).max(80).optional(),
   locale: z.string().min(2).max(16).optional(),
@@ -349,7 +433,7 @@ const reportQuerySchema = z.object({
 }).strict();
 type ReportPrisma = Pick<
   Prisma.TransactionClient,
-  "pet" | "feedingEntry" | "symptomEntry" | "medicineEntry" | "weightEntry" | "noteEntry"
+  "pet" | "feedingEntry" | "symptomEntry" | "medicineEntry" | "weightEntry" | "noteEntry" | "waterEntry" | "vaccinationEntry" | "reminder"
 >;
 
 function dayKey(date = new Date()) {
@@ -363,13 +447,32 @@ async function buildReport(db: ReportPrisma, userId: string, petId: string, peri
     select: { id: true, name: true, type: true, weightKg: true, ageYears: true, healthNotes: true }
   });
   const dateFilter = from ? { gte: from } : undefined;
-  const [feeding, symptoms, medicines, medicinesTaken, weights, notes, feedingEntries, symptomEntries, medicineEntries, weightEntries, noteEntries] = await Promise.all([
+  const [
+    feeding,
+    symptoms,
+    medicines,
+    medicinesTaken,
+    weights,
+    notes,
+    water,
+    vaccinations,
+    feedingEntries,
+    symptomEntries,
+    medicineEntries,
+    weightEntries,
+    noteEntries,
+    waterEntries,
+    vaccinationEntries,
+    reminders
+  ] = await Promise.all([
     db.feedingEntry.count({ where: { userId, petId, dateTime: dateFilter } }),
     db.symptomEntry.count({ where: { userId, petId, dateTime: dateFilter } }),
     db.medicineEntry.count({ where: { userId, petId, dateTime: dateFilter } }),
     db.medicineEntry.count({ where: { userId, petId, dateTime: dateFilter, taken: true } }),
     db.weightEntry.count({ where: { userId, petId, date: dateFilter } }),
     db.noteEntry.count({ where: { userId, petId, dateTime: dateFilter } }),
+    db.waterEntry.count({ where: { userId, petId, dateTime: dateFilter } }),
+    db.vaccinationEntry.count({ where: { userId, petId, date: dateFilter } }),
     db.feedingEntry.findMany({
       where: { userId, petId, dateTime: dateFilter },
       select: { id: true, dateTime: true, foodType: true, amount: true, note: true },
@@ -394,11 +497,36 @@ async function buildReport(db: ReportPrisma, userId: string, petId: string, peri
       where: { userId, petId, dateTime: dateFilter },
       select: { id: true, note: true, dateTime: true },
       orderBy: { dateTime: "asc" }
+    }),
+    db.waterEntry.findMany({
+      where: { userId, petId, dateTime: dateFilter },
+      select: { id: true, dateTime: true, amountMl: true, note: true },
+      orderBy: { dateTime: "asc" }
+    }),
+    db.vaccinationEntry.findMany({
+      where: { userId, petId, date: dateFilter },
+      select: { id: true, procedureType: true, title: true, date: true, nextDueDate: true, note: true },
+      orderBy: { date: "asc" }
+    }),
+    db.reminder.findMany({
+      where: { userId, petId, active: true },
+      select: { id: true, type: true, title: true, time: true, repeatRule: true, active: true },
+      orderBy: { time: "asc" },
+      take: 20
     })
   ]);
 
-  const counts = { feeding, symptoms, medicines, medicinesTaken, weights, notes };
-  const entries = { feeding: feedingEntries, symptoms: symptomEntries, medicines: medicineEntries, weights: weightEntries, notes: noteEntries };
+  const counts = { feeding, symptoms, medicines, medicinesTaken, weights, notes, water, vaccinations, reminders: reminders.length };
+  const entries = {
+    feeding: feedingEntries,
+    symptoms: symptomEntries,
+    medicines: medicineEntries,
+    weights: weightEntries,
+    notes: noteEntries,
+    water: waterEntries,
+    vaccinations: vaccinationEntries,
+    reminders
+  };
   return { period, from, pet, petName: pet?.name ?? "Pet", counts, entries };
 }
 
@@ -423,6 +551,16 @@ function reportAnalytics(report: Awaited<ReturnType<typeof buildReport>>) {
   }, {});
   const medicinesTaken = report.entries.medicines.filter((entry) => entry.taken).length;
   const medicinesNotTaken = report.entries.medicines.length - medicinesTaken;
+  const waterTotalMl = report.entries.water.reduce((sum, entry) => sum + entry.amountMl, 0);
+  const waterByDay = report.entries.water.reduce<Record<string, number>>((acc, entry) => {
+    const key = entry.dateTime.toISOString().slice(0, 10);
+    acc[key] = (acc[key] ?? 0) + entry.amountMl;
+    return acc;
+  }, {});
+  const vaccinationsByType = report.entries.vaccinations.reduce<Record<string, number>>((acc, entry) => {
+    acc[entry.procedureType] = (acc[entry.procedureType] ?? 0) + 1;
+    return acc;
+  }, {});
 
   return {
     weight: {
@@ -438,6 +576,13 @@ function reportAnalytics(report: Awaited<ReturnType<typeof buildReport>>) {
       taken: medicinesTaken,
       notTaken: medicinesNotTaken
     },
+    water: {
+      totalMl: waterTotalMl,
+      daysWithRecords: Object.keys(waterByDay).length,
+      averagePerDay: Object.keys(waterByDay).length ? Math.round(waterTotalMl / Object.keys(waterByDay).length) : 0,
+      byDay: waterByDay
+    },
+    vaccinationsByType,
     notes: {
       count: report.entries.notes.length,
       latest: report.entries.notes.at(-1) ?? null
@@ -484,6 +629,24 @@ function reportDataForAi(report: Awaited<ReturnType<typeof buildReport>>) {
       notes: report.entries.notes.map((entry) => ({
         dateTime: entry.dateTime.toISOString(),
         note: entry.note
+      })),
+      water: report.entries.water.map((entry) => ({
+        dateTime: entry.dateTime.toISOString(),
+        amountMl: entry.amountMl,
+        note: entry.note
+      })),
+      vaccinations: report.entries.vaccinations.map((entry) => ({
+        date: entry.date.toISOString(),
+        procedureType: entry.procedureType,
+        title: entry.title,
+        nextDueDate: entry.nextDueDate?.toISOString() ?? null,
+        note: entry.note
+      })),
+      reminders: report.entries.reminders.map((entry) => ({
+        time: entry.time.toISOString(),
+        type: entry.type,
+        title: entry.title,
+        repeatRule: entry.repeatRule
       }))
     }
   };
@@ -657,7 +820,14 @@ function formattedReportSummary(report: Awaited<ReturnType<typeof buildReport>>,
       symptoms: report.entries.symptoms.map((entry) => ({ id: entry.id, dateTime: formatDateTime.format(entry.dateTime) })),
       medicines: report.entries.medicines.map((entry) => ({ id: entry.id, dateTime: formatDateTime.format(entry.dateTime) })),
       weights: report.entries.weights.map((entry) => ({ id: entry.id, date: formatDateOnly.format(entry.date) })),
-      notes: report.entries.notes.map((entry) => ({ id: entry.id, dateTime: formatDateTime.format(entry.dateTime) }))
+      notes: report.entries.notes.map((entry) => ({ id: entry.id, dateTime: formatDateTime.format(entry.dateTime) })),
+      water: report.entries.water.map((entry) => ({ id: entry.id, dateTime: formatDateTime.format(entry.dateTime) })),
+      vaccinations: report.entries.vaccinations.map((entry) => ({
+        id: entry.id,
+        date: formatDateOnly.format(entry.date),
+        nextDueDate: entry.nextDueDate ? formatDateOnly.format(entry.nextDueDate) : null
+      })),
+      reminders: report.entries.reminders.map((entry) => ({ id: entry.id, time: formatDateTime.format(entry.time) }))
     }
   };
 }
@@ -708,7 +878,9 @@ export async function renderReportPdf(report: Awaited<ReturnType<typeof buildRep
       [text.medicinesCount, report.counts.medicines],
       [text.medicinesTaken, report.counts.medicinesTaken],
       [text.weightRecords, report.counts.weights],
-      [text.otherNotes, report.counts.notes]
+      [text.otherNotes, report.counts.notes],
+      [text.waterRecords, report.counts.water],
+      [text.vaccinations, report.counts.vaccinations]
     ] as const;
 
     rows.forEach(([label, count]) => {
@@ -771,6 +943,20 @@ export async function renderReportPdf(report: Awaited<ReturnType<typeof buildRep
     statLine(text.taken, analytics.medicines.taken);
     statLine(text.notTaken, analytics.medicines.notTaken);
 
+    section(text.waterByDay);
+    const waterRows = Object.entries(analytics.water.byDay);
+    if (waterRows.length) {
+      statLine(text.totalWater, `${analytics.water.totalMl} ml`);
+      statLine(text.averageWaterPerDay, `${analytics.water.averagePerDay} ml`);
+      waterRows.forEach(([date, amountMl]) => statLine(date, `${amountMl} ml`));
+    } else empty();
+
+    section(text.vaccinationsByType);
+    const vaccinationRows = Object.entries(analytics.vaccinationsByType);
+    if (vaccinationRows.length) {
+      vaccinationRows.forEach(([type, count]) => statLine(text.procedureLabels[type as keyof typeof text.procedureLabels] ?? type, count));
+    } else empty();
+
     section(text.notesSummary);
     statLine(text.otherNotes, analytics.notes.count);
 
@@ -811,6 +997,33 @@ export async function renderReportPdf(report: Awaited<ReturnType<typeof buildRep
     if (report.entries.weights.length) {
       report.entries.weights.forEach((entry) => line(entry.date, [
         [text.weight, `${entry.weightKg.toString()} ${text.kg}`]
+      ]));
+    } else empty();
+
+    section(text.waterIntake);
+    if (report.entries.water.length) {
+      report.entries.water.forEach((entry) => line(entry.dateTime, [
+        [text.amountMl, String(entry.amountMl)],
+        [text.comment, entry.note]
+      ]));
+    } else empty();
+
+    section(text.vaccinations);
+    if (report.entries.vaccinations.length) {
+      report.entries.vaccinations.forEach((entry) => line(entry.date, [
+        [text.procedureType, text.procedureLabels[entry.procedureType] ?? entry.procedureType],
+        [text.medicineName, entry.title],
+        [text.nextDueDate, entry.nextDueDate ? formatDate.format(entry.nextDueDate) : null],
+        [text.comment, entry.note]
+      ]));
+    } else empty();
+
+    section(text.upcomingReminders);
+    if (report.entries.reminders.length) {
+      report.entries.reminders.forEach((entry) => line(entry.time, [
+        [text.reminderType, text.reminderLabels[entry.type] ?? entry.type],
+        [text.medicineName, entry.title],
+        ["Repeat", entry.repeatRule]
       ]));
     } else empty();
 

@@ -28,7 +28,7 @@ function chartPoint(entry: WeightEntry, index: number, total: number, min: numbe
   const weight = Number(entry.weightKg);
   const x = total === 1 ? 160 : 24 + (index / (total - 1)) * 272;
   const y = total === 1 ? 74 : 118 - ((weight - min) / range) * 82;
-  return { x, y, weight, date: new Date(entry.date) };
+  return { id: entry.id, x, y, weight, date: new Date(entry.date) };
 }
 
 function WeightChart({ values, locale }: { values: WeightEntry[]; locale: string }) {
@@ -68,7 +68,7 @@ function WeightChart({ values, locale }: { values: WeightEntry[]; locale: string
           <line x1="92" x2="228" y1={last.y} y2={last.y} stroke="rgb(42 166 147)" strokeLinecap="round" strokeWidth="5" vectorEffect="non-scaling-stroke" />
         )}
         {points.map((point) => (
-          <g key={`${point.date.toISOString()}-${point.weight}`}>
+          <g key={point.id}>
             <circle cx={point.x} cy={point.y} r="7" fill="rgb(42 166 147)" />
             <circle cx={point.x} cy={point.y} r="11" fill="none" stroke="rgb(42 166 147)" strokeOpacity="0.24" strokeWidth="5" />
           </g>

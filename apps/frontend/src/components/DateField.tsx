@@ -10,11 +10,12 @@ type DateFieldProps = {
   required?: boolean;
   label?: string;
   className?: string;
+  allowEmpty?: boolean;
 };
 
-export function DateField({ name, value, defaultValue, onChange, required, label, className = "" }: DateFieldProps) {
+export function DateField({ name, value, defaultValue, onChange, required, label, className = "", allowEmpty = false }: DateFieldProps) {
   const { t } = useI18n();
-  const initial = useMemo(() => value || defaultValue || localDateInputValue(), [defaultValue, value]);
+  const initial = useMemo(() => value || defaultValue || (allowEmpty ? "" : localDateInputValue()), [allowEmpty, defaultValue, value]);
   const [dateValue, setDateValue] = useState(initial);
 
   useEffect(() => {

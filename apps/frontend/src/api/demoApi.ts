@@ -10,6 +10,8 @@ type DemoStore = {
   weights: Record<string, unknown>[];
   notes: Record<string, unknown>[];
   reminders: Record<string, unknown>[];
+  water: Record<string, unknown>[];
+  vaccinations: Record<string, unknown>[];
 };
 
 const key = "petcare-demo-store";
@@ -28,6 +30,10 @@ function readStore(): DemoStore {
     parsed.weights ??= [];
     parsed.notes ??= [];
     parsed.reminders ??= [];
+    parsed.water ??= [];
+    parsed.vaccinations ??= [];
+    parsed.water = parsed.water.map((item) => item.amountMl === undefined && item.volumeMl !== undefined ? { ...item, amountMl: item.volumeMl } : item);
+    parsed.vaccinations = parsed.vaccinations.map((item) => item.date === undefined && item.procedureDate !== undefined ? { ...item, date: item.procedureDate } : item);
     parsed.adminUsers ??= [];
     parsed.reportExports ??= {};
     parsed.pets ??= parsed.pet ? [parsed.pet] : [];
@@ -69,7 +75,9 @@ function readStore(): DemoStore {
     medicines: [],
     weights: [],
     notes: [],
-    reminders: []
+    reminders: [],
+    water: [],
+    vaccinations: []
   };
   writeStore(store);
   return store;
@@ -83,8 +91,11 @@ function jsonBody(options: RequestInit) {
   return options.body ? JSON.parse(String(options.body)) as Record<string, unknown> : {};
 }
 
-function collectionFor(path: string): keyof Pick<DemoStore, "feeding" | "symptoms" | "medicines" | "weights" | "notes" | "reminders"> | null {
+function collectionFor(path: string): keyof Pick<DemoStore, "feeding" | "symptoms" | "medicines" | "weights" | "notes" | "reminders" | "water" | "vaccinations"> | null {
   if (path.startsWith("/api/feeding")) return "feeding";
+  if (path.startsWith("/api/water/analytics")) return null;
+  if (path.startsWith("/api/water")) return "water";
+  if (path.startsWith("/api/vaccinations")) return "vaccinations";
   if (path.startsWith("/api/symptoms/analytics")) return null;
   if (path.startsWith("/api/symptoms")) return "symptoms";
   if (path.startsWith("/api/medicines")) return "medicines";
@@ -94,11 +105,11 @@ function collectionFor(path: string): keyof Pick<DemoStore, "feeding" | "symptom
   return null;
 }
 
-function dateFieldFor(collection: keyof Pick<DemoStore, "feeding" | "symptoms" | "medicines" | "weights" | "notes" | "reminders">) {
-  return collection === "weights" ? "date" : collection === "reminders" ? "time" : "dateTime";
+function dateFieldFor(collection: keyof Pick<DemoStore, "feeding" | "symptoms" | "medicines" | "weights" | "notes" | "reminders" | "water" | "vaccinations">) {
+  return collection === "weights" || collection === "vaccinations" ? "date" : collection === "reminders" ? "time" : "dateTime";
 }
 
-function filterByQuery(path: string, collection: keyof Pick<DemoStore, "feeding" | "symptoms" | "medicines" | "weights" | "notes" | "reminders">, items: Record<string, unknown>[]) {
+function filterByQuery(path: string, collection: keyof Pick<DemoStore, "feeding" | "symptoms" | "medicines" | "weights" | "notes" | "reminders" | "water" | "vaccinations">, items: Record<string, unknown>[]) {
   const url = new URL(path, "http://demo.local");
   const from = url.searchParams.get("from");
   const to = url.searchParams.get("to");
@@ -140,7 +151,7 @@ export async function demoApi<T>(path: string, options: RequestInit = {}): Promi
       pet: store.pet
     };
     const users = [currentAdmin, ...(store.adminUsers ?? [])];
-    return (telegramId ? users.filter((user) => String(user.telegramId) === telegramId) : users) as T;
+    return { items: telegramId ? users.filter((user) => String(user.telegramId) === telegramId) : users, nextOffset: null } as T;
   }
 
   if (path.startsWith("/api/admin/users/") && path.endsWith("/access") && method === "PATCH") {
@@ -232,6 +243,15 @@ export async function demoApi<T>(path: string, options: RequestInit = {}): Promi
     return Object.entries(counts).map(([symptomType, count]) => ({ symptomType, count })) as T;
   }
 
+  if (path.startsWith("/api/water/analytics")) {
+    const url = new URL(path, "http://demo.local");
+    const days = Number(url.searchParams.get("days") ?? 7);
+    const since = Date.now() - days * 86400000;
+    const items = (store.water ?? []).filter((item) => new Date(String(item.dateTime)).getTime() >= since);
+    const totalMl = items.reduce((sum, item) => sum + Number(item.amountMl ?? item.volumeMl ?? 0), 0);
+    return { totalMl, averageMl: Math.round(totalMl / Math.max(1, days)), entriesCount: items.length, days, byDay: [] } as T;
+  }
+
   if (path.startsWith("/api/reports/exports/status")) {
     const today = new Date().toISOString().slice(0, 10);
     const usedToday = store.reportExports?.[today] ?? 0;
@@ -259,7 +279,9 @@ export async function demoApi<T>(path: string, options: RequestInit = {}): Promi
       symptoms: store.symptoms.length,
       medicines: store.medicines.length,
       weights: store.weights.length,
-      notes: store.notes.length
+      notes: store.notes.length,
+      water: store.water?.length ?? 0,
+      vaccinations: store.vaccinations?.length ?? 0
     };
     return {
       counts,
@@ -271,6 +293,17 @@ export async function demoApi<T>(path: string, options: RequestInit = {}): Promi
     const body = jsonBody(options);
     const amounts: Record<string, number> = { MONTHLY: 199, SIX_MONTHS: 999, YEARLY: 1799 };
     return { invoiceLink: "https://t.me/$demo-invoice", amountStars: amounts[String(body.productType)] ?? 199 } as T;
+  }
+
+  if (path === "/api/ai/assistant") {
+    return {
+      answer: "Demo AI summary: recent records are grouped for easier review. This is not a diagnosis.",
+      disclaimer: "AI helper structures information and does not replace a veterinarian."
+    } as T;
+  }
+
+  if (path === "/api/feedback" && method === "POST") {
+    return { id: uid(), ok: true } as T;
   }
 
   if (path === "/api/analytics/event") {

@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, Edit3, FileText, HeartPulse, Pill, Save, Scale, Trash2, Utensils, X } from "lucide-react";
+import { CalendarCheck, CalendarDays, Droplets, Edit3, FileText, HeartPulse, Pill, Save, Scale, Trash2, Utensils, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import clsx from "clsx";
 import { api, jsonBody } from "../api/client";
@@ -16,7 +16,7 @@ import { useAppStore } from "../store/appStore";
 import { localDateInputValue, localDateTimeInputToUtcIso, localDateTimeInputValue } from "../utils/dateTime";
 import { languageLocale, useI18n } from "../utils/i18n";
 
-type DiaryType = "ALL" | "FEEDING" | "SYMPTOM" | "MEDICINE" | "WEIGHT" | "NOTE";
+type DiaryType = "ALL" | "FEEDING" | "WATER" | "SYMPTOM" | "MEDICINE" | "WEIGHT" | "VACCINATION" | "NOTE";
 type PeriodMode = "today" | "7" | "30" | "all" | "custom";
 
 type FeedingEntry = { id: string; dateTime: string; foodType: string; amount: string; note?: string };
@@ -24,6 +24,17 @@ type SymptomEntry = { id: string; dateTime: string; symptomType: string; severit
 type MedicineEntry = { id: string; medicineName: string; dosage: string; dateTime: string; taken: boolean; note?: string };
 type WeightEntry = { id: string; date: string; weightKg: string };
 type NoteEntry = { id: string; dateTime: string; note: string };
+type WaterEntry = { id: string; dateTime: string; amountMl: number | string; note?: string | null };
+type VaccinationEntry = {
+  id: string;
+  procedureType: string;
+  title?: string | null;
+  name?: string | null;
+  productName?: string | null;
+  date: string;
+  nextDueDate?: string | null;
+  note?: string | null;
+};
 
 type TimelineEntry = {
   id: string;
@@ -33,7 +44,7 @@ type TimelineEntry = {
   detail: string;
   note?: string;
   endpoint: string;
-  raw: FeedingEntry | SymptomEntry | MedicineEntry | WeightEntry | NoteEntry;
+  raw: FeedingEntry | WaterEntry | SymptomEntry | MedicineEntry | WeightEntry | VaccinationEntry | NoteEntry;
 };
 
 type EditDraft = Record<string, string | boolean>;
@@ -50,6 +61,14 @@ function buildQuery(petId: string, from: string, to: string) {
   return params.toString();
 }
 
+function localDateToUtcIso(value: string | null | undefined) {
+  return value ? new Date(`${value}T00:00:00`).toISOString() : null;
+}
+
+function vaccinationTitle(entry: VaccinationEntry) {
+  return entry.title ?? entry.name ?? entry.productName ?? "";
+}
+
 export default function DiaryPage() {
   const { language, t } = useI18n();
   const pet = useAppStore((state) => state.pet);
@@ -64,9 +83,11 @@ export default function DiaryPage() {
 
   const query = buildQuery(pet?.id ?? "", from, to);
   const feeding = usePaginatedApi<FeedingEntry>(["diary", "feeding", pet?.id, from, to], `/api/feeding?${query}`, Boolean(pet) && (type === "ALL" || type === "FEEDING"), 12);
+  const water = usePaginatedApi<WaterEntry>(["diary", "water", pet?.id, from, to], `/api/water?${query}`, Boolean(pet) && (type === "ALL" || type === "WATER"), 12);
   const symptoms = usePaginatedApi<SymptomEntry>(["diary", "symptoms", pet?.id, from, to], `/api/symptoms?${query}`, Boolean(pet) && (type === "ALL" || type === "SYMPTOM"), 12);
   const medicines = usePaginatedApi<MedicineEntry>(["diary", "medicines", pet?.id, from, to], `/api/medicines?${query}`, Boolean(pet) && (type === "ALL" || type === "MEDICINE"), 12);
   const weights = usePaginatedApi<WeightEntry>(["diary", "weights", pet?.id, from, to], `/api/weights?${query}`, Boolean(pet) && (type === "ALL" || type === "WEIGHT"), 12);
+  const vaccinations = usePaginatedApi<VaccinationEntry>(["diary", "vaccinations", pet?.id, from, to], `/api/vaccinations?${query}`, Boolean(pet) && (type === "ALL" || type === "VACCINATION"), 12);
   const notes = usePaginatedApi<NoteEntry>(["diary", "notes", pet?.id, from, to], `/api/notes?${query}`, Boolean(pet) && (type === "ALL" || type === "NOTE"), 12);
 
   const deleteEntry = useMutation({
@@ -85,7 +106,8 @@ export default function DiaryPage() {
 
   const labels = {
     food: { DRY: t("dryFood"), WET: t("wetFood"), NATURAL: t("naturalFood"), TREAT: t("treat"), OTHER: t("other") } as Record<string, string>,
-    symptom: { VOMITING: t("vomiting"), YELLOW_VOMIT: t("yellowVomit"), NO_APPETITE: t("noAppetite"), DIARRHEA: t("diarrhea"), CONSTIPATION: t("constipation"), LETHARGY: t("lethargy"), PAIN: t("pain"), OTHER: t("other") } as Record<string, string>
+    symptom: { VOMITING: t("vomiting"), YELLOW_VOMIT: t("yellowVomit"), NO_APPETITE: t("noAppetite"), DIARRHEA: t("diarrhea"), CONSTIPATION: t("constipation"), LETHARGY: t("lethargy"), PAIN: t("pain"), OTHER: t("other") } as Record<string, string>,
+    procedure: { VACCINE: t("procedureVaccine"), DEWORMING: t("procedureDeworming"), FLEA_TICK: t("procedureFleaTick"), OTHER: t("procedureOther") } as Record<string, string>
   };
 
   const timeline = useMemo<TimelineEntry[]>(() => {
@@ -98,6 +120,16 @@ export default function DiaryPage() {
         detail: `${labels.food[entry.foodType] ?? entry.foodType} · ${entry.amount}`,
         note: entry.note,
         endpoint: "/api/feeding",
+        raw: entry
+      })),
+      ...water.items.map((entry) => ({
+        id: entry.id,
+        type: "WATER" as const,
+        date: entry.dateTime,
+        title: t("waterTitle"),
+        detail: `${entry.amountMl} ml`,
+        note: entry.note ?? undefined,
+        endpoint: "/api/water",
         raw: entry
       })),
       ...symptoms.items.map((entry) => ({
@@ -129,6 +161,20 @@ export default function DiaryPage() {
         endpoint: "/api/weights",
         raw: entry
       })),
+      ...vaccinations.items.map((entry) => ({
+        id: entry.id,
+        type: "VACCINATION" as const,
+        date: entry.date,
+        title: t("vaccinations"),
+        detail: [
+          labels.procedure[entry.procedureType] ?? entry.procedureType,
+          vaccinationTitle(entry),
+          entry.nextDueDate ? `${t("nextTreatment")}: ${new Date(entry.nextDueDate).toLocaleDateString(languageLocale(language))}` : null
+        ].filter(Boolean).join(" · "),
+        note: entry.note ?? undefined,
+        endpoint: "/api/vaccinations",
+        raw: entry
+      })),
       ...notes.items.map((entry) => ({
         id: entry.id,
         type: "NOTE" as const,
@@ -142,9 +188,9 @@ export default function DiaryPage() {
     ]
       .filter((entry) => type === "ALL" || entry.type === type)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [feeding.items, labels.food, labels.symptom, medicines.items, notes.items, symptoms.items, t, type, weights.items]);
+  }, [feeding.items, labels.food, labels.procedure, labels.symptom, language, medicines.items, notes.items, symptoms.items, t, type, vaccinations.items, water.items, weights.items]);
 
-  const activeSources = [feeding, symptoms, medicines, weights, notes].filter((source) => source.isEnabled);
+  const activeSources = [feeding, water, symptoms, medicines, weights, vaccinations, notes].filter((source) => source.isEnabled);
   const isLoading = activeSources.some((source) => source.isLoading);
   const isFetchingMore = activeSources.some((source) => source.isFetchingNextPage);
   const hasMore = activeSources.some((source) => source.hasNextPage);
@@ -157,17 +203,21 @@ export default function DiaryPage() {
   const tabs: Array<{ value: DiaryType; label: string }> = [
     { value: "ALL", label: t("all") },
     { value: "FEEDING", label: t("feeding") },
+    { value: "WATER", label: t("water") },
     { value: "SYMPTOM", label: t("symptom") },
     { value: "MEDICINE", label: t("medicine") },
     { value: "WEIGHT", label: t("weight") },
+    { value: "VACCINATION", label: t("vaccination") },
     { value: "NOTE", label: t("otherNote") }
   ];
 
   const iconByType = {
     FEEDING: Utensils,
+    WATER: Droplets,
     SYMPTOM: HeartPulse,
     MEDICINE: Pill,
     WEIGHT: Scale,
+    VACCINATION: CalendarCheck,
     NOTE: FileText
   };
 
@@ -205,6 +255,10 @@ export default function DiaryPage() {
       const raw = entry.raw as SymptomEntry;
       setDraft({ dateTime: localDateTimeInputValue(new Date(raw.dateTime)), symptomType: raw.symptomType, severity: String(raw.severity), note: raw.note ?? "" });
     }
+    if (entry.type === "WATER") {
+      const raw = entry.raw as WaterEntry;
+      setDraft({ dateTime: localDateTimeInputValue(new Date(raw.dateTime)), amountMl: String(raw.amountMl), note: raw.note ?? "" });
+    }
     if (entry.type === "MEDICINE") {
       const raw = entry.raw as MedicineEntry;
       setDraft({ dateTime: localDateTimeInputValue(new Date(raw.dateTime)), medicineName: raw.medicineName, dosage: raw.dosage, taken: raw.taken, note: raw.note ?? "" });
@@ -212,6 +266,16 @@ export default function DiaryPage() {
     if (entry.type === "WEIGHT") {
       const raw = entry.raw as WeightEntry;
       setDraft({ date: localDateInputValue(new Date(raw.date)), weightKg: String(raw.weightKg) });
+    }
+    if (entry.type === "VACCINATION") {
+      const raw = entry.raw as VaccinationEntry;
+      setDraft({
+        procedureType: raw.procedureType || "VACCINE",
+        title: vaccinationTitle(raw),
+        procedureDate: localDateInputValue(new Date(raw.date)),
+        nextDueDate: raw.nextDueDate ? localDateInputValue(new Date(raw.nextDueDate)) : "",
+        note: raw.note ?? ""
+      });
     }
     if (entry.type === "NOTE") {
       const raw = entry.raw as NoteEntry;
@@ -227,11 +291,17 @@ export default function DiaryPage() {
     if (entry.type === "SYMPTOM") {
       updateEntry.mutate({ entry, body: { petId: pet.id, dateTime: localDateTimeInputToUtcIso(String(draft.dateTime)), symptomType: draft.symptomType, severity: Number(draft.severity), note: draft.note || null } });
     }
+    if (entry.type === "WATER") {
+      updateEntry.mutate({ entry, body: { petId: pet.id, dateTime: localDateTimeInputToUtcIso(String(draft.dateTime)), amountMl: Number(draft.amountMl), note: draft.note || null } });
+    }
     if (entry.type === "MEDICINE") {
       updateEntry.mutate({ entry, body: { petId: pet.id, dateTime: localDateTimeInputToUtcIso(String(draft.dateTime)), medicineName: draft.medicineName, dosage: draft.dosage, taken: Boolean(draft.taken), note: draft.note || null } });
     }
     if (entry.type === "WEIGHT") {
       updateEntry.mutate({ entry, body: { petId: pet.id, date: new Date(String(draft.date)).toISOString(), weightKg: Number(draft.weightKg) } });
+    }
+    if (entry.type === "VACCINATION") {
+      updateEntry.mutate({ entry, body: { petId: pet.id, procedureType: draft.procedureType, title: draft.title, date: localDateToUtcIso(String(draft.procedureDate)), nextDueDate: localDateToUtcIso(String(draft.nextDueDate || "")), note: draft.note || null } });
     }
     if (entry.type === "NOTE") {
       updateEntry.mutate({ entry, body: { petId: pet.id, dateTime: localDateTimeInputToUtcIso(String(draft.dateTime)), note: draft.note } });
@@ -241,8 +311,9 @@ export default function DiaryPage() {
   function renderEditForm(entry: TimelineEntry) {
     return (
       <div className="mt-3 grid gap-2">
-        {entry.type !== "WEIGHT" && <DateTimeFields value={String(draft.dateTime ?? "")} onChange={(dateTime) => updateDraft("dateTime", dateTime)} />}
+        {entry.type !== "WEIGHT" && entry.type !== "VACCINATION" && <DateTimeFields value={String(draft.dateTime ?? "")} onChange={(dateTime) => updateDraft("dateTime", dateTime)} />}
         {entry.type === "WEIGHT" && <DateField value={String(draft.date ?? "")} onChange={(date) => updateDraft("date", date)} />}
+        {entry.type === "VACCINATION" && <DateField label={t("procedureDate")} value={String(draft.procedureDate ?? "")} onChange={(date) => updateDraft("procedureDate", date)} />}
         {entry.type === "FEEDING" && (
           <>
             <SelectField value={String(draft.foodType ?? "DRY")} onChange={(event) => updateDraft("foodType", event.target.value)}>
@@ -261,6 +332,12 @@ export default function DiaryPage() {
             <textarea className="input" value={String(draft.note ?? "")} onChange={(event) => updateDraft("note", event.target.value)} placeholder={t("comment")} />
           </>
         )}
+        {entry.type === "WATER" && (
+          <>
+            <input className="input" type="number" inputMode="numeric" min="1" value={String(draft.amountMl ?? "")} onChange={(event) => updateDraft("amountMl", event.target.value)} placeholder={t("waterVolumeMl")} />
+            <textarea className="input" value={String(draft.note ?? "")} onChange={(event) => updateDraft("note", event.target.value)} placeholder={t("note")} />
+          </>
+        )}
         {entry.type === "MEDICINE" && (
           <>
             <input className="input" value={String(draft.medicineName ?? "")} onChange={(event) => updateDraft("medicineName", event.target.value)} placeholder={t("medicineName")} />
@@ -270,6 +347,16 @@ export default function DiaryPage() {
           </>
         )}
         {entry.type === "WEIGHT" && <input className="input" type="number" step="0.1" value={String(draft.weightKg ?? "")} onChange={(event) => updateDraft("weightKg", event.target.value)} placeholder={t("weightKg")} />}
+        {entry.type === "VACCINATION" && (
+          <>
+            <SelectField value={String(draft.procedureType ?? "VACCINE")} onChange={(event) => updateDraft("procedureType", event.target.value)}>
+              <option value="VACCINE">{t("procedureVaccine")}</option><option value="DEWORMING">{t("procedureDeworming")}</option><option value="FLEA_TICK">{t("procedureFleaTick")}</option><option value="OTHER">{t("procedureOther")}</option>
+            </SelectField>
+            <input className="input" value={String(draft.title ?? "")} onChange={(event) => updateDraft("title", event.target.value)} placeholder={t("procedureName")} />
+            <DateField label={t("nextDueDate")} value={String(draft.nextDueDate ?? "")} onChange={(date) => updateDraft("nextDueDate", date)} allowEmpty />
+            <textarea className="input" value={String(draft.note ?? "")} onChange={(event) => updateDraft("note", event.target.value)} placeholder={t("note")} />
+          </>
+        )}
         {entry.type === "NOTE" && <textarea className="input min-h-24" value={String(draft.note ?? "")} onChange={(event) => updateDraft("note", event.target.value)} placeholder={t("notePlaceholder")} />}
         <div className="grid grid-cols-2 gap-2">
           <button className="btn btn-primary" disabled={updateEntry.isPending} onClick={() => saveEdit(entry)}><Save size={16} />{t("save")}</button>

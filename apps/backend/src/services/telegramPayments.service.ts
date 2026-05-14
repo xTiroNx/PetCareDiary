@@ -2,6 +2,7 @@ import { nanoid } from "nanoid";
 import { env } from "../config/env.js";
 import { prisma } from "../prisma/client.js";
 import { trackAnalyticsEvent } from "./analytics.service.js";
+import { sendPaymentReceiptNotification } from "./reminderScheduler.service.js";
 import { HttpError } from "../utils/httpError.js";
 
 export type CheckoutProductType = "MONTHLY" | "SIX_MONTHS" | "YEARLY";
@@ -226,6 +227,7 @@ export async function grantAccessForSuccessfulPayment(paymentUpdate: {
       currency: payment.currency
     }
   });
+  void sendPaymentReceiptNotification(paidPayment.id);
 
   return paidPayment;
 }

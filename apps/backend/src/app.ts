@@ -11,6 +11,7 @@ import { rateLimit } from "./middlewares/rateLimit.middleware.js";
 import adminRoutes from "./routes/admin.routes.js";
 import adminAnalyticsRoutes from "./routes/adminAnalytics.routes.js";
 import adminVoiceRoutes from "./routes/adminVoice.routes.js";
+import aiRoutes from "./routes/ai.routes.js";
 import analyticsRoutes from "./routes/analytics.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import diaryRoutes from "./routes/diary.routes.js";
@@ -20,7 +21,9 @@ import petsRoutes from "./routes/pets.routes.js";
 import remindersRoutes from "./routes/reminders.routes.js";
 import reportsRoutes from "./routes/reports.routes.js";
 import telegramRoutes from "./routes/telegram.routes.js";
+import vaccinationsRoutes from "./routes/vaccinations.routes.js";
 import voiceRoutes from "./routes/voice.routes.js";
+import waterRoutes from "./routes/water.routes.js";
 
 export function createApp() {
   const app = express();
@@ -40,10 +43,13 @@ export function createApp() {
   app.use("/api/payments", authMiddleware, rateLimit({ keyPrefix: "payments", windowMs: 60_000, max: 20 }), paymentsRoutes);
   app.use("/api/feedback", authMiddleware, rateLimit({ keyPrefix: "feedback", windowMs: 10 * 60_000, max: 5 }), feedbackRoutes);
   app.use("/api/voice", authMiddleware, requireActiveAccess, rateLimit({ keyPrefix: "user-voice", windowMs: 60_000, max: 10 }), voiceRoutes);
+  app.use("/api/ai", authMiddleware, requireActiveAccess, rateLimit({ keyPrefix: "ai-assistant", windowMs: 60_000, max: 10 }), aiRoutes);
   app.use("/api/pets", authMiddleware, requireActiveAccess, petsRoutes);
-  app.use("/api", authMiddleware, requireActiveAccess, diaryRoutes);
   app.use("/api/reminders", authMiddleware, requireActiveAccess, remindersRoutes);
+  app.use("/api/vaccinations", authMiddleware, requireActiveAccess, vaccinationsRoutes);
+  app.use("/api/water", authMiddleware, requireActiveAccess, waterRoutes);
   app.use("/api/reports", authMiddleware, requireActiveAccess, rateLimit({ keyPrefix: "reports", windowMs: 60_000, max: 60 }), reportsRoutes);
+  app.use("/api", authMiddleware, requireActiveAccess, diaryRoutes);
 
   app.use(notFoundMiddleware);
   app.use(errorMiddleware);

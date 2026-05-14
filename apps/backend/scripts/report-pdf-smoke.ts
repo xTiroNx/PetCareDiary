@@ -15,8 +15,8 @@ function assert(condition: unknown, message: string) {
 }
 
 const report = {
-  period: 7,
-  from: new Date("2026-05-05T00:00:00.000Z"),
+  period: 90,
+  from: new Date("2026-02-10T00:00:00.000Z"),
   pet: {
     id: "pet-1",
     name: "Milo",
@@ -32,7 +32,10 @@ const report = {
     medicines: 2,
     medicinesTaken: 1,
     weights: 2,
-    notes: 1
+    notes: 1,
+    water: 2,
+    vaccinations: 1,
+    reminders: 1
   },
   entries: {
     feeding: [{ id: "feeding-1", dateTime: new Date("2026-05-11T10:00:00.000Z"), foodType: "WET", amount: "1 pouch", note: "ate slowly" }],
@@ -45,7 +48,31 @@ const report = {
       { id: "weight-1", date: new Date("2026-05-05T09:00:00.000Z"), weightKg: { toString: () => "4.1" } },
       { id: "weight-2", date: new Date("2026-05-11T09:00:00.000Z"), weightKg: { toString: () => "4.2" } }
     ],
-    notes: [{ id: "note-1", dateTime: new Date("2026-05-11T15:00:00.000Z"), note: "played after dinner" }]
+    notes: [{ id: "note-1", dateTime: new Date("2026-05-11T15:00:00.000Z"), note: "played after dinner" }],
+    water: [
+      { id: "water-1", dateTime: new Date("2026-05-11T08:00:00.000Z"), amountMl: 120, note: "morning bowl" },
+      { id: "water-2", dateTime: new Date("2026-05-11T20:00:00.000Z"), amountMl: 90, note: null }
+    ],
+    vaccinations: [
+      {
+        id: "vaccination-1",
+        date: new Date("2026-04-01T09:00:00.000Z"),
+        procedureType: "VACCINE",
+        title: "Rabies",
+        nextDueDate: new Date("2027-04-01T09:00:00.000Z"),
+        note: "clinic record"
+      }
+    ],
+    reminders: [
+      {
+        id: "reminder-1",
+        type: "VACCINATION",
+        title: "Rabies booster",
+        time: new Date("2027-04-01T09:00:00.000Z"),
+        repeatRule: null,
+        active: true
+      }
+    ]
   }
 };
 

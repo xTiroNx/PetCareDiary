@@ -20,7 +20,10 @@ export const analyticsEvents = [
   "voice_draft_created",
   "report_preview_opened",
   "pdf_export_clicked",
-  "feedback_sent"
+  "feedback_sent",
+  "water_created",
+  "vaccination_created",
+  "ai_assistant_used"
 ] as const;
 
 export type AnalyticsEventName = typeof analyticsEvents[number];
@@ -153,14 +156,16 @@ export async function trackAnalyticsEvent(input: TrackInput) {
 }
 
 export async function hasAnyDiaryEntry(userId: string) {
-  const [feeding, symptoms, medicines, weights, notes] = await Promise.all([
+  const [feeding, symptoms, medicines, weights, notes, water, vaccinations] = await Promise.all([
     prisma.feedingEntry.findFirst({ where: { userId }, select: { id: true } }),
     prisma.symptomEntry.findFirst({ where: { userId }, select: { id: true } }),
     prisma.medicineEntry.findFirst({ where: { userId }, select: { id: true } }),
     prisma.weightEntry.findFirst({ where: { userId }, select: { id: true } }),
-    prisma.noteEntry.findFirst({ where: { userId }, select: { id: true } })
+    prisma.noteEntry.findFirst({ where: { userId }, select: { id: true } }),
+    prisma.waterEntry.findFirst({ where: { userId }, select: { id: true } }),
+    prisma.vaccinationEntry.findFirst({ where: { userId }, select: { id: true } })
   ]);
-  return Boolean(feeding || symptoms || medicines || weights || notes);
+  return Boolean(feeding || symptoms || medicines || weights || notes || water || vaccinations);
 }
 
 type AnalyticsEventRecord = Awaited<ReturnType<typeof loadAnalyticsEvents>>[number];

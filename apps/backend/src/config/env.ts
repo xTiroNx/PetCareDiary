@@ -30,6 +30,7 @@ const envSchema = z.object({
   MINIMAX_REPORT_MODEL: z.string().min(1).optional(),
   MINIMAX_REPORT_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(30_000).default(4_000),
   MINIMAX_API_BASE_URL: z.string().url().default("https://api.minimax.io"),
+  AI_ASSISTANT_DAILY_LIMIT_PER_USER: z.coerce.number().int().positive().default(10),
   ENABLE_DEV_AUTH: z.coerce.boolean().default(false),
   DEV_TELEGRAM_ID: z.coerce.number().int().positive().default(777000001),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development")

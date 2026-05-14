@@ -1,6 +1,7 @@
-import { FileText, HeartPulse, Pill, Scale, Utensils } from "lucide-react";
+import { Bot, CalendarCheck, Droplets, FileText, HeartPulse, Pill, Scale, Utensils } from "lucide-react";
 import { Link, Navigate } from "react-router-dom";
 import { AccessBadge } from "../components/AccessBadge";
+import { AccessNotice } from "../components/AccessNotice";
 import { VoiceCommand } from "../components/AdminVoiceCommand";
 import { MedicalDisclaimer } from "../components/MedicalDisclaimer";
 import { useAppStore } from "../store/appStore";
@@ -10,8 +11,9 @@ export default function DashboardPage() {
   const { t } = useI18n();
   const pet = useAppStore((state) => state.pet);
   const accessStatus = useAppStore((state) => state.accessStatus);
+  const isAdmin = useAppStore((state) => state.isAdmin);
   if (!pet) return <Navigate to="/onboarding" replace />;
-  const hasActiveAccess = accessStatus !== "expired";
+  const hasActiveAccess = isAdmin || accessStatus !== "expired";
   const petMeta = [
     pet.type === "CAT" ? t("cat") : pet.type === "DOG" ? t("dog") : t("otherPet"),
     pet.weightKg ? `${pet.weightKg} kg` : null,
@@ -32,14 +34,18 @@ export default function DashboardPage() {
           </div>
         </div>
       </header>
+      <AccessNotice />
       <section className="panel p-3.5">
         <h2 className="section-title mb-3">{t("quickActions")}</h2>
         <div className="grid grid-cols-2 gap-2">
           <Link className="btn btn-primary quick-action" to="/feeding"><Utensils size={18} />{t("feeding")}</Link>
+          <Link className="btn btn-secondary quick-action" to="/water"><Droplets size={18} />{t("water")}</Link>
           <Link className="btn btn-secondary quick-action" to="/medicines"><Pill size={18} />{t("medicine")}</Link>
           <Link className="btn btn-secondary quick-action" to="/symptoms"><HeartPulse size={18} />{t("symptom")}</Link>
           <Link className="btn btn-secondary quick-action" to="/weight"><Scale size={18} />{t("weight")}</Link>
-          <Link className="btn btn-secondary quick-action col-span-2 min-h-[50px]" to="/notes"><FileText size={18} />{t("otherNote")}</Link>
+          <Link className="btn btn-secondary quick-action" to="/vaccinations"><CalendarCheck size={18} />{t("vaccination")}</Link>
+          <Link className="btn btn-secondary quick-action" to="/notes"><FileText size={18} />{t("otherNote")}</Link>
+          {hasActiveAccess && <Link className="btn btn-secondary quick-action col-span-2 min-h-[50px]" to="/ai"><Bot size={18} />{t("aiAssistant")}</Link>}
         </div>
       </section>
       {hasActiveAccess && <VoiceCommand endpoint="/api/voice/command" />}

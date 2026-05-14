@@ -5,6 +5,7 @@ import { Layout } from "./components/Layout";
 import { useAuth } from "./hooks/useAuth";
 import { useAppStore } from "./store/appStore";
 import DashboardPage from "./pages/DashboardPage";
+import AiAssistantPage from "./pages/AiAssistantPage";
 import DiaryPage from "./pages/DiaryPage";
 import FeedingPage from "./pages/FeedingPage";
 import MedicinesPage from "./pages/MedicinesPage";
@@ -16,6 +17,8 @@ import ProfilePage from "./pages/ProfilePage";
 import RemindersPage from "./pages/RemindersPage";
 import ReportPage from "./pages/ReportPage";
 import SymptomsPage from "./pages/SymptomsPage";
+import VaccinationsPage from "./pages/VaccinationsPage";
+import WaterPage from "./pages/WaterPage";
 import WeightPage from "./pages/WeightPage";
 import { useI18n } from "./utils/i18n";
 import { hideTelegramBackButton } from "./utils/telegram";
@@ -54,6 +57,7 @@ export default function App() {
   const auth = useAuth();
   const user = useAppStore((state) => state.user);
   const accessStatus = useAppStore((state) => state.accessStatus);
+  const isAdmin = useAppStore((state) => state.isAdmin);
   const pet = useAppStore((state) => state.pet);
   const navigate = useNavigate();
   const location = useLocation();
@@ -80,10 +84,10 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
     const isAddingPet = location.pathname === "/onboarding" && new URLSearchParams(location.search).get("new") === "1";
-    if (accessStatus === "expired" && !freeRoutes.has(location.pathname)) navigate("/paywall", { replace: true });
+    if (accessStatus === "expired" && !isAdmin && !freeRoutes.has(location.pathname)) navigate("/paywall", { replace: true });
     if (pet && location.pathname === "/onboarding" && !isAddingPet) navigate("/", { replace: true });
     if (accessStatus !== "expired" && !pet && !routesWithoutPet.has(location.pathname)) navigate("/onboarding", { replace: true });
-  }, [user, accessStatus, pet, location.pathname, location.search, navigate]);
+  }, [user, accessStatus, isAdmin, pet, location.pathname, location.search, navigate]);
 
   useEffect(() => {
     hideTelegramBackButton();
@@ -108,7 +112,7 @@ export default function App() {
     setChangelogOpen(false);
   }
 
-  if (auth.isPending && !user) {
+  if (!user && !auth.error) {
     return <Layout><div className="panel mt-20 text-center">{t("appLoading")}</div></Layout>;
   }
 
@@ -123,6 +127,9 @@ export default function App() {
         <Route path="/diary" element={<DiaryPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/feeding" element={<FeedingPage />} />
+        <Route path="/water" element={<WaterPage />} />
+        <Route path="/vaccinations" element={<VaccinationsPage />} />
+        <Route path="/ai" element={<AiAssistantPage />} />
         <Route path="/symptoms" element={<SymptomsPage />} />
         <Route path="/medicines" element={<MedicinesPage />} />
         <Route path="/notes" element={<NotePage />} />

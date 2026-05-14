@@ -15,7 +15,7 @@ const repeatRuleSchema = z.preprocess(
 
 const reminderSchema = z.object({
   petId: z.string().min(1),
-  type: z.enum(["FEEDING", "MEDICINE", "WEIGHT", "VET", "OTHER"]),
+  type: z.enum(["FEEDING", "MEDICINE", "WEIGHT", "VET", "VACCINATION", "OTHER"]),
   title: z.string().min(1).max(120),
   time: z.coerce.date(),
   repeatRule: repeatRuleSchema,

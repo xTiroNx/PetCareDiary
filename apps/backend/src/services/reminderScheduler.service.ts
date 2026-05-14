@@ -1,4 +1,4 @@
-import type { Prisma, Reminder, ReminderType, User } from "@prisma/client";
+import type { AccessNotificationType, Prisma, Reminder, ReminderType, User } from "@prisma/client";
 import { env } from "../config/env.js";
 import { prisma } from "../prisma/client.js";
 import { adminTelegramIds } from "../utils/admin.js";
@@ -10,6 +10,7 @@ const reminderTypeLabels: Record<ReminderType, string> = {
   MEDICINE: "Лекарство",
   WEIGHT: "Взвешивание",
   VET: "Ветеринар",
+  VACCINATION: "Вакцинация/обработка",
   OTHER: "Другое"
 };
 
@@ -80,6 +81,247 @@ async function sendTelegramMessage(chatId: bigint, text: string) {
   }
 }
 
+function startOfUtcDay(date: Date) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
+function addUtcDays(date: Date, days: number) {
+  const next = new Date(date);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next;
+}
+
+function utcDayKey(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function isUniqueConflict(error: unknown) {
+  return typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "P2002";
+}
+
+async function createAccessNotificationLog(input: {
+  userId: string;
+  type: AccessNotificationType;
+  dayKey?: string | null;
+  relatedPaymentId?: string | null;
+}) {
+  try {
+    await prisma.accessNotificationLog.create({
+      data: {
+        userId: input.userId,
+        type: input.type,
+        dayKey: input.dayKey ?? null,
+        relatedPaymentId: input.relatedPaymentId ?? null
+      }
+    });
+    return true;
+  } catch (error) {
+    if (isUniqueConflict(error)) return false;
+    throw error;
+  }
+}
+
+async function hasAccessNotificationLog(input: {
+  userId: string;
+  type: AccessNotificationType;
+  dayKey?: string | null;
+  relatedPaymentId?: string | null;
+}) {
+  const existing = await prisma.accessNotificationLog.findFirst({
+    where: {
+      userId: input.userId,
+      type: input.type,
+      dayKey: input.dayKey ?? null,
+      relatedPaymentId: input.relatedPaymentId ?? null
+    },
+    select: { id: true }
+  });
+  return Boolean(existing);
+}
+
+function accessNotificationMessage(type: AccessNotificationType, date?: Date | null) {
+  const datePart = date ? `\nДата: ${date.toLocaleDateString("ru-RU", { timeZone: "UTC" })}` : "";
+  if (type === "TRIAL_ENDING_SOON") {
+    return `PetCare Diary: trial закончится завтра.${datePart}\n\nОткройте Mini App, чтобы продлить доступ, если хотите продолжить вести дневник.`;
+  }
+  if (type === "PAID_ENDING_SOON") {
+    return `PetCare Diary: оплаченный доступ закончится через 3 дня.${datePart}\n\nОткройте Mini App, чтобы продлить доступ заранее.`;
+  }
+  return "PetCare Diary: доступ закончился.\n\nОткройте Mini App, чтобы продлить доступ и продолжить вести дневник питомца.";
+}
+
+async function sendLoggedAccessNotification(input: {
+  user: Pick<User, "id" | "telegramId">;
+  type: AccessNotificationType;
+  dayKey: string;
+  date?: Date | null;
+}) {
+  const alreadySent = await hasAccessNotificationLog({ userId: input.user.id, type: input.type, dayKey: input.dayKey });
+  if (alreadySent) return false;
+  await sendTelegramMessage(input.user.telegramId, accessNotificationMessage(input.type, input.date));
+  return createAccessNotificationLog({ userId: input.user.id, type: input.type, dayKey: input.dayKey });
+}
+
+function expiredAccessWhere(now: Date): Prisma.UserWhereInput {
+  return {
+    lifetimeAccess: false,
+    trialEndsAt: { lt: now },
+    OR: [{ accessUntil: null }, { accessUntil: { lt: now } }]
+  };
+}
+
+async function loadExpiredUsersWithoutLog(now: Date, limit = 50) {
+  const users: Array<Pick<User, "id" | "telegramId" | "trialEndsAt" | "accessUntil">> = [];
+  const take = 50;
+  let skip = 0;
+
+  while (users.length < limit) {
+    const batch = await prisma.user.findMany({
+      where: expiredAccessWhere(now),
+      select: { id: true, telegramId: true, trialEndsAt: true, accessUntil: true },
+      orderBy: [{ trialEndsAt: "asc" }, { id: "asc" }],
+      skip,
+      take
+    });
+    if (!batch.length) break;
+    skip += batch.length;
+
+    for (const user of batch) {
+      const accessEndedAt = user.accessUntil && user.accessUntil > user.trialEndsAt ? user.accessUntil : user.trialEndsAt;
+      const alreadySent = await hasAccessNotificationLog({
+        userId: user.id,
+        type: "ACCESS_EXPIRED",
+        dayKey: utcDayKey(accessEndedAt)
+      });
+      if (!alreadySent) users.push(user);
+      if (users.length >= limit) break;
+    }
+
+    if (batch.length < take) break;
+  }
+
+  return users;
+}
+
+async function processAccessNotifications(now = new Date()) {
+  const today = startOfUtcDay(now);
+  const tomorrowStart = addUtcDays(today, 1);
+  const tomorrowEnd = addUtcDays(today, 2);
+  const paidEndingStart = addUtcDays(today, 3);
+  const paidEndingEnd = addUtcDays(today, 4);
+  let processed = 0;
+
+  const [trialEnding, paidEnding, expired] = await Promise.all([
+    prisma.user.findMany({
+      where: {
+        lifetimeAccess: false,
+        trialEndsAt: { gte: tomorrowStart, lt: tomorrowEnd },
+        OR: [{ accessUntil: null }, { accessUntil: { lte: now } }],
+        accessNotificationLogs: {
+          none: { type: "TRIAL_ENDING_SOON", dayKey: utcDayKey(tomorrowStart) }
+        }
+      },
+      select: { id: true, telegramId: true, trialEndsAt: true },
+      orderBy: { trialEndsAt: "asc" },
+      take: 50
+    }),
+    prisma.user.findMany({
+      where: {
+        lifetimeAccess: false,
+        accessUntil: { gte: paidEndingStart, lt: paidEndingEnd },
+        accessNotificationLogs: {
+          none: { type: "PAID_ENDING_SOON", dayKey: utcDayKey(paidEndingStart) }
+        }
+      },
+      select: { id: true, telegramId: true, accessUntil: true },
+      orderBy: { accessUntil: "asc" },
+      take: 50
+    }),
+    loadExpiredUsersWithoutLog(now, 50)
+  ]);
+
+  for (const user of trialEnding) {
+    try {
+      if (await sendLoggedAccessNotification({
+        user,
+        type: "TRIAL_ENDING_SOON",
+        dayKey: utcDayKey(user.trialEndsAt),
+        date: user.trialEndsAt
+      })) processed += 1;
+    } catch (error) {
+      console.warn(JSON.stringify({ event: "access_notification_failed", userId: user.id, type: "TRIAL_ENDING_SOON", error: error instanceof Error ? error.name : "unknown" }));
+    }
+  }
+
+  for (const user of paidEnding) {
+    try {
+      if (user.accessUntil && await sendLoggedAccessNotification({
+        user,
+        type: "PAID_ENDING_SOON",
+        dayKey: utcDayKey(user.accessUntil),
+        date: user.accessUntil
+      })) processed += 1;
+    } catch (error) {
+      console.warn(JSON.stringify({ event: "access_notification_failed", userId: user.id, type: "PAID_ENDING_SOON", error: error instanceof Error ? error.name : "unknown" }));
+    }
+  }
+
+  for (const user of expired) {
+    const accessEndedAt = user.accessUntil && user.accessUntil > user.trialEndsAt ? user.accessUntil : user.trialEndsAt;
+    try {
+      if (await sendLoggedAccessNotification({
+        user,
+        type: "ACCESS_EXPIRED",
+        dayKey: utcDayKey(accessEndedAt),
+        date: accessEndedAt
+      })) processed += 1;
+    } catch (error) {
+      console.warn(JSON.stringify({ event: "access_notification_failed", userId: user.id, type: "ACCESS_EXPIRED", error: error instanceof Error ? error.name : "unknown" }));
+    }
+  }
+
+  if (processed > 0) console.log("Access notification scheduler delivered messages", { processed });
+  return processed;
+}
+
+export async function sendPaymentReceiptNotification(paymentId: string) {
+  try {
+    const payment = await prisma.payment.findUnique({
+      where: { id: paymentId },
+      include: { user: { select: { id: true, telegramId: true } } }
+    });
+    if (!payment || payment.status !== "PAID") return false;
+
+    const alreadySent = await hasAccessNotificationLog({
+      userId: payment.userId,
+      type: "PAYMENT_RECEIPT",
+      relatedPaymentId: payment.id
+    });
+    if (alreadySent) return false;
+
+    const text = [
+      "PetCare Diary: оплата прошла успешно.",
+      `Тариф: ${payment.productType}`,
+      `Сумма: ${payment.amountStars} Stars`,
+      "",
+      "Спасибо! Доступ уже обновлен."
+    ].join("\n");
+    await sendTelegramMessage(payment.user.telegramId, text);
+    return createAccessNotificationLog({
+      userId: payment.userId,
+      type: "PAYMENT_RECEIPT",
+      relatedPaymentId: payment.id
+    });
+  } catch (error) {
+    console.warn(JSON.stringify({
+      event: "payment_receipt_notification_failed",
+      paymentId,
+      error: error instanceof Error ? error.name : "unknown"
+    }));
+    return false;
+  }
+}
+
 export async function processDueReminders() {
   if (processing) return { processed: 0, skipped: true };
   processing = true;
@@ -115,7 +357,9 @@ export async function processDueReminders() {
       }
     }
 
-    if (processed > 0) console.log("Reminder scheduler delivered reminders", { processed });
+    processed += await processAccessNotifications(now);
+
+    if (processed > 0) console.log("Reminder scheduler delivered messages", { processed });
 
     return { processed };
   } finally {

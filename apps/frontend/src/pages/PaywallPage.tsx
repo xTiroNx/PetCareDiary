@@ -1,6 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { Crown, Sparkles } from "lucide-react";
 import { api, jsonBody } from "../api/client";
+import { AccessNotice } from "../components/AccessNotice";
 import { FeedbackForm } from "../components/FeedbackForm";
 import { openTelegramInvoice } from "../utils/telegram";
 import { useAuth } from "../hooks/useAuth";
@@ -22,7 +23,8 @@ export default function PaywallPage() {
   const auth = useAuth();
   const createInvoice = useMutation({
     mutationFn: (productType: ProductType) => api<InvoiceResponse>("/api/payments/create-invoice", { method: "POST", body: jsonBody({ productType }) }),
-    onSuccess: ({ invoiceLink }) => {
+    onSuccess: ({ invoiceLink }, productType) => {
+      trackEvent("invoice_opened", { productType });
       openTelegramInvoice(invoiceLink, () => auth.mutate());
     }
   });
@@ -38,6 +40,7 @@ export default function PaywallPage() {
         <h1 className="text-[32px] font-extrabold leading-tight">{t("proAccess")}</h1>
         <p className="mt-2 text-sm leading-6 text-white/75">{t("proText")}</p>
       </div>
+      <AccessNotice />
       <div className="grid gap-2">
         {plans.map((plan, index) => (
           <button

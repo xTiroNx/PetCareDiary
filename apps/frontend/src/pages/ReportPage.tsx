@@ -10,11 +10,11 @@ import { trackEvent } from "../utils/telegramAnalytics";
 
 type StructuredReport = {
   petName: string;
-  counts: { feeding: number; symptoms: number; medicines: number; medicinesTaken?: number; weights: number; notes?: number };
+  counts: { feeding: number; symptoms: number; medicines: number; medicinesTaken?: number; weights: number; notes?: number; water?: number; vaccinations?: number };
   recentNotes?: Array<{ id: string; note: string; dateTime: string }>;
 };
 type ExportStatus = { usedToday: number; limit: number; remaining: number };
-type ReportPeriod = "7" | "14" | "30" | "all";
+type ReportPeriod = "7" | "14" | "30" | "90" | "all";
 
 function getDeviceTimeZone() {
   try {
@@ -156,21 +156,23 @@ export default function ReportPage() {
       <div className="flex items-center justify-between gap-3">
         <h1 className="page-title min-w-0">{t("reportTitle")}</h1>
         <SelectField wrapperClassName="w-44 shrink-0" value={period} onChange={(event) => setPeriod(event.target.value as ReportPeriod)}>
-          <option value="7">{t("days7")}</option><option value="14">{t("days14")}</option><option value="30">{t("days30")}</option><option value="all">{t("allPeriod")}</option>
+          <option value="7">{t("days7")}</option><option value="14">{t("days14")}</option><option value="30">{t("days30")}</option><option value="90">{t("days90")}</option><option value="all">{t("allPeriod")}</option>
         </SelectField>
       </div>
       <section className="panel grid grid-cols-2 gap-3 text-center">
         <div className="rounded-lg bg-zinc-50 p-3 dark:bg-zinc-950"><p className="text-2xl font-bold">{report.data?.counts.feeding ?? 0}</p><p className="mt-1 text-[11px] font-semibold leading-tight text-zinc-500">{t("feedingsCount")}</p></div>
+        <div className="rounded-lg bg-zinc-50 p-3 dark:bg-zinc-950"><p className="text-2xl font-bold">{report.data?.counts.water ?? 0}</p><p className="mt-1 text-[11px] font-semibold leading-tight text-zinc-500">{t("waterTitle")}</p></div>
         <div className="rounded-lg bg-zinc-50 p-3 dark:bg-zinc-950"><p className="text-2xl font-bold">{report.data?.counts.symptoms ?? 0}</p><p className="mt-1 text-[11px] font-semibold leading-tight text-zinc-500">{t("symptomsCount")}</p></div>
         <div className="rounded-lg bg-zinc-50 p-3 dark:bg-zinc-950"><p className="text-2xl font-bold">{report.data?.counts.medicines ?? 0}</p><p className="mt-1 text-[11px] font-semibold leading-tight text-zinc-500">{t("medicinesCount")}</p></div>
         <div className="rounded-lg bg-zinc-50 p-3 dark:bg-zinc-950"><p className="text-2xl font-bold">{report.data?.counts.weights ?? 0}</p><p className="mt-1 text-[11px] font-semibold leading-tight text-zinc-500">{t("weightCount")}</p></div>
+        <div className="rounded-lg bg-zinc-50 p-3 dark:bg-zinc-950"><p className="text-2xl font-bold">{report.data?.counts.vaccinations ?? 0}</p><p className="mt-1 text-[11px] font-semibold leading-tight text-zinc-500">{t("vaccinations")}</p></div>
         <div className="col-span-2 rounded-lg bg-zinc-50 p-3 dark:bg-zinc-950"><p className="text-2xl font-bold">{report.data?.counts.notes ?? 0}</p><p className="mt-1 text-[11px] font-semibold leading-tight text-zinc-500">{t("notesCount")}</p></div>
       </section>
       <section className="panel space-y-3">
         <div>
           <p className="section-title">{t("exportPdf")}</p>
           <p className="mt-1 text-xs leading-5 text-zinc-500">{t("exportLimit", { remaining: exportStatus.data?.remaining ?? 0, limit: exportStatus.data?.limit ?? 3 })}</p>
-          <p className="mt-1 text-xs leading-5 text-zinc-500">{t("pdfMvpNote")}</p>
+          <p className="mt-1 text-xs leading-5 text-zinc-500">{t("reportIncludesText")}</p>
         </div>
         <button className="btn btn-primary w-full" disabled={exportPdf.isPending || exportStatus.data?.remaining === 0} onClick={() => exportPdf.mutate()}>
           <Download size={17} />{exportPdf.isPending ? t("exportingPdf") : t("exportPdf")}
@@ -184,9 +186,11 @@ export default function ReportPage() {
         {report.data ? (
           <div className="space-y-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
             <p>{t("feedingsCount")}: <span className="font-semibold">{report.data.counts.feeding}</span></p>
+            <p>{t("waterTitle")}: <span className="font-semibold">{report.data.counts.water ?? 0}</span></p>
             <p>{t("symptomsCount")}: <span className="font-semibold">{report.data.counts.symptoms}</span></p>
             <p>{t("medicinesCount")}: <span className="font-semibold">{report.data.counts.medicines}</span> · {t("taken")}: <span className="font-semibold">{report.data.counts.medicinesTaken ?? 0}</span></p>
             <p>{t("weightCount")}: <span className="font-semibold">{report.data.counts.weights}</span></p>
+            <p>{t("vaccinations")}: <span className="font-semibold">{report.data.counts.vaccinations ?? 0}</span></p>
             <p>{t("notesCount")}: <span className="font-semibold">{report.data.counts.notes ?? 0}</span></p>
           </div>
         ) : null}

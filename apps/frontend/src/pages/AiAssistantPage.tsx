@@ -53,6 +53,7 @@ export default function AiAssistantPage() {
     })
   });
 
+  if (!isAdmin) return <Navigate to="/" replace />;
   if (!hasAccess) return <Navigate to="/paywall" replace />;
 
   const modeLabels: Record<AiMode, string> = {

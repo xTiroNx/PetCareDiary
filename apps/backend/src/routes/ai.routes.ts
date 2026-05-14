@@ -168,7 +168,7 @@ async function askMiniMax(input: {
 }) {
   if (!env.MINIMAX_API_KEY) throw new HttpError(503, "AI_ASSISTANT_UNAVAILABLE", "AI assistant provider is not configured.");
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10_000);
+  const timeout = setTimeout(() => controller.abort(), env.MINIMAX_AI_TIMEOUT_MS);
   try {
     const response = await fetch(`${env.MINIMAX_API_BASE_URL.replace(/\/$/, "")}/v1/chat/completions`, {
       method: "POST",

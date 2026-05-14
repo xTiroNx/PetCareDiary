@@ -45,7 +45,7 @@ export default function DashboardPage() {
           <Link className="btn btn-secondary quick-action" to="/weight"><Scale size={18} />{t("weight")}</Link>
           <Link className="btn btn-secondary quick-action" to="/vaccinations"><CalendarCheck size={18} />{t("vaccination")}</Link>
           <Link className="btn btn-secondary quick-action" to="/notes"><FileText size={18} />{t("otherNote")}</Link>
-          {hasActiveAccess && <Link className="btn btn-secondary quick-action col-span-2 min-h-[50px]" to="/ai"><Bot size={18} />{t("aiAssistant")}</Link>}
+          {isAdmin && <Link className="btn btn-secondary quick-action col-span-2 min-h-[50px]" to="/ai"><Bot size={18} />{t("aiAssistant")}</Link>}
         </div>
       </section>
       {hasActiveAccess && <VoiceCommand endpoint="/api/voice/command" />}

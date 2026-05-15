@@ -3,6 +3,7 @@ import { z } from "zod";
 import { env } from "../config/env.js";
 import { prisma } from "../prisma/client.js";
 import { trackAnalyticsEvent } from "../services/analytics.service.js";
+import { sanitizeAiFinalAnswer } from "../utils/aiResponseSanitizer.js";
 import { HttpError } from "../utils/httpError.js";
 import { assertPetBelongsToUser } from "../utils/petOwnership.js";
 
@@ -187,6 +188,10 @@ async function askMiniMax(input: {
               "Never diagnose. Never prescribe treatment. Never change medication, dosage, or stop medication.",
               "You may summarize diary records, suggest questions to ask a veterinarian, suggest what data to track next, and recommend contacting a veterinarian for severe, recurring, or worsening symptoms.",
               "Use careful language and make it clear that this does not replace veterinary care.",
+              "Do not include chain-of-thought or hidden reasoning.",
+              "Do not include <think> tags.",
+              "Return only the final user-facing answer.",
+              "Keep the answer concise and mobile-friendly, max 5-8 short bullets.",
               `Answer in ${responseLanguage(input.locale)}.`,
               "Return plain text only."
             ].join("\n")
@@ -209,7 +214,14 @@ async function askMiniMax(input: {
     if (!response.ok || typeof content !== "string" || !content.trim()) {
       throw new HttpError(502, "AI_ASSISTANT_FAILED", "AI assistant provider failed.");
     }
-    return content.trim().slice(0, 4000);
+    const sanitized = sanitizeAiFinalAnswer(content, 3000);
+    if (sanitized.reasoningStripped) {
+      console.warn(JSON.stringify({ event: "ai_assistant_response_sanitized", ai_assistant_reasoning_stripped: true }));
+    }
+    if (!sanitized.text) {
+      throw new HttpError(502, "AI_ASSISTANT_FAILED", "AI assistant provider returned an empty final answer.");
+    }
+    return sanitized.text;
   } catch (error) {
     if (error instanceof HttpError) throw error;
     console.warn(JSON.stringify({ event: "ai_assistant_failed", error: error instanceof Error ? error.name : "unknown" }));

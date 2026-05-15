@@ -21,6 +21,13 @@ type AiResponse = {
 
 const modes: AiMode[] = ["SUMMARY", "VET_QUESTIONS", "WHAT_TO_TRACK", "GENERAL_HELP"];
 
+function sanitizeAiAnswer(value: string) {
+  const withoutThinkBlocks = value.replace(/<think\b[^>]*>[\s\S]*?<\/think>/gi, "");
+  const withoutUnclosedThink = withoutThinkBlocks.replace(/<think\b[^>]*>[\s\S]*$/gi, "");
+  const withoutOrphanClosingThink = withoutUnclosedThink.replace(/^[\s\S]*?<\/think>/gi, "");
+  return withoutOrphanClosingThink.replace(/<\/?think\b[^>]*>/gi, "").trim();
+}
+
 function getDeviceTimeZone() {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
@@ -32,12 +39,10 @@ function getDeviceTimeZone() {
 export default function AiAssistantPage() {
   const { language, t } = useI18n();
   const pet = useAppStore((state) => state.pet);
-  const accessStatus = useAppStore((state) => state.accessStatus);
   const isAdmin = useAppStore((state) => state.isAdmin);
   const [mode, setMode] = useState<AiMode>("SUMMARY");
   const [period, setPeriod] = useState<AiPeriod>("7");
   const [question, setQuestion] = useState("");
-  const hasAccess = isAdmin || accessStatus !== "expired";
 
   const ask = useMutation({
     mutationFn: () => api<AiResponse>("/api/ai/assistant", {
@@ -54,7 +59,6 @@ export default function AiAssistantPage() {
   });
 
   if (!isAdmin) return <Navigate to="/" replace />;
-  if (!hasAccess) return <Navigate to="/paywall" replace />;
 
   const modeLabels: Record<AiMode, string> = {
     SUMMARY: t("aiSummary"),
@@ -62,7 +66,7 @@ export default function AiAssistantPage() {
     WHAT_TO_TRACK: t("aiNextSteps"),
     GENERAL_HELP: t("aiGeneralHelp")
   };
-  const answer = ask.data?.answer ?? ask.data?.text ?? "";
+  const answer = sanitizeAiAnswer(ask.data?.answer ?? ask.data?.text ?? "");
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -117,7 +121,9 @@ export default function AiAssistantPage() {
       {answer && (
         <section className="panel space-y-3">
           <p className="section-title">{t("aiAnswer")}</p>
-          <p className="whitespace-pre-wrap text-sm leading-6 text-zinc-700 dark:text-zinc-200">{answer}</p>
+          <div className="max-h-[52vh] overflow-y-auto rounded-lg bg-zinc-50 p-3 text-sm leading-6 text-zinc-700 dark:bg-zinc-950 dark:text-zinc-200">
+            <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{answer}</p>
+          </div>
           {ask.data?.warnings?.length ? (
             <ul className="grid gap-2 text-sm text-zinc-600 dark:text-zinc-300">
               {ask.data.warnings.map((warning) => <li className="rounded-lg bg-coral/10 p-2" key={warning}>{warning}</li>)}

@@ -6,6 +6,7 @@ import PDFDocument from "pdfkit";
 import { env } from "../config/env.js";
 import { prisma } from "../prisma/client.js";
 import { trackAnalyticsEvent } from "../services/analytics.service.js";
+import { sanitizeAiFinalAnswer } from "../utils/aiResponseSanitizer.js";
 import { assertPetBelongsToUser } from "../utils/petOwnership.js";
 import { serialize } from "../utils/serialize.js";
 import { HttpError } from "../utils/httpError.js";
@@ -686,6 +687,9 @@ async function buildAiVetSummary(report: Awaited<ReturnType<typeof buildReport>>
               "Do not diagnose. Do not prescribe treatment. Do not suggest medication changes.",
               "Use cautious wording: pay attention, discuss with a veterinarian, it may be useful to show the doctor.",
               "If data is sparse, say there is not enough data for conclusions.",
+              "Do not include chain-of-thought or hidden reasoning.",
+              "Do not include <think> tags.",
+              "Return only the final veterinarian-facing summary.",
               `Write in ${aiPromptLanguage(language)}.`,
               "Return plain text only, 3-6 concise bullet-like lines, no Markdown table."
             ].join("\n")
@@ -710,7 +714,12 @@ async function buildAiVetSummary(report: Awaited<ReturnType<typeof buildReport>>
       return null;
     }
     const content = data.choices[0]?.message?.content;
-    return typeof content === "string" && content.trim() ? content.trim().slice(0, 2500) : null;
+    if (typeof content !== "string" || !content.trim()) return null;
+    const sanitized = sanitizeAiFinalAnswer(content, 2500);
+    if (sanitized.reasoningStripped) {
+      console.warn(JSON.stringify({ event: "report_ai_summary_sanitized", ai_assistant_reasoning_stripped: true }));
+    }
+    return sanitized.text || null;
   } catch (error) {
     console.warn(JSON.stringify({
       event: "report_ai_summary_failed",

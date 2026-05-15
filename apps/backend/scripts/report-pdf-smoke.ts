@@ -86,7 +86,7 @@ const locales = [
 ] as const;
 
 globalThis.fetch = async () => new Response(JSON.stringify({
-  choices: [{ message: { content: "Discuss repeated appetite changes with a veterinarian." } }]
+  choices: [{ message: { content: "<think>internal reasoning must not leak</think>Discuss repeated appetite changes with a veterinarian." } }]
 }), { status: 200, headers: { "Content-Type": "application/json" } });
 
 for (const [language, locale] of locales) {

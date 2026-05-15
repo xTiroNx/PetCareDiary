@@ -19,7 +19,7 @@ type AiResponse = {
   warnings?: string[];
 };
 
-const modes: AiMode[] = ["SUMMARY", "VET_QUESTIONS", "WHAT_TO_TRACK", "GENERAL_HELP"];
+const modes: AiMode[] = ["VET_QUESTIONS", "GENERAL_HELP"];
 
 function sanitizeAiAnswer(value: string) {
   const withoutThinkBlocks = value.replace(/<think\b[^>]*>[\s\S]*?<\/think>/gi, "");

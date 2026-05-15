@@ -2,7 +2,7 @@ import { Sparkles, X } from "lucide-react";
 import { useI18n } from "../utils/i18n";
 import { telegramSelection } from "../utils/telegram";
 
-export const changelogSeenKey = "petcare-changelog-seen-v2026-05-08";
+export const changelogSeenKey = "petcare-changelog-seen-v2026-05-15";
 export const openChangelogEvent = "petcare-open-changelog";
 
 type ChangelogModalProps = {
@@ -13,13 +13,15 @@ type ChangelogModalProps = {
 export function ChangelogModal({ open, onClose }: ChangelogModalProps) {
   const { t } = useI18n();
   const updateItems = [
+    t("changelogItemPromo"),
+    t("changelogItemHealthActions"),
+    t("changelogPlanAi"),
     t("changelogItemStt"),
     t("changelogItemFeedback"),
     t("changelogItemStability"),
     t("changelogItemUx")
   ];
   const plannedItems = [
-    t("changelogPlanAi"),
     t("changelogPlanImages")
   ];
 

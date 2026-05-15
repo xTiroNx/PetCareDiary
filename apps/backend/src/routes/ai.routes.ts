@@ -9,7 +9,7 @@ import { assertPetBelongsToUser } from "../utils/petOwnership.js";
 
 const router = Router();
 
-const assistantModes = ["SUMMARY", "VET_QUESTIONS", "WHAT_TO_TRACK", "GENERAL_HELP"] as const;
+const assistantModes = ["VET_QUESTIONS", "GENERAL_HELP"] as const;
 
 const assistantBodySchema = z.object({
   petId: z.string().min(1).max(128),
@@ -75,6 +75,25 @@ function dateFormatter(locale: string | undefined | null, timezone: string) {
     hour: "2-digit",
     minute: "2-digit"
   });
+}
+
+function modeInstruction(mode: typeof assistantModes[number]) {
+  if (mode === "VET_QUESTIONS") {
+    return [
+      "Prepare a practical list of questions the owner can ask a veterinarian.",
+      "Base the questions only on the diary records for the selected period.",
+      "Do not summarize everything first; focus on veterinarian questions.",
+      "If there is little data, include questions that help clarify feeding, symptoms, medicines, water intake, weight, and recent treatments.",
+      "Return 5-8 short bullets."
+    ].join("\n");
+  }
+  return [
+    "Answer the user's free-form question cautiously.",
+    "Use the pet diary records for context when they are relevant.",
+    "If the diary does not contain enough information, say that clearly and suggest what to check or record next.",
+    "Do not invent facts that are not in the diary.",
+    "Return 3-6 short mobile-friendly bullets."
+  ].join("\n");
 }
 
 async function loadAssistantData(input: {
@@ -191,6 +210,7 @@ async function askMiniMax(input: {
               "Do not include chain-of-thought or hidden reasoning.",
               "Do not include <think> tags.",
               "Return only the final user-facing answer.",
+              "Follow the task from the user message exactly.",
               "Keep the answer concise and mobile-friendly, max 5-8 short bullets.",
               `Answer in ${responseLanguage(input.locale)}.`,
               "Return plain text only."
@@ -200,6 +220,7 @@ async function askMiniMax(input: {
             role: "user",
             content: JSON.stringify({
               mode: input.mode,
+              task: modeInstruction(input.mode),
               question: input.question,
               reportData: input.data
             })
@@ -235,6 +256,9 @@ router.post("/assistant", async (req, res, next) => {
   try {
     const body = assistantBodySchema.parse(req.body);
     const timezone = safeTimezone(body.timezone);
+    if (body.mode === "GENERAL_HELP" && !body.question?.trim()) {
+      throw new HttpError(400, "AI_ASSISTANT_QUESTION_REQUIRED", "Question is required for GENERAL_HELP mode.");
+    }
     await assertPetBelongsToUser(body.petId, req.user!.id);
     await assertDailyLimit(req.user!.id);
     const data = await loadAssistantData({

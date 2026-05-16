@@ -26,6 +26,11 @@ type Reminder = {
   lastDeliveryError?: string | null;
 };
 
+type ReminderTypeOption = {
+  value: string;
+  label: string;
+};
+
 export default function RemindersPage() {
   const { language, t } = useI18n();
   const pet = useAppStore((state) => state.pet);
@@ -33,7 +38,16 @@ export default function RemindersPage() {
   const now = localDateTimeInputValue();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Record<string, string | boolean>>({});
-  const reminderLabels: Record<string, string> = { FEEDING: t("reminderTypeFeeding"), MEDICINE: t("reminderTypeMedicine"), WEIGHT: t("reminderTypeWeight"), VET: t("reminderTypeVet"), OTHER: t("other") };
+  const reminderTypeOptions: ReminderTypeOption[] = [
+    { value: "FEEDING", label: t("reminderTypeFeeding") },
+    { value: "WATER", label: t("reminderTypeWater") },
+    { value: "MEDICINE", label: t("reminderTypeMedicine") },
+    { value: "WEIGHT", label: t("reminderTypeWeight") },
+    { value: "VACCINATION", label: t("reminderTypeVaccination") },
+    { value: "VET", label: t("reminderTypeVet") },
+    { value: "OTHER", label: t("other") }
+  ];
+  const reminderLabels = Object.fromEntries(reminderTypeOptions.map((option) => [option.value, option.label]));
   const repeatLabels: Record<string, string> = { daily: t("repeatDaily"), weekly: t("repeatWeekly"), monthly: t("repeatMonthly") };
   const reminders = usePaginatedApi<Reminder>(["reminders", pet?.id], `/api/reminders?petId=${pet?.id ?? ""}`, Boolean(pet));
   const add = useMutation({
@@ -112,7 +126,9 @@ export default function RemindersPage() {
           <p className="section-title">{t("create")}</p>
         </div>
         <SelectField name="type" defaultValue="FEEDING">
-          <option value="FEEDING">{t("reminderTypeFeeding")}</option><option value="MEDICINE">{t("reminderTypeMedicine")}</option><option value="WEIGHT">{t("reminderTypeWeight")}</option><option value="VET">{t("reminderTypeVet")}</option><option value="OTHER">{t("other")}</option>
+          {reminderTypeOptions.map((option) => (
+            <option value={option.value} key={option.value}>{option.label}</option>
+          ))}
         </SelectField>
         <input className="input" name="title" placeholder={t("title")} required />
         <DateTimeFields name="time" defaultValue={now} required />
@@ -149,7 +165,9 @@ export default function RemindersPage() {
           {editingId === item.id && (
             <div className="mt-3 grid gap-2">
               <SelectField value={String(draft.type ?? "FEEDING")} onChange={(event) => updateDraft("type", event.target.value)}>
-                <option value="FEEDING">{t("reminderTypeFeeding")}</option><option value="MEDICINE">{t("reminderTypeMedicine")}</option><option value="WEIGHT">{t("reminderTypeWeight")}</option><option value="VET">{t("reminderTypeVet")}</option><option value="OTHER">{t("other")}</option>
+                {reminderTypeOptions.map((option) => (
+                  <option value={option.value} key={option.value}>{option.label}</option>
+                ))}
               </SelectField>
               <input className="input" value={String(draft.title ?? "")} onChange={(event) => updateDraft("title", event.target.value)} placeholder={t("title")} />
               <DateTimeFields name="time" value={String(draft.time ?? "")} onChange={(time) => updateDraft("time", time)} />

@@ -3,7 +3,7 @@ import { env } from "../config/env.js";
 import { HttpError } from "../utils/httpError.js";
 
 const reminderDraftSchema = z.object({
-  type: z.enum(["FEEDING", "MEDICINE", "WEIGHT", "VET", "OTHER"]),
+  type: z.enum(["FEEDING", "MEDICINE", "WATER", "WEIGHT", "VET", "VACCINATION", "OTHER"]),
   title: z.string().min(1).max(160),
   time: z.string().datetime(),
   repeatRule: z.enum(["daily", "weekly", "monthly"]).nullable()
@@ -109,9 +109,11 @@ const reminderWords = /(напомни|напоминание|напомнить
 const noteWords = /(запиши заметк|заметк|запиши|note|nota|notiz|备注|笔记)/i;
 const medicineWords = /(лекарств|таблет|сироп|капл|укол|дозиров|доза|\bmedicine\b|\bmedication\b|\bpill\b|\btablet\b|\bsyrup\b|\bdrops?\b|\binjection\b|\bdose\b|\bmedicina\b|\bmedicamento\b|\bpastilla\b|\bjarabe\b|\bgotas?\b|\binyecci[oó]n\b|\bdosis\b|\bm[eé]dicament\b|\bcomprim[eé]\b|\bsirop\b|\bgouttes?\b|\bpiq[uû]re\b|\bmedikament\b|\btablette\b|\btropfen\b|\bspritze\b|\bdosis\b|药|药片|药物|剂量|针)/i;
 const feedingWords = /(корм|покорм|поел|ела|съел|съела|еда|кормление|\bfood\b|\bfeed\b|\bfed\b|\bate\b|\bmeal\b|comida|alimento|comi[oó]|comer|aliment[eé]|repas|nourri|nourrir|mang[eé]|futter|gef[uü]ttert|füttern|essen|gefressen|喂|吃|食物|粮|饭)/i;
+const waterWords = /(вод|пить|попить|поить|\bwater\b|\bdrink\b|\bdrinking\b|agua|beber|boire|\beau\b|wasser|trinken|水|喝水|饮水)/i;
 const weightWords = /(вес|взвес|кг|килограмм|\bweight\b|\bweigh\b|\bkg\b|\bkilo\b|\bpeso\b|\bpes[eé]\b|\bpesar\b|\bpoids\b|\bpes[eé]e\b|\bgewicht\b|\bgewogen\b|\bwiegen\b|体重|称重|公斤|千克)/i;
 const symptomWords = /(рвот|тошн|понос|диаре|запор|вял|боль|болит|не ест|нет аппетита|плохо ел|\bvomit|\bvomiting\b|\bdiarrhea\b|\bconstipation\b|\blethargy\b|\bpain\b|\bappetite\b|\bnot eating\b|\bno appetite\b|\bv[oó]mit|\bdiarrea\b|\bestreñimiento\b|\bletargo\b|\bdolor\b|\bsin apetito\b|\bno come\b|\bvomi|\bvomissements?\b|\bdiarrh[eé]e\b|\bconstipation\b|\bl[eé]thargie\b|\bdouleur\b|\bpas d.app[eé]tit\b|\berbrech|\berbroch|\bdurchfall\b|\bverstopfung\b|\btr[aä]gheit\b|\bschmerz\b|\bkein appetit\b|呕吐|吐|腹泻|便秘|没胃口|食欲|嗜睡|疼|痛)/i;
 const vetWords = /(вет|ветеринар|\bvet\b|\bveterinarian\b|\bveterinario\b|\bveterinaria\b|\bv[eé]t[eé]rinaire\b|\btierarzt\b|兽医)/i;
+const vaccinationWords = /(вакцин|привив|обработк|дегельмин|глист|блох|клещ|\bvaccin|\bshot\b|\bdeworm|\bflea\b|\btick\b|\btreatment\b|vacuna|desparasit|pulgas?|garrapatas?|vaccin|vermifuge|puces?|tiques?|impfung|entwurmung|floh|zecke|疫苗|驱虫|跳蚤|蜱)/i;
 const dryFoodWords = /(сух|dry|pienso seco|croquettes?|trocken|干粮)/i;
 const wetFoodWords = /(влаж|wet|h[uú]med|p[aâ]t[eé]|nass|湿粮)/i;
 const naturalFoodWords = /(натурал|natural|naturel|barf|天然)/i;
@@ -559,10 +561,12 @@ function normalizeIntent(intent: string, transcript: string) {
 
 function reminderTypeFor(transcript: string, rawType: unknown) {
   const type = String(rawType);
-  if (["FEEDING", "MEDICINE", "WEIGHT", "VET", "OTHER"].includes(type)) return type;
+  if (["FEEDING", "MEDICINE", "WATER", "WEIGHT", "VET", "VACCINATION", "OTHER"].includes(type)) return type;
   if (medicineWords.test(transcript) || knownMedicineWords.test(transcript)) return "MEDICINE";
   if (feedingWords.test(transcript)) return "FEEDING";
+  if (waterWords.test(transcript)) return "WATER";
   if (weightWords.test(transcript)) return "WEIGHT";
+  if (vaccinationWords.test(transcript)) return "VACCINATION";
   if (vetWords.test(transcript)) return "VET";
   return "OTHER";
 }
@@ -784,7 +788,7 @@ function parserSystemPrompt() {
     "Always return needsConfirmation outside this parser is true, so do not create database records.",
     "Supported intents: create_reminder, create_feeding_entry, create_medicine_entry, create_symptom_entry, create_weight_entry, create_note, unknown.",
     "Also return target: reminder for create_reminder, diary for diary entries, unknown for unknown.",
-    "For create_reminder draft: type FEEDING/MEDICINE/WEIGHT/VET/OTHER, title, repeatRule null/daily/weekly/monthly, plus localDate YYYY-MM-DD or null, localTime HH:mm or null, hasExplicitDate boolean, hasExplicitTime boolean.",
+    "For create_reminder draft: type FEEDING/MEDICINE/WATER/WEIGHT/VET/VACCINATION/OTHER, title, repeatRule null/daily/weekly/monthly, plus localDate YYYY-MM-DD or null, localTime HH:mm or null, hasExplicitDate boolean, hasExplicitTime boolean.",
     "For create_feeding_entry draft: foodType DRY/WET/NATURAL/TREAT/OTHER, amount string, note null or string, plus localDate/localTime/hasExplicitDate/hasExplicitTime.",
     "For create_medicine_entry draft: medicineName, dosage, taken, note null or string, plus localDate/localTime/hasExplicitDate/hasExplicitTime.",
     "For create_symptom_entry draft: symptomType VOMITING/YELLOW_VOMIT/NO_APPETITE/DIARRHEA/CONSTIPATION/LETHARGY/PAIN/OTHER, severity 1-5, note null or string, plus localDate/localTime/hasExplicitDate/hasExplicitTime.",
@@ -803,7 +807,7 @@ function parserSystemPrompt() {
     "- If user says an explicit date or relative day, put the resulting local calendar date in localDate and hasExplicitDate=true.",
     "- If user does not say an explicit date, set localDate=null and hasExplicitDate=false.",
     "- If user does not say an explicit time, set localTime=null and hasExplicitTime=false.",
-    "- If transcript asks to remind, use create_reminder even when it mentions feeding/medicine/weight.",
+    "- If transcript asks to remind, use create_reminder even when it mentions feeding/medicine/water/weight/vaccination.",
     "- Reminder phrases include: remind me, recuérdame/avísame, rappelle-moi/rappel, erinnere mich/Erinnerung, 提醒.",
     "- Explicit note phrases include: note/write note, nota, note, Notiz, 备注. If present, prefer create_note unless it asks to remind.",
     "- If transcript says something happened/done/given/eaten, use a diary entry, not a reminder.",
@@ -818,9 +822,13 @@ function parserSystemPrompt() {
     "- For unknown or unsafe medical advice requests, return intent unknown.",
     "Examples:",
     "напомни покормить в 5 => create_reminder, target reminder, type FEEDING",
+    "напомни дать воды в 5 => create_reminder, target reminder, type WATER",
+    "напомни сделать прививку завтра => create_reminder, target reminder, type VACCINATION",
     "покормил кота в пятнадцать минут первого => create_feeding_entry, target diary, localTime 12:15",
     "покормил кота без двадцати час => create_feeding_entry, target diary, localTime 12:40",
     "remind me to feed at 5 => create_reminder, target reminder, type FEEDING",
+    "remind me to give water at 5 => create_reminder, target reminder, type WATER",
+    "remind me about vaccination tomorrow => create_reminder, target reminder, type VACCINATION",
     "remind me to feed at quarter past one => create_reminder, target reminder, type FEEDING, localTime 01:15 or 13:15 by context",
     "fed the cat at twenty to one => create_feeding_entry, target diary, localTime 00:40 or 12:40 by context",
     "recuérdame darle medicina a las 5 => create_reminder, target reminder, type MEDICINE",

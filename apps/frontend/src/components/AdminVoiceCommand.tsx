@@ -576,8 +576,10 @@ function renderReminderDraft(draft: ReminderDraft, updateDraft: (key: string, va
     <>
       <SelectField value={draft.type} onChange={(event) => updateDraft("type", event.target.value)}>
         <option value="FEEDING">{t("reminderTypeFeeding")}</option>
+        <option value="WATER">{t("reminderTypeWater")}</option>
         <option value="MEDICINE">{t("reminderTypeMedicine")}</option>
         <option value="WEIGHT">{t("reminderTypeWeight")}</option>
+        <option value="VACCINATION">{t("reminderTypeVaccination")}</option>
         <option value="VET">{t("reminderTypeVet")}</option>
         <option value="OTHER">{t("other")}</option>
       </SelectField>

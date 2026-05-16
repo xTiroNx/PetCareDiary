@@ -91,7 +91,7 @@ const reportText = {
       OTHER: "Другое"
     },
     procedureLabels: { VACCINE: "Вакцина", DEWORMING: "Дегельминтизация", FLEA_TICK: "Блохи/клещи", OTHER: "Другое" },
-    reminderLabels: { FEEDING: "Кормление", MEDICINE: "Лекарство", WEIGHT: "Взвешивание", VET: "Ветеринар", VACCINATION: "Вакцинация/обработка", OTHER: "Другое" }
+    reminderLabels: { FEEDING: "Кормление", MEDICINE: "Лекарство", WATER: "Питье", WEIGHT: "Взвешивание", VET: "Ветеринар", VACCINATION: "Вакцинация/обработка", OTHER: "Другое" }
   },
   en: {
     pet: "Pet",
@@ -167,7 +167,7 @@ const reportText = {
       OTHER: "Other"
     },
     procedureLabels: { VACCINE: "Vaccine", DEWORMING: "Deworming", FLEA_TICK: "Flea/tick", OTHER: "Other" },
-    reminderLabels: { FEEDING: "Feeding", MEDICINE: "Medicine", WEIGHT: "Weight", VET: "Veterinarian", VACCINATION: "Vaccination/treatment", OTHER: "Other" }
+    reminderLabels: { FEEDING: "Feeding", MEDICINE: "Medicine", WATER: "Water", WEIGHT: "Weight", VET: "Veterinarian", VACCINATION: "Vaccination/treatment", OTHER: "Other" }
   }
 };
 
@@ -235,7 +235,7 @@ const localizedReportText: Record<ReportLanguage, ReportText> = {
     foodLabels: { DRY: "Comida seca", WET: "Comida humeda", NATURAL: "Comida natural", TREAT: "Premio", OTHER: "Otro" },
     symptomLabels: { VOMITING: "Vomitos", YELLOW_VOMIT: "Vomito amarillo", NO_APPETITE: "Sin apetito", DIARRHEA: "Diarrea", CONSTIPATION: "Estrenimiento", LETHARGY: "Letargo", PAIN: "Dolor", OTHER: "Otro" },
     procedureLabels: { VACCINE: "Vacuna", DEWORMING: "Desparasitacion", FLEA_TICK: "Pulgas/garrapatas", OTHER: "Otro" },
-    reminderLabels: { FEEDING: "Alimentacion", MEDICINE: "Medicina", WEIGHT: "Peso", VET: "Veterinario", VACCINATION: "Vacuna/tratamiento", OTHER: "Otro" }
+    reminderLabels: { FEEDING: "Alimentacion", MEDICINE: "Medicina", WATER: "Agua", WEIGHT: "Peso", VET: "Veterinario", VACCINATION: "Vacuna/tratamiento", OTHER: "Otro" }
   },
   fr: {
     ...reportText.en,
@@ -296,7 +296,7 @@ const localizedReportText: Record<ReportLanguage, ReportText> = {
     foodLabels: { DRY: "Aliment sec", WET: "Aliment humide", NATURAL: "Aliment naturel", TREAT: "Friandise", OTHER: "Autre" },
     symptomLabels: { VOMITING: "Vomissements", YELLOW_VOMIT: "Vomissement jaune", NO_APPETITE: "Pas d'appetit", DIARRHEA: "Diarrhee", CONSTIPATION: "Constipation", LETHARGY: "Lethargie", PAIN: "Douleur", OTHER: "Autre" },
     procedureLabels: { VACCINE: "Vaccin", DEWORMING: "Vermifuge", FLEA_TICK: "Puces/tiques", OTHER: "Autre" },
-    reminderLabels: { FEEDING: "Alimentation", MEDICINE: "Medicament", WEIGHT: "Poids", VET: "Veterinaire", VACCINATION: "Vaccin/traitement", OTHER: "Autre" }
+    reminderLabels: { FEEDING: "Alimentation", MEDICINE: "Medicament", WATER: "Eau", WEIGHT: "Poids", VET: "Veterinaire", VACCINATION: "Vaccin/traitement", OTHER: "Autre" }
   },
   de: {
     ...reportText.en,
@@ -357,7 +357,7 @@ const localizedReportText: Record<ReportLanguage, ReportText> = {
     foodLabels: { DRY: "Trockenfutter", WET: "Nassfutter", NATURAL: "Naturlich", TREAT: "Leckerli", OTHER: "Andere" },
     symptomLabels: { VOMITING: "Erbrechen", YELLOW_VOMIT: "Gelbes Erbrechen", NO_APPETITE: "Kein Appetit", DIARRHEA: "Durchfall", CONSTIPATION: "Verstopfung", LETHARGY: "Lethargie", PAIN: "Schmerz", OTHER: "Andere" },
     procedureLabels: { VACCINE: "Impfung", DEWORMING: "Entwurmung", FLEA_TICK: "Floh/Zecke", OTHER: "Andere" },
-    reminderLabels: { FEEDING: "Futterung", MEDICINE: "Medikament", WEIGHT: "Gewicht", VET: "Tierarzt", VACCINATION: "Impfung/Behandlung", OTHER: "Andere" }
+    reminderLabels: { FEEDING: "Futterung", MEDICINE: "Medikament", WATER: "Wasser", WEIGHT: "Gewicht", VET: "Tierarzt", VACCINATION: "Impfung/Behandlung", OTHER: "Andere" }
   },
   zh: {
     ...reportText.en,
@@ -418,7 +418,7 @@ const localizedReportText: Record<ReportLanguage, ReportText> = {
     foodLabels: { DRY: "干粮", WET: "湿粮", NATURAL: "天然食物", TREAT: "零食", OTHER: "其他" },
     symptomLabels: { VOMITING: "呕吐", YELLOW_VOMIT: "黄色呕吐", NO_APPETITE: "没有食欲", DIARRHEA: "腹泻", CONSTIPATION: "便秘", LETHARGY: "嗜睡", PAIN: "疼痛", OTHER: "其他" },
     procedureLabels: { VACCINE: "疫苗", DEWORMING: "驱虫", FLEA_TICK: "跳蚤/蜱虫", OTHER: "其他" },
-    reminderLabels: { FEEDING: "喂食", MEDICINE: "药物", WEIGHT: "体重", VET: "兽医", VACCINATION: "疫苗/护理", OTHER: "其他" }
+    reminderLabels: { FEEDING: "喂食", MEDICINE: "药物", WATER: "饮水", WEIGHT: "体重", VET: "兽医", VACCINATION: "疫苗/护理", OTHER: "其他" }
   }
 };
 

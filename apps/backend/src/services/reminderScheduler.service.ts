@@ -8,6 +8,7 @@ type DueReminder = Reminder & { user: Pick<User, "telegramId" | "languageCode"> 
 const reminderTypeLabels: Record<ReminderType, string> = {
   FEEDING: "Кормление",
   MEDICINE: "Лекарство",
+  WATER: "Питье",
   WEIGHT: "Взвешивание",
   VET: "Ветеринар",
   VACCINATION: "Вакцинация/обработка",

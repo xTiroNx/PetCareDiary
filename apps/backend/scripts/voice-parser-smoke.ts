@@ -82,6 +82,36 @@ assert(reminder.draft.time === "2026-05-07T14:00:00.000Z", `Expected ambiguous r
 
 mockMiniMax(JSON.stringify({
   intent: "create_reminder",
+  confidence: 0.86,
+  draft: {
+    type: "WATER",
+    title: "Дать воды",
+    time: "2026-05-07T14:00:00.000Z",
+    repeatRule: null
+  },
+  warnings: []
+}));
+const waterReminder = await parse("напомни дать воды в 5");
+assert(waterReminder.intent === "create_reminder", "Expected water reminder intent.");
+assert(waterReminder.draft.type === "WATER", "Expected water reminder type.");
+
+mockMiniMax(JSON.stringify({
+  intent: "create_reminder",
+  confidence: 0.86,
+  draft: {
+    type: "VACCINATION",
+    title: "Прививка",
+    time: "2026-05-08T09:00:00.000Z",
+    repeatRule: null
+  },
+  warnings: []
+}));
+const vaccinationReminder = await parse("напомни сделать прививку завтра");
+assert(vaccinationReminder.intent === "create_reminder", "Expected vaccination reminder intent.");
+assert(vaccinationReminder.draft.type === "VACCINATION", "Expected vaccination reminder type.");
+
+mockMiniMax(JSON.stringify({
+  intent: "create_reminder",
   confidence: 0.9,
   draft: {
     type: "FEEDING",

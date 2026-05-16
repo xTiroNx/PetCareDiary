@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../prisma/client.js";
+import { deleteAttachmentsForEntry } from "../services/attachments.service.js";
 import { hasAnyDiaryEntry, trackAnalyticsEvent, type AnalyticsEventName } from "../services/analytics.service.js";
 import { HttpError } from "../utils/httpError.js";
 import { assertPetBelongsToUser } from "../utils/petOwnership.js";
@@ -134,6 +135,7 @@ router.delete("/feeding/:id", async (req, res, next) => {
     const { id } = idParamSchema.parse(req.params);
     const entry = await assertEntry(await prisma.feedingEntry.findFirst({ where: { id, userId: req.user!.id } }));
     await prisma.feedingEntry.delete({ where: { id: entry.id } });
+    await deleteAttachmentsForEntry({ userId: req.user!.id, entryType: "FEEDING", entryId: entry.id });
     res.status(204).send();
   } catch (error) {
     next(error);
@@ -186,6 +188,7 @@ router.delete("/symptoms/:id", async (req, res, next) => {
     const { id } = idParamSchema.parse(req.params);
     const entry = await assertEntry(await prisma.symptomEntry.findFirst({ where: { id, userId: req.user!.id } }));
     await prisma.symptomEntry.delete({ where: { id: entry.id } });
+    await deleteAttachmentsForEntry({ userId: req.user!.id, entryType: "SYMPTOM", entryId: entry.id });
     res.status(204).send();
   } catch (error) {
     next(error);
@@ -266,6 +269,7 @@ router.delete("/medicines/:id", async (req, res, next) => {
     const { id } = idParamSchema.parse(req.params);
     const entry = await assertEntry(await prisma.medicineEntry.findFirst({ where: { id, userId: req.user!.id } }));
     await prisma.medicineEntry.delete({ where: { id: entry.id } });
+    await deleteAttachmentsForEntry({ userId: req.user!.id, entryType: "MEDICINE", entryId: entry.id });
     res.status(204).send();
   } catch (error) {
     next(error);
@@ -318,6 +322,7 @@ router.delete("/weights/:id", async (req, res, next) => {
     const { id } = idParamSchema.parse(req.params);
     const entry = await assertEntry(await prisma.weightEntry.findFirst({ where: { id, userId: req.user!.id } }));
     await prisma.weightEntry.delete({ where: { id: entry.id } });
+    await deleteAttachmentsForEntry({ userId: req.user!.id, entryType: "WEIGHT", entryId: entry.id });
     res.status(204).send();
   } catch (error) {
     next(error);
@@ -370,6 +375,7 @@ router.delete("/notes/:id", async (req, res, next) => {
     const { id } = idParamSchema.parse(req.params);
     const entry = await assertEntry(await prisma.noteEntry.findFirst({ where: { id, userId: req.user!.id } }));
     await prisma.noteEntry.delete({ where: { id: entry.id } });
+    await deleteAttachmentsForEntry({ userId: req.user!.id, entryType: "NOTE", entryId: entry.id });
     res.status(204).send();
   } catch (error) {
     next(error);

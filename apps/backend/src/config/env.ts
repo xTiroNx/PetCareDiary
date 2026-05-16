@@ -35,6 +35,9 @@ const envSchema = z.object({
   MINIMAX_AI_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(60_000).default(50_000),
   MINIMAX_API_BASE_URL: z.string().url().default("https://api.minimax.io"),
   AI_ASSISTANT_DAILY_LIMIT_PER_USER: z.coerce.number().int().positive().default(10),
+  ATTACHMENTS_LOCAL_DIR: z.string().min(1).default("/tmp/petcare-attachments"),
+  ATTACHMENTS_MAX_FILE_MB: z.coerce.number().positive().max(20).default(5),
+  ATTACHMENTS_MAX_PER_ENTRY: z.coerce.number().int().min(1).max(10).default(3),
   ENABLE_DEV_AUTH: z.coerce.boolean().default(false),
   DEV_TELEGRAM_ID: z.coerce.number().int().positive().default(777000001),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development")

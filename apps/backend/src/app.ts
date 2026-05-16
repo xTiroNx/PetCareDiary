@@ -13,6 +13,7 @@ import adminAnalyticsRoutes from "./routes/adminAnalytics.routes.js";
 import adminVoiceRoutes from "./routes/adminVoice.routes.js";
 import aiRoutes from "./routes/ai.routes.js";
 import analyticsRoutes from "./routes/analytics.routes.js";
+import attachmentsRoutes from "./routes/attachments.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import diaryRoutes from "./routes/diary.routes.js";
 import feedbackRoutes from "./routes/feedback.routes.js";
@@ -38,6 +39,7 @@ export function createApp() {
   app.use("/api/telegram", telegramRoutes);
   app.use("/api/admin/voice", authMiddleware, requireAdmin, rateLimit({ keyPrefix: "admin-voice", windowMs: 60_000, max: 20 }), adminVoiceRoutes);
   app.use("/api/admin/analytics", authMiddleware, requireAdmin, rateLimit({ keyPrefix: "admin-analytics", windowMs: 60_000, max: 120 }), adminAnalyticsRoutes);
+  app.use("/api/admin/attachments", authMiddleware, requireAdmin, requireActiveAccess, rateLimit({ keyPrefix: "admin-attachments", windowMs: 60_000, max: 60 }), attachmentsRoutes);
   app.use("/api/admin", authMiddleware, requireAdmin, rateLimit({ keyPrefix: "admin", windowMs: 60_000, max: 120 }), adminRoutes);
   app.use("/api/analytics", authMiddleware, rateLimit({ keyPrefix: "analytics", windowMs: 60_000, max: 120 }), analyticsRoutes);
   app.use("/api/payments", authMiddleware, rateLimit({ keyPrefix: "payments", windowMs: 60_000, max: 20 }), paymentsRoutes);

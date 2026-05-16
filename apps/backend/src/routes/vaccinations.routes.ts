@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../prisma/client.js";
+import { deleteAttachmentsForEntry } from "../services/attachments.service.js";
 import { hasAnyDiaryEntry, trackAnalyticsEvent } from "../services/analytics.service.js";
 import { HttpError } from "../utils/httpError.js";
 import { assertPetBelongsToUser } from "../utils/petOwnership.js";
@@ -163,6 +164,7 @@ router.delete("/:id", async (req, res, next) => {
     const existing = await prisma.vaccinationEntry.findFirst({ where: { id, userId: req.user!.id } });
     if (!existing) throw new HttpError(404, "VACCINATION_NOT_FOUND", "Vaccination entry not found.");
     await prisma.vaccinationEntry.delete({ where: { id: existing.id } });
+    await deleteAttachmentsForEntry({ userId: req.user!.id, entryType: "VACCINATION", entryId: existing.id });
     res.status(204).send();
   } catch (error) {
     next(error);

@@ -102,6 +102,7 @@ model User {
   feedback        Feedback[]
   analyticsEvents AnalyticsEvent[]
   accessNotificationLogs AccessNotificationLog[]
+  attachments     Attachment[]
 }
 
 model Pet {
@@ -124,6 +125,7 @@ model Pet {
   vaccinationEntries VaccinationEntry[]
   reportExports   ReportExport[]
   reminders       Reminder[]
+  attachments      Attachment[]
 
   @@index([userId])
 }
@@ -331,4 +333,22 @@ model AccessNotificationLog {
   @@unique([userId, type, relatedPaymentId])
   @@index([userId, createdAt])
   @@index([type, createdAt])
+}
+
+model Attachment {
+  id         String   @id @default(cuid())
+  userId     String
+  petId      String
+  entryType  String
+  entryId    String
+  fileName   String
+  mimeType   String
+  sizeBytes  Int
+  storageKey String   @unique
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pet        Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+
+  @@index([userId, petId, entryType, entryId])
+  @@index([userId, createdAt])
 }

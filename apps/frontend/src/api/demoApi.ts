@@ -12,9 +12,11 @@ type DemoStore = {
   reminders: Record<string, unknown>[];
   water: Record<string, unknown>[];
   vaccinations: Record<string, unknown>[];
+  attachments: Record<string, unknown>[];
 };
 
 const key = "petcare-demo-store";
+const demoAttachmentFiles = new Map<string, Blob>();
 
 function uid() {
   return crypto.randomUUID();
@@ -32,6 +34,7 @@ function readStore(): DemoStore {
     parsed.reminders ??= [];
     parsed.water ??= [];
     parsed.vaccinations ??= [];
+    parsed.attachments ??= [];
     parsed.water = parsed.water.map((item) => item.amountMl === undefined && item.volumeMl !== undefined ? { ...item, amountMl: item.volumeMl } : item);
     parsed.vaccinations = parsed.vaccinations.map((item) => item.date === undefined && item.procedureDate !== undefined ? { ...item, date: item.procedureDate } : item);
     parsed.adminUsers ??= [];
@@ -77,7 +80,8 @@ function readStore(): DemoStore {
     notes: [],
     reminders: [],
     water: [],
-    vaccinations: []
+    vaccinations: [],
+    attachments: []
   };
   writeStore(store);
   return store;
@@ -152,6 +156,52 @@ export async function demoApi<T>(path: string, options: RequestInit = {}): Promi
     };
     const users = [currentAdmin, ...(store.adminUsers ?? [])];
     return { items: telegramId ? users.filter((user) => String(user.telegramId) === telegramId) : users, nextOffset: null } as T;
+  }
+
+  if (path.startsWith("/api/admin/attachments")) {
+    const url = new URL(path, "http://demo.local");
+    const segments = url.pathname.split("/").filter(Boolean);
+    const attachmentId = segments[3];
+
+    if (method === "GET" && segments[4] === "file") {
+      const attachment = store.attachments.find((item) => item.id === attachmentId);
+      if (!attachment) throw new Error("Attachment not found.");
+      return (demoAttachmentFiles.get(String(attachmentId)) ?? new Blob(["demo attachment"], { type: String(attachment.mimeType || "application/octet-stream") })) as T;
+    }
+
+    if (method === "DELETE") {
+      store.attachments = store.attachments.filter((item) => item.id !== attachmentId);
+      demoAttachmentFiles.delete(String(attachmentId));
+      writeStore(store);
+      return undefined as T;
+    }
+
+    if (method === "POST") {
+      const form = options.body instanceof FormData ? options.body : null;
+      const file = form?.get("file");
+      if (!form || !(file instanceof Blob)) throw new Error("Attachment file is required.");
+      const id = uid();
+      const attachment = {
+        id,
+        petId: String(form.get("petId") ?? ""),
+        entryType: String(form.get("entryType") ?? ""),
+        entryId: String(form.get("entryId") ?? ""),
+        fileName: "name" in file && typeof file.name === "string" ? file.name : "attachment",
+        mimeType: file.type || "application/octet-stream",
+        sizeBytes: file.size,
+        createdAt: new Date().toISOString()
+      };
+      store.attachments.unshift(attachment);
+      demoAttachmentFiles.set(id, file);
+      writeStore(store);
+      return attachment as T;
+    }
+
+    return store.attachments.filter((item) => {
+      return item.petId === url.searchParams.get("petId")
+        && item.entryType === url.searchParams.get("entryType")
+        && item.entryId === url.searchParams.get("entryId");
+    }) as T;
   }
 
   if (path.startsWith("/api/admin/users/") && path.endsWith("/access") && method === "PATCH") {

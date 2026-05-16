@@ -180,25 +180,61 @@ async function loadAssistantData(input: {
   };
 }
 
-async function askMiniMax(input: {
+async function askAiProvider(input: {
   mode: typeof assistantModes[number];
   question?: string | null;
   locale?: string | null;
   data: Awaited<ReturnType<typeof loadAssistantData>>;
 }) {
+  if (env.OPENROUTER_API_KEY_AI_HELPER) {
+    return askChatCompletionProvider({
+      ...input,
+      provider: "openrouter",
+      apiKey: env.OPENROUTER_API_KEY_AI_HELPER,
+      model: env.OPENROUTER_AI_HELPER_MODEL,
+      url: "https://openrouter.ai/api/v1/chat/completions",
+      timeoutMs: env.OPENROUTER_AI_HELPER_TIMEOUT_MS,
+      tokenField: "max_tokens"
+    });
+  }
+
   if (!env.MINIMAX_API_KEY) throw new HttpError(503, "AI_ASSISTANT_UNAVAILABLE", "AI assistant provider is not configured.");
+  return askChatCompletionProvider({
+    ...input,
+    provider: "minimax",
+    apiKey: env.MINIMAX_API_KEY,
+    model: env.MINIMAX_REPORT_MODEL ?? env.MINIMAX_PARSER_MODEL,
+    url: `${env.MINIMAX_API_BASE_URL.replace(/\/$/, "")}/v1/chat/completions`,
+    timeoutMs: env.MINIMAX_AI_TIMEOUT_MS,
+    tokenField: "max_completion_tokens"
+  });
+}
+
+async function askChatCompletionProvider(input: {
+  mode: typeof assistantModes[number];
+  question?: string | null;
+  locale?: string | null;
+  data: Awaited<ReturnType<typeof loadAssistantData>>;
+  provider: "minimax" | "openrouter";
+  apiKey: string;
+  model: string;
+  url: string;
+  timeoutMs: number;
+  tokenField: "max_completion_tokens" | "max_tokens";
+}) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), env.MINIMAX_AI_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), input.timeoutMs);
   try {
-    const response = await fetch(`${env.MINIMAX_API_BASE_URL.replace(/\/$/, "")}/v1/chat/completions`, {
+    const response = await fetch(input.url, {
       method: "POST",
       signal: controller.signal,
       headers: {
-        Authorization: `Bearer ${env.MINIMAX_API_KEY}`,
-        "Content-Type": "application/json"
+        Authorization: `Bearer ${input.apiKey}`,
+        "Content-Type": "application/json",
+        ...(input.provider === "openrouter" ? { "HTTP-Referer": env.FRONTEND_URL, "X-Title": "PetCare Diary" } : {})
       },
       body: JSON.stringify({
-        model: env.MINIMAX_REPORT_MODEL ?? env.MINIMAX_PARSER_MODEL,
+        model: input.model,
         messages: [
           {
             role: "system",
@@ -227,12 +263,19 @@ async function askMiniMax(input: {
           }
         ],
         temperature: 0.2,
-        max_completion_tokens: 700
+        ...(input.tokenField === "max_tokens" ? { max_tokens: 700 } : { max_completion_tokens: 700 })
       })
     });
     const data = await response.json().catch(() => null) as { choices?: Array<{ message?: { content?: unknown } }> } | null;
     const content = data?.choices?.[0]?.message?.content;
     if (!response.ok || typeof content !== "string" || !content.trim()) {
+      console.warn(JSON.stringify({
+        event: "ai_assistant_provider_failed",
+        provider: input.provider,
+        model: input.model,
+        status: response.status,
+        reason: !response.ok ? "provider_non_ok" : "invalid_provider_response"
+      }));
       throw new HttpError(502, "AI_ASSISTANT_FAILED", "AI assistant provider failed.");
     }
     const sanitized = sanitizeAiFinalAnswer(content, 3000);
@@ -268,7 +311,7 @@ router.post("/assistant", async (req, res, next) => {
       timezone,
       locale: body.locale ?? req.user!.languageCode
     });
-    const answer = await askMiniMax({
+    const answer = await askAiProvider({
       mode: body.mode,
       question: body.question,
       locale: body.locale ?? req.user!.languageCode,

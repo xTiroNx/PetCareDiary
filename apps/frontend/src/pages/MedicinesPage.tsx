@@ -2,11 +2,13 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check, Edit3, Save, Trash2, X } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { api, jsonBody } from "../api/client";
+import { ActionAttachmentPicker } from "../components/ActionAttachmentPicker";
 import { ConfirmAction } from "../components/ConfirmAction";
 import { DateTimeFields } from "../components/DateTimeFields";
 import { EmptyState } from "../components/EmptyState";
 import { LoadMore } from "../components/LoadMore";
 import { RequestError } from "../components/RequestError";
+import { useEntryAttachmentUpload } from "../hooks/useEntryAttachmentUpload";
 import { usePaginatedApi } from "../hooks/usePaginatedApi";
 import { useAppStore } from "../store/appStore";
 import { localDateTimeInputToUtcIso, localDateTimeInputValue } from "../utils/dateTime";
@@ -18,12 +20,20 @@ type MedicineDraft = { medicineName: string; dosage: string; dateTime: string; t
 export default function MedicinesPage() {
   const { language, t } = useI18n();
   const pet = useAppStore((state) => state.pet);
+  const isAdmin = useAppStore((state) => state.isAdmin);
   const queryClient = useQueryClient();
+  const attachment = useEntryAttachmentUpload("MEDICINE", pet?.id, t);
   const now = localDateTimeInputValue();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<MedicineDraft | null>(null);
   const entries = usePaginatedApi<MedicineEntry>(["medicines", pet?.id], `/api/medicines?petId=${pet?.id ?? ""}`, Boolean(pet));
-  const add = useMutation({ mutationFn: (body: Record<string, unknown>) => api("/api/medicines", { method: "POST", body: jsonBody(body) }), onSuccess: () => queryClient.invalidateQueries({ queryKey: ["medicines", pet?.id] }) });
+  const add = useMutation<MedicineEntry, Error, Record<string, unknown>>({
+    mutationFn: (body) => api<MedicineEntry>("/api/medicines", { method: "POST", body: jsonBody(body) }),
+    onSuccess: async (created) => {
+      queryClient.invalidateQueries({ queryKey: ["medicines", pet?.id] });
+      await attachment.uploadForEntry(created.id);
+    }
+  });
   const mark = useMutation({ mutationFn: (entry: MedicineEntry) => api(`/api/medicines/${entry.id}/taken`, { method: "PATCH", body: jsonBody({ taken: !entry.taken }) }), onSuccess: () => queryClient.invalidateQueries({ queryKey: ["medicines", pet?.id] }) });
   const update = useMutation({
     mutationFn: ({ id, body }: { id: string; body: Record<string, unknown> }) => api(`/api/medicines/${id}`, { method: "PATCH", body: jsonBody(body) }),
@@ -76,7 +86,8 @@ export default function MedicinesPage() {
         <input className="input" name="dosage" placeholder={t("dosage")} />
         <DateTimeFields defaultValue={now} required />
         <textarea className="input" name="note" placeholder={t("comment")} />
-        <button className="btn btn-primary">{t("add")}</button>
+        <ActionAttachmentPicker visible={isAdmin} file={attachment.file} disabled={add.isPending || attachment.isUploading} uploadError={attachment.error} onFileChange={attachment.selectFile} onClear={attachment.clearFile} />
+        <button className="btn btn-primary" disabled={add.isPending || attachment.isUploading}>{t("add")}</button>
         <RequestError error={add.error} />
       </form>
       {entries.isLoading && <div className="panel text-center">{t("loading")}</div>}

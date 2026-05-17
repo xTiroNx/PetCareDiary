@@ -2,12 +2,14 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CalendarCheck, Edit3, Save, Trash2, X } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { api, jsonBody } from "../api/client";
+import { ActionAttachmentPicker } from "../components/ActionAttachmentPicker";
 import { ConfirmAction } from "../components/ConfirmAction";
 import { DateField } from "../components/DateField";
 import { EmptyState } from "../components/EmptyState";
 import { LoadMore } from "../components/LoadMore";
 import { RequestError } from "../components/RequestError";
 import { SelectField } from "../components/SelectField";
+import { useEntryAttachmentUpload } from "../hooks/useEntryAttachmentUpload";
 import { usePaginatedApi } from "../hooks/usePaginatedApi";
 import { useAppStore } from "../store/appStore";
 import { localDateInputValue } from "../utils/dateTime";
@@ -45,7 +47,9 @@ function titleOf(entry: VaccinationEntry) {
 export default function VaccinationsPage() {
   const { language, t } = useI18n();
   const pet = useAppStore((state) => state.pet);
+  const isAdmin = useAppStore((state) => state.isAdmin);
   const queryClient = useQueryClient();
+  const attachment = useEntryAttachmentUpload("VACCINATION", pet?.id, t);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<VaccinationDraft | null>(null);
   const typeLabels: Record<string, string> = {
@@ -56,12 +60,13 @@ export default function VaccinationsPage() {
   };
   const entries = usePaginatedApi<VaccinationEntry>(["vaccinations", pet?.id], `/api/vaccinations?petId=${pet?.id ?? ""}`, Boolean(pet));
 
-  const add = useMutation({
-    mutationFn: (body: Record<string, unknown>) => api("/api/vaccinations", { method: "POST", body: jsonBody(body) }),
-    onSuccess: () => {
+  const add = useMutation<VaccinationEntry, Error, Record<string, unknown>>({
+    mutationFn: (body) => api<VaccinationEntry>("/api/vaccinations", { method: "POST", body: jsonBody(body) }),
+    onSuccess: async (created) => {
       queryClient.invalidateQueries({ queryKey: ["vaccinations", pet?.id] });
       queryClient.invalidateQueries({ queryKey: ["reminders", pet?.id] });
       queryClient.invalidateQueries({ queryKey: ["report", pet?.id] });
+      await attachment.uploadForEntry(created.id);
     }
   });
   const update = useMutation({
@@ -145,7 +150,8 @@ export default function VaccinationsPage() {
           {t("createReminder")}
         </label>
         <textarea className="input" name="note" placeholder={t("note")} />
-        <button className="btn btn-primary"><CalendarCheck size={17} />{t("add")}</button>
+        <ActionAttachmentPicker visible={isAdmin} file={attachment.file} disabled={add.isPending || attachment.isUploading} uploadError={attachment.error} onFileChange={attachment.selectFile} onClear={attachment.clearFile} />
+        <button className="btn btn-primary" disabled={add.isPending || attachment.isUploading}><CalendarCheck size={17} />{t("add")}</button>
         <RequestError error={add.error} />
       </form>
 

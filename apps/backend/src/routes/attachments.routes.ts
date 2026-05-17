@@ -150,11 +150,15 @@ router.get("/:id/file", async (req, res, next) => {
     const attachment = await prisma.attachment.findFirst({ where: { id, userId: req.user!.id } });
     if (!attachment) throw new HttpError(404, "ATTACHMENT_NOT_FOUND", "Attachment not found.");
 
+    const filePath = attachmentPath(attachment.storageKey);
+    const stats = await fs.promises.stat(filePath).catch(() => null);
+    if (!stats?.isFile()) throw new HttpError(404, "ATTACHMENT_FILE_NOT_FOUND", "Attachment file not found.");
+
     res.setHeader("Content-Type", attachment.mimeType);
-    res.setHeader("Content-Length", String(attachment.sizeBytes));
+    res.setHeader("Content-Length", String(stats.size));
     res.setHeader("Content-Disposition", contentDisposition(attachment.fileName));
     res.setHeader("Cache-Control", "private, no-store");
-    fs.createReadStream(attachmentPath(attachment.storageKey))
+    fs.createReadStream(filePath)
       .on("error", () => next(new HttpError(404, "ATTACHMENT_FILE_NOT_FOUND", "Attachment file not found.")))
       .pipe(res);
   } catch (error) {

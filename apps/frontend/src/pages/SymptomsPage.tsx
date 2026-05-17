@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Edit3, Save, Trash2, X } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { api, jsonBody } from "../api/client";
+import { ActionAttachmentPicker } from "../components/ActionAttachmentPicker";
 import { ConfirmAction } from "../components/ConfirmAction";
 import { DateTimeFields } from "../components/DateTimeFields";
 import { EmptyState } from "../components/EmptyState";
@@ -9,6 +10,7 @@ import { LoadMore } from "../components/LoadMore";
 import { RequestError } from "../components/RequestError";
 import { SelectField } from "../components/SelectField";
 import { SeverityScale } from "../components/SeverityScale";
+import { useEntryAttachmentUpload } from "../hooks/useEntryAttachmentUpload";
 import { usePaginatedApi } from "../hooks/usePaginatedApi";
 import { useAppStore } from "../store/appStore";
 import { localDateTimeInputToUtcIso, localDateTimeInputValue } from "../utils/dateTime";
@@ -21,18 +23,21 @@ type SymptomDraft = { dateTime: string; symptomType: string; severity: string; n
 export default function SymptomsPage() {
   const { language, t } = useI18n();
   const pet = useAppStore((state) => state.pet);
+  const isAdmin = useAppStore((state) => state.isAdmin);
   const queryClient = useQueryClient();
+  const attachment = useEntryAttachmentUpload("SYMPTOM", pet?.id, t);
   const now = localDateTimeInputValue();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<SymptomDraft | null>(null);
   const symptomLabels: Record<string, string> = { VOMITING: t("vomiting"), YELLOW_VOMIT: t("yellowVomit"), NO_APPETITE: t("noAppetite"), DIARRHEA: t("diarrhea"), CONSTIPATION: t("constipation"), LETHARGY: t("lethargy"), PAIN: t("pain"), OTHER: t("other") };
   const entries = usePaginatedApi<SymptomEntry>(["symptoms", pet?.id], `/api/symptoms?petId=${pet?.id ?? ""}`, Boolean(pet));
   const analytics = useQuery({ queryKey: ["symptoms-analytics", pet?.id], queryFn: () => api<Analytics[]>(`/api/symptoms/analytics?petId=${pet!.id}`), enabled: Boolean(pet) });
-  const add = useMutation({
-    mutationFn: (body: Record<string, unknown>) => api("/api/symptoms", { method: "POST", body: jsonBody(body) }),
-    onSuccess: () => {
+  const add = useMutation<SymptomEntry, Error, Record<string, unknown>>({
+    mutationFn: (body) => api<SymptomEntry>("/api/symptoms", { method: "POST", body: jsonBody(body) }),
+    onSuccess: async (created) => {
       queryClient.invalidateQueries({ queryKey: ["symptoms", pet?.id] });
       queryClient.invalidateQueries({ queryKey: ["symptoms-analytics", pet?.id] });
+      await attachment.uploadForEntry(created.id);
     }
   });
   const update = useMutation({
@@ -92,7 +97,8 @@ export default function SymptomsPage() {
         </SelectField>
         <SeverityScale defaultValue="1" />
         <textarea className="input" name="note" placeholder={t("comment")} />
-        <button className="btn btn-primary">{t("add")}</button>
+        <ActionAttachmentPicker visible={isAdmin} file={attachment.file} disabled={add.isPending || attachment.isUploading} uploadError={attachment.error} onFileChange={attachment.selectFile} onClear={attachment.clearFile} />
+        <button className="btn btn-primary" disabled={add.isPending || attachment.isUploading}>{t("add")}</button>
         <RequestError error={add.error} />
       </form>
       <section className="panel"><h2 className="section-title">{t("last7Days")}</h2><div className="mt-2 flex flex-wrap gap-2">{analytics.data?.length ? analytics.data.map((item) => <span className="rounded-full bg-skysoft px-3 py-1 text-xs font-semibold text-ink" key={item.symptomType}>{symptomLabels[item.symptomType] ?? item.symptomType}: {item.count}</span>) : <span className="text-sm text-zinc-500">{t("noRepeats")}</span>}</div></section>

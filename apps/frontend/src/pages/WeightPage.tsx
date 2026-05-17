@@ -2,11 +2,13 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Edit3, Save, Trash2, X } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { api, jsonBody } from "../api/client";
+import { ActionAttachmentPicker } from "../components/ActionAttachmentPicker";
 import { ConfirmAction } from "../components/ConfirmAction";
 import { DateField } from "../components/DateField";
 import { EmptyState } from "../components/EmptyState";
 import { LoadMore } from "../components/LoadMore";
 import { RequestError } from "../components/RequestError";
+import { useEntryAttachmentUpload } from "../hooks/useEntryAttachmentUpload";
 import { usePaginatedApi } from "../hooks/usePaginatedApi";
 import { useAppStore } from "../store/appStore";
 import { localDateInputValue } from "../utils/dateTime";
@@ -86,11 +88,19 @@ function WeightChart({ values, locale }: { values: WeightEntry[]; locale: string
 export default function WeightPage() {
   const { language, t } = useI18n();
   const pet = useAppStore((state) => state.pet);
+  const isAdmin = useAppStore((state) => state.isAdmin);
   const queryClient = useQueryClient();
+  const attachment = useEntryAttachmentUpload("WEIGHT", pet?.id, t);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<WeightDraft | null>(null);
   const entries = usePaginatedApi<WeightEntry>(["weights", pet?.id], `/api/weights?petId=${pet?.id ?? ""}`, Boolean(pet));
-  const add = useMutation({ mutationFn: (body: Record<string, unknown>) => api("/api/weights", { method: "POST", body: jsonBody(body) }), onSuccess: () => queryClient.invalidateQueries({ queryKey: ["weights", pet?.id] }) });
+  const add = useMutation<WeightEntry, Error, Record<string, unknown>>({
+    mutationFn: (body) => api<WeightEntry>("/api/weights", { method: "POST", body: jsonBody(body) }),
+    onSuccess: async (created) => {
+      queryClient.invalidateQueries({ queryKey: ["weights", pet?.id] });
+      await attachment.uploadForEntry(created.id);
+    }
+  });
   const update = useMutation({
     mutationFn: ({ id, body }: { id: string; body: Record<string, unknown> }) => api(`/api/weights/${id}`, { method: "PATCH", body: jsonBody(body) }),
     onSuccess: () => {
@@ -138,7 +148,8 @@ export default function WeightPage() {
       <form onSubmit={onSubmit} className="panel grid gap-3">
         <DateField name="date" defaultValue={localDateInputValue()} required />
         <input className="input" name="weightKg" type="number" step="0.1" placeholder={t("weightKg")} required />
-        <button className="btn btn-primary">{t("add")}</button>
+        <ActionAttachmentPicker visible={isAdmin} file={attachment.file} disabled={add.isPending || attachment.isUploading} uploadError={attachment.error} onFileChange={attachment.selectFile} onClear={attachment.clearFile} />
+        <button className="btn btn-primary" disabled={add.isPending || attachment.isUploading}>{t("add")}</button>
         <RequestError error={add.error} />
       </form>
       <section className="panel">

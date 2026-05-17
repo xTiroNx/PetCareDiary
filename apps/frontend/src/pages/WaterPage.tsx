@@ -2,12 +2,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Droplets, Edit3, Save, Trash2, X } from "lucide-react";
 import { FormEvent, useMemo, useState } from "react";
 import { api, jsonBody } from "../api/client";
+import { ActionAttachmentPicker } from "../components/ActionAttachmentPicker";
 import { ConfirmAction } from "../components/ConfirmAction";
 import { DateTimeFields } from "../components/DateTimeFields";
 import { EmptyState } from "../components/EmptyState";
 import { LoadMore } from "../components/LoadMore";
 import { RequestError } from "../components/RequestError";
 import { SelectField } from "../components/SelectField";
+import { useEntryAttachmentUpload } from "../hooks/useEntryAttachmentUpload";
 import { usePaginatedApi } from "../hooks/usePaginatedApi";
 import { useAppStore } from "../store/appStore";
 import { localDateTimeInputToUtcIso, localDateTimeInputValue } from "../utils/dateTime";
@@ -57,7 +59,9 @@ function WaterBars({ values }: { values: Array<{ date: string; totalMl: number }
 export default function WaterPage() {
   const { language, t } = useI18n();
   const pet = useAppStore((state) => state.pet);
+  const isAdmin = useAppStore((state) => state.isAdmin);
   const queryClient = useQueryClient();
+  const attachment = useEntryAttachmentUpload("WATER", pet?.id, t);
   const [period, setPeriod] = useState<WaterPeriod>("7");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<WaterDraft | null>(null);
@@ -71,12 +75,13 @@ export default function WaterPage() {
 
   const chartValues = useMemo(() => analytics.data?.byDay ?? [], [analytics.data?.byDay]);
 
-  const add = useMutation({
-    mutationFn: (body: Record<string, unknown>) => api("/api/water", { method: "POST", body: jsonBody(body) }),
-    onSuccess: () => {
+  const add = useMutation<WaterEntry, Error, Record<string, unknown>>({
+    mutationFn: (body) => api<WaterEntry>("/api/water", { method: "POST", body: jsonBody(body) }),
+    onSuccess: async (created) => {
       queryClient.invalidateQueries({ queryKey: ["water", pet?.id] });
       queryClient.invalidateQueries({ queryKey: ["water-analytics", pet?.id] });
       queryClient.invalidateQueries({ queryKey: ["report", pet?.id] });
+      await attachment.uploadForEntry(created.id);
     }
   });
   const update = useMutation({
@@ -148,7 +153,8 @@ export default function WaterPage() {
         <DateTimeFields defaultValue={localDateTimeInputValue()} required />
         <input className="input" name="amountMl" type="number" inputMode="numeric" min="1" placeholder={t("waterVolumeMl")} required />
         <textarea className="input" name="note" placeholder={t("note")} />
-        <button className="btn btn-primary"><Droplets size={17} />{t("add")}</button>
+        <ActionAttachmentPicker visible={isAdmin} file={attachment.file} disabled={add.isPending || attachment.isUploading} uploadError={attachment.error} onFileChange={attachment.selectFile} onClear={attachment.clearFile} />
+        <button className="btn btn-primary" disabled={add.isPending || attachment.isUploading}><Droplets size={17} />{t("add")}</button>
         <RequestError error={add.error} />
       </form>
 

@@ -13,7 +13,7 @@ process.env.TELEGRAM_WEBHOOK_SECRET ??= "test_webhook_secret_123456789";
 process.env.ADMIN_TELEGRAM_IDS = "2001";
 process.env.ATTACHMENTS_LOCAL_DIR = await fs.mkdtemp(path.join(os.tmpdir(), "petcare-attachments-smoke-"));
 process.env.ATTACHMENTS_MAX_FILE_MB = "1";
-process.env.ATTACHMENTS_MAX_PER_ENTRY = "2";
+process.env.ATTACHMENTS_MAX_PER_ENTRY = "10";
 
 const [{ createApp }, { prisma }, { deleteAttachmentsForEntry }] = await Promise.all([
   import("../src/app.js"),
@@ -168,12 +168,19 @@ function baseUrl() {
   return `http://127.0.0.1:${address.port}`;
 }
 
-function attachmentForm(entryId = "symptom-admin") {
+const previewCases = [
+  { mimeType: "image/jpeg", fileName: "symptom.jpg", bytes: new Uint8Array([255, 216, 255, 224, 1]) },
+  { mimeType: "image/png", fileName: "symptom.png", bytes: new Uint8Array([137, 80, 78, 71]) },
+  { mimeType: "image/webp", fileName: "symptom.webp", bytes: new Uint8Array([82, 73, 70, 70, 1, 87, 69, 66, 80]) },
+  { mimeType: "application/pdf", fileName: "symptom.pdf", bytes: new TextEncoder().encode("%PDF-1.4\n") }
+] as const;
+
+function attachmentForm(entryId = "symptom-admin", file = previewCases[1]) {
   const form = new FormData();
   form.set("petId", "pet-admin");
   form.set("entryType", "SYMPTOM");
   form.set("entryId", entryId);
-  form.set("file", new Blob([new Uint8Array([137, 80, 78, 71])], { type: "image/png" }), "symptom.png");
+  form.set("file", new Blob([file.bytes], { type: file.mimeType }), file.fileName);
   return form;
 }
 
@@ -199,35 +206,54 @@ try {
   });
   assert(missingEntryUpload.status === 404, `Expected missing entry to be rejected, got ${missingEntryUpload.status}`);
 
-  const upload = await fetch(`${baseUrl()}/api/admin/attachments`, {
-    method: "POST",
-    headers: { Authorization: `tma ${signedInitData(2001)}` },
-    body: attachmentForm()
-  });
-  assert(upload.status === 201, `Expected upload to succeed, got ${upload.status}`);
-  const created = await upload.json() as { id?: string; fileName?: string; mimeType?: string; sizeBytes?: number };
-  assert(created.id === "attachment-1", "Expected serialized attachment id.");
-  assert(created.fileName === "symptom.png", "Expected original filename to be preserved.");
-  assert(created.mimeType === "image/png", "Expected image/png mime type.");
-  assert(created.sizeBytes === 4, "Expected uploaded file size.");
+  const createdAttachments: Array<{ id: string; fileName: string; mimeType: string; sizeBytes: number }> = [];
+  for (const previewCase of previewCases) {
+    const upload = await fetch(`${baseUrl()}/api/admin/attachments`, {
+      method: "POST",
+      headers: { Authorization: `tma ${signedInitData(2001)}` },
+      body: attachmentForm("symptom-admin", previewCase)
+    });
+    assert(upload.status === 201, `Expected ${previewCase.mimeType} upload to succeed, got ${upload.status}`);
+    const created = await upload.json() as { id?: string; fileName?: string; mimeType?: string; sizeBytes?: number };
+    assert(typeof created.id === "string", "Expected serialized attachment id.");
+    assert(created.fileName === previewCase.fileName, `Expected ${previewCase.fileName} filename to be preserved.`);
+    assert(created.mimeType === previewCase.mimeType, `Expected ${previewCase.mimeType} mime type.`);
+    assert(created.sizeBytes === previewCase.bytes.byteLength, `Expected ${previewCase.mimeType} uploaded file size.`);
+    createdAttachments.push(created as { id: string; fileName: string; mimeType: string; sizeBytes: number });
+  }
 
   const list = await jsonRequest("/api/admin/attachments?petId=pet-admin&entryType=SYMPTOM&entryId=symptom-admin", 2001);
   assert(list.status === 200, `Expected list to succeed, got ${list.status}`);
   assert(Array.isArray(list.body), "Expected attachment list response to be an array.");
-  assert(list.body.length === 1, `Expected one attachment, got ${list.body.length}`);
+  assert(list.body.length === previewCases.length, `Expected ${previewCases.length} attachments, got ${list.body.length}`);
 
-  const file = await fetch(`${baseUrl()}/api/admin/attachments/attachment-1/file`, {
-    headers: { Authorization: `tma ${signedInitData(2001)}` }
+  const nonAdminFile = await fetch(`${baseUrl()}/api/admin/attachments/${createdAttachments[0].id}/file`, {
+    headers: { Authorization: `tma ${signedInitData(2002)}` }
   });
-  assert(file.status === 200, `Expected file download to succeed, got ${file.status}`);
-  assert(file.headers.get("content-type")?.includes("image/png"), "Expected downloaded content type to be image/png.");
-  assert((await file.arrayBuffer()).byteLength === 4, "Expected downloaded file bytes.");
+  assert(nonAdminFile.status === 403, `Expected regular user file download to be rejected, got ${nonAdminFile.status}`);
 
-  const remove = await fetch(`${baseUrl()}/api/admin/attachments/attachment-1`, {
-    method: "DELETE",
-    headers: { Authorization: `tma ${signedInitData(2001)}` }
-  });
-  assert(remove.status === 204, `Expected delete to succeed, got ${remove.status}`);
+  for (const [index, previewCase] of previewCases.entries()) {
+    const created = createdAttachments[index];
+    const file = await fetch(`${baseUrl()}/api/admin/attachments/${created.id}/file`, {
+      headers: { Authorization: `tma ${signedInitData(2001)}` }
+    });
+    assert(file.status === 200, `Expected ${previewCase.mimeType} file download to succeed, got ${file.status}`);
+    assert(file.headers.get("content-type") === previewCase.mimeType, `Expected Content-Type ${previewCase.mimeType}, got ${file.headers.get("content-type")}`);
+    assert(file.headers.get("content-length") === String(previewCase.bytes.byteLength), `Expected Content-Length for ${previewCase.mimeType}.`);
+    assert(file.headers.get("cache-control") === "private, no-store", "Expected private no-store cache policy.");
+    assert(file.headers.get("content-disposition")?.startsWith("inline;"), "Expected inline content disposition.");
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    assert(bytes.byteLength === previewCase.bytes.byteLength, `Expected ${previewCase.mimeType} downloaded byte length.`);
+    assert(bytes.every((byte, byteIndex) => byte === previewCase.bytes[byteIndex]), `Expected ${previewCase.mimeType} downloaded bytes to match upload.`);
+  }
+
+  for (const created of createdAttachments) {
+    const remove = await fetch(`${baseUrl()}/api/admin/attachments/${created.id}`, {
+      method: "DELETE",
+      headers: { Authorization: `tma ${signedInitData(2001)}` }
+    });
+    assert(remove.status === 204, `Expected delete to succeed, got ${remove.status}`);
+  }
 
   const listAfterDelete = await jsonRequest("/api/admin/attachments?petId=pet-admin&entryType=SYMPTOM&entryId=symptom-admin", 2001);
   assert(listAfterDelete.status === 200, `Expected list after delete to succeed, got ${listAfterDelete.status}`);

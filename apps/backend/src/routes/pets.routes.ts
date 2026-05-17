@@ -154,7 +154,20 @@ router.get("/:id/avatar/file", async (req, res, next) => {
 
     const filePath = attachmentPath(pet.avatarStorageKey);
     const stats = await fs.promises.stat(filePath).catch(() => null);
-    if (!stats?.isFile()) throw new HttpError(404, "PET_AVATAR_FILE_NOT_FOUND", "Pet avatar file not found.");
+    if (!stats?.isFile()) {
+      await prisma.pet.update({
+        where: { id: pet.id },
+        data: {
+          avatarStorageKey: null,
+          avatarMimeType: null,
+          avatarFileName: null,
+          avatarSizeBytes: null,
+          avatarUpdatedAt: null
+        }
+      });
+      res.status(204).send();
+      return;
+    }
 
     res.setHeader("Content-Type", pet.avatarMimeType);
     res.setHeader("Content-Length", String(stats.size));

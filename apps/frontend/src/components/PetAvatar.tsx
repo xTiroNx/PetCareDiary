@@ -52,7 +52,10 @@ export function PetAvatar({ pet, size = "md" }: PetAvatarProps) {
   const [objectUrl, setObjectUrl] = useState("");
   const file = useQuery({
     queryKey: ["pet-avatar", pet.id, pet.avatarUpdatedAt],
-    queryFn: () => apiBlob(petAvatarPath(pet.id, pet.avatarUpdatedAt)),
+    queryFn: async () => {
+      const blob = await apiBlob(petAvatarPath(pet.id, pet.avatarUpdatedAt));
+      return blob.size > 0 ? blob : null;
+    },
     enabled: Boolean(pet.hasAvatar),
     staleTime: 5 * 60_000
   });

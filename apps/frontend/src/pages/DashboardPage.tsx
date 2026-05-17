@@ -26,10 +26,9 @@ export default function DashboardPage() {
       <header className="panel bg-ink text-white dark:bg-zinc-900">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            {isAdmin && <PetAvatar pet={pet} size="lg" />}
+            {isAdmin && <PetAvatar pet={pet} size="xl" />}
             <div className="min-w-0">
-              <p className="text-sm font-bold text-mint">PetCare Diary</p>
-              <h1 className="mt-1 break-words text-[32px] font-extrabold leading-none">{pet.name}</h1>
+              <h1 className="break-words text-[32px] font-extrabold leading-none">{pet.name}</h1>
               <p className="mt-2 text-sm leading-5 text-white/70">{petMeta}</p>
             </div>
           </div>
@@ -49,7 +48,7 @@ export default function DashboardPage() {
           <Link className="btn btn-secondary quick-action" to="/weight"><Scale size={18} />{t("weight")}</Link>
           <Link className="btn btn-secondary quick-action" to="/vaccinations"><CalendarCheck size={18} />{t("vaccination")}</Link>
           <Link className="btn btn-secondary quick-action col-span-2 min-h-[50px]" to="/notes"><FileText size={18} />{t("otherNote")}</Link>
-          {isAdmin && <Link className="btn btn-secondary quick-action col-span-2 min-h-[50px]" to="/ai"><Bot size={18} />{t("aiAssistant")}</Link>}
+          {hasActiveAccess && <Link className="btn btn-secondary quick-action col-span-2 min-h-[50px]" to="/ai"><Bot size={18} />{t("aiAssistant")}</Link>}
         </div>
       </section>
       {hasActiveAccess && <VoiceCommand endpoint="/api/voice/command" />}

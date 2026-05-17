@@ -4,6 +4,7 @@ import { validateTelegramInitData } from "./telegramAuth.service.js";
 import { normalizeSource } from "./analytics.service.js";
 import { accessEndsAt, getAccessStatus } from "../utils/access.js";
 import { isAdminUser } from "../utils/admin.js";
+import { publicPetSelect, serializePet } from "../utils/petSerialization.js";
 
 function optionalText(value?: string | null) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -54,13 +55,15 @@ export async function authenticateTelegram(initData: string, acquisition?: {
 
   const pets = await prisma.pet.findMany({
     where: { userId: user.id },
-    orderBy: { createdAt: "asc" }
+    orderBy: { createdAt: "asc" },
+    select: publicPetSelect
   });
+  const publicPets = pets.map(serializePet);
 
   return {
     user,
-    pet: pets[0] ?? null,
-    pets,
+    pet: publicPets[0] ?? null,
+    pets: publicPets,
     isAdmin: isAdminUser(user),
     accessStatus: getAccessStatus(user),
     accessEndsAt: accessEndsAt(user)

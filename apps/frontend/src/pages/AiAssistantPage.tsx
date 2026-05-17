@@ -1,8 +1,6 @@
-import clsx from "clsx";
 import { useMutation } from "@tanstack/react-query";
 import { Bot, Send } from "lucide-react";
 import { FormEvent, useState } from "react";
-import { Navigate } from "react-router-dom";
 import { api, jsonBody } from "../api/client";
 import { MedicalDisclaimer } from "../components/MedicalDisclaimer";
 import { RequestError } from "../components/RequestError";
@@ -19,8 +17,6 @@ type AiResponse = {
   warnings?: string[];
 };
 
-const modes: AiMode[] = ["VET_QUESTIONS", "GENERAL_HELP"];
-
 function sanitizeAiAnswer(value: string) {
   const withoutThinkBlocks = value.replace(/<think\b[^>]*>[\s\S]*?<\/think>/gi, "");
   const withoutUnclosedThink = withoutThinkBlocks.replace(/<think\b[^>]*>[\s\S]*$/gi, "");
@@ -36,11 +32,15 @@ function getDeviceTimeZone() {
   }
 }
 
+function aiAssistantErrorMessage(error: unknown, t: ReturnType<typeof useI18n>["t"]) {
+  const code = (error as { code?: string } | null)?.code;
+  if (code === "AI_ASSISTANT_LIMIT_REACHED") return t("aiErrorLimit");
+  return error instanceof Error ? error.message : String(error);
+}
+
 export default function AiAssistantPage() {
   const { language, t } = useI18n();
   const pet = useAppStore((state) => state.pet);
-  const isAdmin = useAppStore((state) => state.isAdmin);
-  const [mode, setMode] = useState<AiMode>("SUMMARY");
   const [period, setPeriod] = useState<AiPeriod>("7");
   const [question, setQuestion] = useState("");
 
@@ -49,8 +49,8 @@ export default function AiAssistantPage() {
       method: "POST",
       body: jsonBody({
         petId: pet!.id,
-        mode,
-        question: mode === "GENERAL_HELP" ? question.trim() : undefined,
+        mode: "GENERAL_HELP" satisfies AiMode,
+        question: question.trim(),
         period,
         timezone: getDeviceTimeZone(),
         locale: language
@@ -58,15 +58,8 @@ export default function AiAssistantPage() {
     })
   });
 
-  if (!isAdmin) return <Navigate to="/" replace />;
-
-  const modeLabels: Record<AiMode, string> = {
-    SUMMARY: t("aiSummary"),
-    VET_QUESTIONS: t("aiVetQuestions"),
-    WHAT_TO_TRACK: t("aiNextSteps"),
-    GENERAL_HELP: t("aiGeneralHelp")
-  };
   const answer = sanitizeAiAnswer(ask.data?.answer ?? ask.data?.text ?? "");
+  const askError = ask.error ? new Error(aiAssistantErrorMessage(ask.error, t)) : null;
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -82,18 +75,6 @@ export default function AiAssistantPage() {
       </header>
 
       <form className="panel space-y-3" onSubmit={onSubmit}>
-        <div className="grid grid-cols-2 gap-2">
-          {modes.map((item) => (
-            <button
-              className={clsx("btn min-h-12 px-2 text-xs", mode === item ? "btn-primary" : "btn-secondary")}
-              key={item}
-              type="button"
-              onClick={() => setMode(item)}
-            >
-              {modeLabels[item]}
-            </button>
-          ))}
-        </div>
         <label className="block text-xs font-semibold text-zinc-500">
           {t("aiPeriod")}
           <SelectField className="mt-1" value={period} onChange={(event) => setPeriod(event.target.value as AiPeriod)}>
@@ -103,19 +84,17 @@ export default function AiAssistantPage() {
             <option value="90">{t("days90")}</option>
           </SelectField>
         </label>
-        {mode === "GENERAL_HELP" && (
-          <textarea
-            className="input min-h-28"
-            value={question}
-            onChange={(event) => setQuestion(event.target.value)}
-            placeholder={t("aiQuestion")}
-            required
-          />
-        )}
-        <button className="btn btn-primary w-full" disabled={ask.isPending || (mode === "GENERAL_HELP" && !question.trim())}>
+        <textarea
+          className="input min-h-28"
+          value={question}
+          onChange={(event) => setQuestion(event.target.value)}
+          placeholder={t("aiQuestion")}
+          required
+        />
+        <button className="btn btn-primary w-full" disabled={ask.isPending || !question.trim()}>
           <Send size={17} />{ask.isPending ? t("loading") : t("askAi")}
         </button>
-        <RequestError error={ask.error} />
+        <RequestError error={askError} />
       </form>
 
       {answer && (

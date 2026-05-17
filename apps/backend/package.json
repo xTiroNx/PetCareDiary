@@ -15,6 +15,7 @@
     "voice:endpoint-smoke": "tsx scripts/voice-endpoint-smoke.ts",
     "attachments:smoke": "tsx scripts/attachments-smoke.ts",
     "pet-avatar:smoke": "tsx scripts/pet-avatar-smoke.ts",
+    "ai:assistant-smoke": "tsx scripts/ai-assistant-smoke.ts",
     "report:pdf-smoke": "tsx scripts/report-pdf-smoke.ts",
     "reminder:types-smoke": "tsx scripts/reminder-types-smoke.ts",
     "lint": "tsc -p tsconfig.json --noEmit",

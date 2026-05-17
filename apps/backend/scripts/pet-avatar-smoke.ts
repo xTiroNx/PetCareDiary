@@ -107,6 +107,13 @@ const pets: PetRecord[] = [
   return telegramId ? users.get(telegramId) ?? null : null;
 };
 
+(prisma.user.upsert as unknown as (args: unknown) => Promise<unknown>) = async (args: unknown) => {
+  const telegramId = (args as { where?: { telegramId?: bigint } }).where?.telegramId;
+  const user = telegramId ? users.get(telegramId) : null;
+  if (!user) throw new Error("User was not found in smoke store.");
+  return user;
+};
+
 (prisma.pet.findMany as unknown as (args: unknown) => Promise<PetRecord[]>) = async (args: unknown) => {
   const userId = (args as { where?: { userId?: string } }).where?.userId;
   return pets.filter((pet) => pet.userId === userId);
@@ -214,6 +221,24 @@ try {
   assert(listedPets[0]?.hasAvatar === true, "Expected pet list to expose hasAvatar.");
   assert(typeof listedPets[0]?.avatarUpdatedAt === "string", "Expected pet list to expose avatarUpdatedAt.");
   assert(!("avatarStorageKey" in listedPets[0]), "Expected pet list to hide avatarStorageKey.");
+
+  const authAfterUpload = await fetch(`${baseUrl()}/api/auth/telegram`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ initData: signedInitData(3001) })
+  });
+  assert(authAfterUpload.status === 200, `Expected auth after avatar upload to succeed, got ${authAfterUpload.status}`);
+  const authBody = await authAfterUpload.json() as {
+    pet?: { hasAvatar?: boolean; avatarUpdatedAt?: string; avatarStorageKey?: string } | null;
+    pets?: Array<{ hasAvatar?: boolean; avatarUpdatedAt?: string; avatarStorageKey?: string }>;
+  };
+  assert(authBody.pet, "Expected auth response to include pet.");
+  assert(authBody.pet.hasAvatar === true, "Expected auth pet to keep hasAvatar=true after app restart.");
+  assert(typeof authBody.pet.avatarUpdatedAt === "string", "Expected auth pet to expose avatarUpdatedAt after app restart.");
+  assert(!("avatarStorageKey" in authBody.pet), "Expected auth pet to hide avatarStorageKey.");
+  assert(authBody.pets?.[0], "Expected auth response to include pets list.");
+  assert(authBody.pets[0].hasAvatar === true, "Expected auth pets list to keep hasAvatar=true after app restart.");
+  assert(!("avatarStorageKey" in authBody.pets[0]), "Expected auth pets list to hide avatarStorageKey.");
 
   const file = await fetch(`${baseUrl()}/api/pets/pet-owner/avatar/file`, {
     headers: { Authorization: `tma ${signedInitData(3001)}` }

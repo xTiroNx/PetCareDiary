@@ -8,7 +8,7 @@ import { prisma } from "../prisma/client.js";
 import { trackAnalyticsEvent } from "../services/analytics.service.js";
 import { attachmentPath, deleteAttachmentFile, writeAttachmentFile } from "../services/attachments.service.js";
 import { HttpError } from "../utils/httpError.js";
-import { serialize } from "../utils/serialize.js";
+import { publicPetSelect as petSelect, serializePet } from "../utils/petSerialization.js";
 import { idParamSchema } from "../utils/validation.js";
 
 const router = Router();
@@ -45,23 +45,6 @@ const petSchema = z.object({
   healthNotes: z.preprocess((value) => value === "" ? null : value, z.string().max(1000).optional().nullable())
 }).strict();
 
-const petSelect = {
-  id: true,
-  userId: true,
-  name: true,
-  type: true,
-  weightKg: true,
-  ageYears: true,
-  healthNotes: true,
-  avatarStorageKey: true,
-  avatarMimeType: true,
-  avatarFileName: true,
-  avatarSizeBytes: true,
-  avatarUpdatedAt: true,
-  createdAt: true,
-  updatedAt: true
-} as const;
-
 function normalizeUploadError(error: unknown) {
   if (error instanceof HttpError) return error;
   if (error instanceof multer.MulterError) {
@@ -89,28 +72,6 @@ function safeFileName(value: string) {
 function avatarStorageKey(input: { userId: string; petId: string; mimeType: string }) {
   const ext = avatarMimeTypes[input.mimeType] ?? "bin";
   return `${input.userId}/pets/${input.petId}/avatar/${crypto.randomUUID()}.${ext}`;
-}
-
-function serializePet(pet: {
-  avatarStorageKey?: string | null;
-  avatarMimeType?: string | null;
-  avatarFileName?: string | null;
-  avatarSizeBytes?: number | null;
-  avatarUpdatedAt?: Date | null;
-  [key: string]: unknown;
-}) {
-  const {
-    avatarStorageKey: _avatarStorageKey,
-    avatarMimeType: _avatarMimeType,
-    avatarFileName: _avatarFileName,
-    avatarSizeBytes: _avatarSizeBytes,
-    ...safePet
-  } = pet;
-  return serialize({
-    ...safePet,
-    hasAvatar: Boolean(pet.avatarStorageKey),
-    avatarUpdatedAt: pet.avatarUpdatedAt ?? null
-  });
 }
 
 function contentDisposition(fileName: string | null | undefined) {

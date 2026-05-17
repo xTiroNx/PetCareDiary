@@ -11,6 +11,7 @@ process.env.BOT_TOKEN ??= "123456:test_bot_token";
 process.env.BOT_USERNAME ??= "petcare_test_bot";
 process.env.TELEGRAM_WEBHOOK_SECRET ??= "test_webhook_secret_123456789";
 process.env.ADMIN_TELEGRAM_IDS = "2001";
+process.env.FILE_STORAGE_DRIVER = "local";
 process.env.ATTACHMENTS_LOCAL_DIR = await fs.mkdtemp(path.join(os.tmpdir(), "petcare-attachments-smoke-"));
 process.env.ATTACHMENTS_MAX_FILE_MB = "1";
 process.env.ATTACHMENTS_MAX_PER_ENTRY = "10";
@@ -171,9 +172,9 @@ function baseUrl() {
 const previewCases = [
   { mimeType: "image/jpeg", fileName: "symptom.jpg", bytes: new Uint8Array([255, 216, 255, 224, 1]) },
   { mimeType: "image/png", fileName: "symptom.png", bytes: new Uint8Array([137, 80, 78, 71]) },
-  { mimeType: "image/webp", fileName: "symptom.webp", bytes: new Uint8Array([82, 73, 70, 70, 1, 87, 69, 66, 80]) },
-  { mimeType: "application/pdf", fileName: "symptom.pdf", bytes: new TextEncoder().encode("%PDF-1.4\n") }
+  { mimeType: "image/webp", fileName: "symptom.webp", bytes: new Uint8Array([82, 73, 70, 70, 1, 87, 69, 66, 80]) }
 ] as const;
+const pdfCase = { mimeType: "application/pdf", fileName: "symptom.pdf", bytes: new TextEncoder().encode("%PDF-1.4\n") };
 
 function attachmentForm(entryId = "symptom-admin", file = previewCases[1]) {
   const form = new FormData();
@@ -205,6 +206,35 @@ try {
     body: attachmentForm("missing-entry")
   });
   assert(missingEntryUpload.status === 404, `Expected missing entry to be rejected, got ${missingEntryUpload.status}`);
+
+  const pdfUpload = await fetch(`${baseUrl()}/api/admin/attachments`, {
+    method: "POST",
+    headers: { Authorization: `tma ${signedInitData(2001)}` },
+    body: attachmentForm("symptom-admin", pdfCase)
+  });
+  assert(pdfUpload.status === 400, `Expected PDF upload to be rejected, got ${pdfUpload.status}`);
+  const pdfError = await pdfUpload.json() as { error?: { code?: string; message?: string } };
+  assert(pdfError.error?.code === "ATTACHMENT_FILE_UNSUPPORTED", `Expected PDF unsupported code, got ${pdfError.error?.code}`);
+  assert(pdfError.error?.message?.includes("JPG, PNG, or WebP"), "Expected PDF error message to mention image-only uploads.");
+
+  const directUploadUnavailable = await fetch(`${baseUrl()}/api/admin/attachments/presign`, {
+    method: "POST",
+    headers: {
+      Authorization: `tma ${signedInitData(2001)}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      petId: "pet-admin",
+      entryType: "SYMPTOM",
+      entryId: "symptom-admin",
+      fileName: previewCases[0].fileName,
+      mimeType: previewCases[0].mimeType,
+      sizeBytes: previewCases[0].bytes.byteLength
+    })
+  });
+  assert(directUploadUnavailable.status === 503, `Expected local direct upload to be unavailable, got ${directUploadUnavailable.status}`);
+  const directUploadError = await directUploadUnavailable.json() as { error?: { code?: string } };
+  assert(directUploadError.error?.code === "ATTACHMENT_DIRECT_UPLOAD_UNAVAILABLE", `Expected direct upload unavailable code, got ${directUploadError.error?.code}`);
 
   const createdAttachments: Array<{ id: string; fileName: string; mimeType: string; sizeBytes: number }> = [];
   for (const previewCase of previewCases) {

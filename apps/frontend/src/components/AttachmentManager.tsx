@@ -1,19 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText, Image, Paperclip, Trash2, Upload, X } from "lucide-react";
 import { ChangeEvent, useEffect, useRef, useState } from "react";
-import { api, apiBlob, apiFormData } from "../api/client";
-import { attachmentAccept, attachmentFileSizeLabel } from "../utils/attachments";
+import { api } from "../api/client";
+import {
+  type Attachment,
+  type AttachmentEntryType,
+  attachmentAccept,
+  attachmentFileSizeLabel,
+  fetchAttachmentBlob,
+  isSupportedAttachmentFile,
+  maxAttachmentSizeBytes,
+  uploadEntryAttachment
+} from "../utils/attachments";
 import { useI18n } from "../utils/i18n";
 import { ConfirmAction } from "./ConfirmAction";
 import { RequestError } from "./RequestError";
-
-type Attachment = {
-  id: string;
-  fileName: string;
-  mimeType: string;
-  sizeBytes: number;
-  createdAt: string;
-};
 
 type Props = {
   petId: string;
@@ -31,7 +32,7 @@ function AttachmentThumb({ attachment }: { attachment: Attachment }) {
   const isImage = attachment.mimeType.startsWith("image/");
   const file = useQuery({
     queryKey: ["attachment-file", attachment.id],
-    queryFn: () => apiBlob(`/api/admin/attachments/${attachment.id}/file`),
+    queryFn: () => fetchAttachmentBlob(attachment.id),
     enabled: isImage,
     staleTime: 5 * 60_000
   });
@@ -58,6 +59,7 @@ export function AttachmentManager({ petId, entryType, entryId, visible }: Props)
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const [validationError, setValidationError] = useState<Error | null>(null);
   const [openError, setOpenError] = useState<Error | null>(null);
   const [preview, setPreview] = useState<{ attachment: Attachment; url: string } | null>(null);
   const queryKey = ["attachments", entryType, entryId];
@@ -67,14 +69,7 @@ export function AttachmentManager({ petId, entryType, entryId, visible }: Props)
     enabled: visible
   });
   const upload = useMutation({
-    mutationFn: (file: File) => {
-      const form = new FormData();
-      form.set("petId", petId);
-      form.set("entryType", entryType);
-      form.set("entryId", entryId);
-      form.set("file", file);
-      return apiFormData<Attachment>("/api/admin/attachments", form);
-    },
+    mutationFn: (file: File) => uploadEntryAttachment({ petId, entryType: entryType as AttachmentEntryType, entryId, file }),
     onSuccess: () => {
       if (inputRef.current) inputRef.current.value = "";
       void queryClient.invalidateQueries({ queryKey });
@@ -96,13 +91,24 @@ export function AttachmentManager({ petId, entryType, entryId, visible }: Props)
   function onFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
+    if (!isSupportedAttachmentFile(file)) {
+      setValidationError(new Error(t("attachmentUnsupported")));
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
+    if (file.size > maxAttachmentSizeBytes) {
+      setValidationError(new Error(t("attachmentTooLarge")));
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
+    setValidationError(null);
     upload.mutate(file);
   }
 
   async function openAttachment(attachment: Attachment) {
     try {
       setOpenError(null);
-      const blob = await apiBlob(`/api/admin/attachments/${attachment.id}/file`);
+      const blob = await fetchAttachmentBlob(attachment.id);
       const url = URL.createObjectURL(blob);
       if (attachment.mimeType.startsWith("image/")) {
         setPreview((current) => {
@@ -161,7 +167,7 @@ export function AttachmentManager({ petId, entryType, entryId, visible }: Props)
           ))}
         </div>
       ) : null}
-      <RequestError error={attachments.error ?? upload.error ?? remove.error ?? openError} />
+      <RequestError error={attachments.error ?? validationError ?? upload.error ?? remove.error ?? openError} />
       {preview ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3" role="dialog" aria-modal="true" aria-label={t("attachmentPreview")}>
           <section className="panel max-h-[calc(100vh-2rem)] w-full space-y-3 overflow-y-auto border-mint/40 sm:max-w-md">

@@ -10,6 +10,7 @@ process.env.DATABASE_URL ??= "postgresql://user:password@localhost:5432/petcare"
 process.env.BOT_TOKEN ??= "123456:test_bot_token";
 process.env.BOT_USERNAME ??= "petcare_test_bot";
 process.env.TELEGRAM_WEBHOOK_SECRET ??= "test_webhook_secret_123456789";
+process.env.FILE_STORAGE_DRIVER = "local";
 process.env.ATTACHMENTS_LOCAL_DIR = await fs.mkdtemp(path.join(os.tmpdir(), "petcare-avatar-smoke-"));
 process.env.ATTACHMENTS_MAX_FILE_MB = "1";
 
@@ -203,6 +204,22 @@ async function uploadAvatar(petId: string, telegramId: number, file: { mimeType:
 try {
   const jpeg = { mimeType: "image/jpeg", fileName: "avatar.jpg", bytes: new Uint8Array([255, 216, 255, 224, 1]) };
   const webp = { mimeType: "image/webp", fileName: "avatar.webp", bytes: new Uint8Array([82, 73, 70, 70, 1, 87, 69, 66, 80]) };
+
+  const directUploadUnavailable = await fetch(`${baseUrl()}/api/pets/pet-owner/avatar/presign`, {
+    method: "POST",
+    headers: {
+      Authorization: `tma ${signedInitData(3001)}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      fileName: jpeg.fileName,
+      mimeType: jpeg.mimeType,
+      sizeBytes: jpeg.bytes.byteLength
+    })
+  });
+  assert(directUploadUnavailable.status === 503, `Expected local direct avatar upload to be unavailable, got ${directUploadUnavailable.status}`);
+  const directUploadError = await directUploadUnavailable.json() as { error?: { code?: string } };
+  assert(directUploadError.error?.code === "PET_AVATAR_DIRECT_UPLOAD_UNAVAILABLE", `Expected direct avatar upload unavailable code, got ${directUploadError.error?.code}`);
 
   const upload = await uploadAvatar("pet-owner", 3001, jpeg);
   assert(upload.status === 201, `Expected avatar upload to succeed, got ${upload.status}`);

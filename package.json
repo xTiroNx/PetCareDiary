@@ -20,11 +20,10 @@
     "typecheck": "npm --workspace apps/backend run typecheck && npm --workspace apps/frontend run typecheck"
   },
   "devDependencies": {
+    "@types/express": "^4.17.25",
+    "@types/express-serve-static-core": "^4.19.8",
     "concurrently": "^9.1.2",
     "prisma": "^6.6.0",
     "typescript": "^5.8.3"
-  },
-  "overrides": {
-    "@types/express": "4.17.25"
   }
 }

@@ -1,4 +1,4 @@
-import { api, API_URL, apiFormData } from "../api/client";
+import { api, API_URL, apiBlob, apiFormData, DEMO_MODE, jsonBody } from "../api/client";
 import type { Pet } from "../api/types";
 import { maxAttachmentSizeBytes } from "./attachments";
 
@@ -18,10 +18,85 @@ export function petAvatarUrl(petId: string, avatarUpdatedAt?: string | null) {
   return new URL(petAvatarPath(petId, avatarUpdatedAt), API_URL).toString();
 }
 
-export function uploadPetAvatar(petId: string, file: File) {
+type PresignedUpload = {
+  uploadUrl: string;
+  method: "PUT";
+  headers?: Record<string, string>;
+  storageKey: string;
+};
+
+type DirectDownload = {
+  url: string;
+};
+
+async function fetchDirectBlob(url: string) {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error("Direct avatar download failed.");
+  return response.blob();
+}
+
+export async function fetchPetAvatarBlob(petId: string, avatarUpdatedAt?: string | null) {
+  if (DEMO_MODE) return apiBlob(petAvatarPath(petId, avatarUpdatedAt));
+
+  try {
+    const download = await api<DirectDownload | undefined>(`/api/pets/${encodeURIComponent(petId)}/avatar/file-url?v=${encodeURIComponent(avatarUpdatedAt ?? "")}`);
+    if (!download?.url) return new Blob();
+    return fetchDirectBlob(download.url);
+  } catch (error) {
+    const requestError = error as Error & { code?: string };
+    if (requestError.code === "PET_AVATAR_DIRECT_DOWNLOAD_UNAVAILABLE") {
+      return apiBlob(petAvatarPath(petId, avatarUpdatedAt));
+    }
+    throw error;
+  }
+}
+
+async function uploadToSignedUrl(upload: PresignedUpload, file: File) {
+  const response = await fetch(upload.uploadUrl, {
+    method: upload.method,
+    headers: upload.headers ?? { "Content-Type": file.type },
+    body: file
+  });
+  if (!response.ok) {
+    throw new Error("Direct avatar upload failed.");
+  }
+}
+
+function uploadPetAvatarViaBackend(petId: string, file: File) {
   const form = new FormData();
   form.set("file", file);
   return apiFormData<Pet | undefined>(`/api/pets/${encodeURIComponent(petId)}/avatar`, form);
+}
+
+export async function uploadPetAvatar(petId: string, file: File) {
+  if (DEMO_MODE) return uploadPetAvatarViaBackend(petId, file);
+
+  try {
+    const upload = await api<PresignedUpload>(`/api/pets/${encodeURIComponent(petId)}/avatar/presign`, {
+      method: "POST",
+      body: jsonBody({
+        fileName: file.name,
+        mimeType: file.type,
+        sizeBytes: file.size
+      })
+    });
+    await uploadToSignedUrl(upload, file);
+    return api<Pet | undefined>(`/api/pets/${encodeURIComponent(petId)}/avatar/complete`, {
+      method: "POST",
+      body: jsonBody({
+        fileName: file.name,
+        mimeType: file.type,
+        sizeBytes: file.size,
+        storageKey: upload.storageKey
+      })
+    });
+  } catch (error) {
+    const requestError = error as Error & { code?: string };
+    if (requestError.code === "PET_AVATAR_DIRECT_UPLOAD_UNAVAILABLE") {
+      return uploadPetAvatarViaBackend(petId, file);
+    }
+    throw error;
+  }
 }
 
 export function deletePetAvatar(petId: string) {

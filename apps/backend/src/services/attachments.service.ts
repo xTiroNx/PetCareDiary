@@ -1,9 +1,15 @@
-import fs from "node:fs/promises";
-import path from "node:path";
 import type { Attachment } from "@prisma/client";
-import { env } from "../config/env.js";
 import { prisma } from "../prisma/client.js";
 import { HttpError } from "../utils/httpError.js";
+import {
+  createStoredFileDownloadUrl,
+  createStoredFileUploadUrl,
+  deleteStoredFile,
+  isR2FileStorage,
+  readStoredFile,
+  statStoredFile,
+  writeStoredFile
+} from "./fileStorage.service.js";
 
 export const attachmentEntryTypes = ["FEEDING", "WATER", "SYMPTOM", "MEDICINE", "WEIGHT", "VACCINATION", "NOTE"] as const;
 export type AttachmentEntryType = typeof attachmentEntryTypes[number];
@@ -35,31 +41,36 @@ export async function assertAttachableEntry(input: {
   return entry;
 }
 
-function attachmentBaseDir() {
-  return path.resolve(env.ATTACHMENTS_LOCAL_DIR);
+export async function writeAttachmentFile(storageKey: string, buffer: Buffer, contentType?: string) {
+  await writeStoredFile(storageKey, buffer, contentType);
 }
 
-export function attachmentPath(storageKey: string) {
-  const base = attachmentBaseDir();
-  const fullPath = path.resolve(base, storageKey);
-  if (!fullPath.startsWith(`${base}${path.sep}`)) {
-    throw new HttpError(400, "ATTACHMENT_STORAGE_KEY_INVALID", "Attachment storage key is invalid.");
-  }
-  return fullPath;
+export async function readAttachmentFile(storageKey: string) {
+  return readStoredFile(storageKey);
 }
 
-export async function writeAttachmentFile(storageKey: string, buffer: Buffer) {
-  const fullPath = attachmentPath(storageKey);
-  await fs.mkdir(path.dirname(fullPath), { recursive: true });
-  await fs.writeFile(fullPath, buffer, { flag: "wx" });
+export async function statAttachmentFile(storageKey: string) {
+  return statStoredFile(storageKey);
+}
+
+export async function createAttachmentUploadUrl(storageKey: string, contentType: string) {
+  return createStoredFileUploadUrl({ storageKey, contentType });
+}
+
+export async function createAttachmentDownloadUrl(input: {
+  storageKey: string;
+  contentType?: string;
+  contentDisposition?: string;
+}) {
+  return createStoredFileDownloadUrl(input);
 }
 
 export async function deleteAttachmentFile(storageKey: string) {
-  try {
-    await fs.unlink(attachmentPath(storageKey));
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-  }
+  await deleteStoredFile(storageKey);
+}
+
+export function canUseDirectAttachmentStorage() {
+  return isR2FileStorage();
 }
 
 export async function deleteAttachmentsForEntry(input: {

@@ -2,14 +2,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Camera, PawPrint, Trash2, X } from "lucide-react";
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 import type { Pet } from "../api/types";
-import { apiBlob } from "../api/client";
 import { attachmentFileSizeLabel } from "../utils/attachments";
 import {
   avatarAccept,
   deletePetAvatar,
+  fetchPetAvatarBlob,
   isSupportedAvatarFile,
   maxAvatarSizeBytes,
-  petAvatarPath,
   uploadPetAvatar,
   withAvatarFallback
 } from "../utils/petAvatar";
@@ -39,7 +38,7 @@ const sizeClassNames = {
   sm: "h-10 w-10 rounded-xl",
   md: "h-14 w-14 rounded-2xl",
   lg: "h-16 w-16 rounded-2xl",
-  xl: "h-24 w-24 rounded-[22px]"
+  xl: "h-[120px] w-[120px] rounded-[28px]"
 };
 
 function validateAvatar(file: File, t: ReturnType<typeof useI18n>["t"]) {
@@ -53,7 +52,7 @@ export function PetAvatar({ pet, size = "md" }: PetAvatarProps) {
   const file = useQuery({
     queryKey: ["pet-avatar", pet.id, pet.avatarUpdatedAt],
     queryFn: async () => {
-      const blob = await apiBlob(petAvatarPath(pet.id, pet.avatarUpdatedAt));
+      const blob = await fetchPetAvatarBlob(pet.id, pet.avatarUpdatedAt);
       return blob.size > 0 ? blob : null;
     },
     enabled: Boolean(pet.hasAvatar),
@@ -78,7 +77,7 @@ export function PetAvatar({ pet, size = "md" }: PetAvatarProps) {
 
   return (
     <div className={`${className} flex items-center justify-center text-mint`}>
-      <PawPrint size={size === "sm" ? 18 : size === "xl" ? 36 : 24} />
+      <PawPrint size={size === "sm" ? 18 : size === "xl" ? 44 : 24} />
     </div>
   );
 }

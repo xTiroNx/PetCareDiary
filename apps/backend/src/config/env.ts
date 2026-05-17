@@ -1,6 +1,19 @@
 import "dotenv/config";
 import { z } from "zod";
 
+const optionalNonEmptyString = z.preprocess(
+  (value) => value === "" ? undefined : value,
+  z.string().min(1).optional()
+);
+const optionalUrl = z.preprocess(
+  (value) => value === "" ? undefined : value,
+  z.string().url().optional()
+);
+const fileStorageDriver = z.preprocess(
+  (value) => value === "" ? undefined : value,
+  z.enum(["local", "r2"]).default("local")
+);
+
 const envSchema = z.object({
   PORT: z.coerce.number().optional(),
   BACKEND_PORT: z.coerce.number().default(3001),
@@ -35,9 +48,17 @@ const envSchema = z.object({
   MINIMAX_AI_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(60_000).default(50_000),
   MINIMAX_API_BASE_URL: z.string().url().default("https://api.minimax.io"),
   AI_ASSISTANT_DAILY_LIMIT_PER_USER: z.coerce.number().int().positive().default(10),
+  FILE_STORAGE_DRIVER: fileStorageDriver,
   ATTACHMENTS_LOCAL_DIR: z.string().min(1).default("/tmp/petcare-attachments"),
   ATTACHMENTS_MAX_FILE_MB: z.coerce.number().positive().max(20).default(5),
   ATTACHMENTS_MAX_PER_ENTRY: z.coerce.number().int().min(1).max(10).default(3),
+  FILE_STORAGE_SIGNED_URL_TTL_SECONDS: z.coerce.number().int().min(60).max(900).default(300),
+  R2_ACCOUNT_ID: optionalNonEmptyString,
+  R2_BUCKET: optionalNonEmptyString,
+  R2_ACCESS_KEY_ID: optionalNonEmptyString,
+  R2_SECRET_ACCESS_KEY: optionalNonEmptyString,
+  R2_ENDPOINT: optionalUrl,
+  R2_REGION: z.preprocess((value) => value === "" ? undefined : value, z.string().min(1).default("auto")),
   ENABLE_DEV_AUTH: z.coerce.boolean().default(false),
   DEV_TELEGRAM_ID: z.coerce.number().int().positive().default(777000001),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development")
@@ -62,6 +83,36 @@ const envSchema = z.object({
       path: ["MINIMAX_API_KEY"],
       message: "MINIMAX_API_KEY is required when VOICE_COMMANDS_ENABLED=true."
     });
+  }
+  if (value.FILE_STORAGE_DRIVER === "r2") {
+    if (!value.R2_BUCKET) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["R2_BUCKET"],
+        message: "R2_BUCKET is required when FILE_STORAGE_DRIVER=r2."
+      });
+    }
+    if (!value.R2_ACCESS_KEY_ID) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["R2_ACCESS_KEY_ID"],
+        message: "R2_ACCESS_KEY_ID is required when FILE_STORAGE_DRIVER=r2."
+      });
+    }
+    if (!value.R2_SECRET_ACCESS_KEY) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["R2_SECRET_ACCESS_KEY"],
+        message: "R2_SECRET_ACCESS_KEY is required when FILE_STORAGE_DRIVER=r2."
+      });
+    }
+    if (!value.R2_ENDPOINT && !value.R2_ACCOUNT_ID) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["R2_ACCOUNT_ID"],
+        message: "R2_ACCOUNT_ID or R2_ENDPOINT is required when FILE_STORAGE_DRIVER=r2."
+      });
+    }
   }
 });
 

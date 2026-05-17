@@ -2,7 +2,7 @@ import { getInitData } from "../utils/telegram";
 import { demoApi } from "./demoApi";
 
 export const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
-const DEMO_MODE = import.meta.env.DEV && import.meta.env.VITE_DEMO_MODE === "true";
+export const DEMO_MODE = import.meta.env.DEV && import.meta.env.VITE_DEMO_MODE === "true";
 
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   if (DEMO_MODE) return demoApi<T>(path, options);

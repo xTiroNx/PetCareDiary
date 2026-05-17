@@ -19,6 +19,8 @@ export type Pet = {
   weightKg?: string | number | null;
   ageYears?: string | number | null;
   healthNotes?: string | null;
+  hasAvatar?: boolean;
+  avatarUpdatedAt?: string | null;
 };
 
 export type AuthResponse = {

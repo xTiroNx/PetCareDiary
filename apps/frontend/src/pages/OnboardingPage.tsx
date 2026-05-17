@@ -1,13 +1,16 @@
 import { useMutation } from "@tanstack/react-query";
 import { PawPrint } from "lucide-react";
-import { FormEvent, useEffect } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { api, jsonBody } from "../api/client";
 import type { Pet } from "../api/types";
 import { MedicalDisclaimer } from "../components/MedicalDisclaimer";
+import { AvatarFilePicker } from "../components/PetAvatar";
+import { RequestError } from "../components/RequestError";
 import { SelectField } from "../components/SelectField";
 import { useAppStore } from "../store/appStore";
 import { useI18n } from "../utils/i18n";
+import { uploadPetAvatar, withAvatarFallback } from "../utils/petAvatar";
 import { trackEvent } from "../utils/telegramAnalytics";
 
 export default function OnboardingPage() {
@@ -16,32 +19,55 @@ export default function OnboardingPage() {
   const [searchParams] = useSearchParams();
   const pet = useAppStore((state) => state.pet);
   const setPet = useAppStore((state) => state.setPet);
+  const isAdmin = useAppStore((state) => state.isAdmin);
   const isAddingPet = searchParams.get("new") === "1";
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarError, setAvatarError] = useState<Error | null>(null);
+  const [isAvatarUploading, setIsAvatarUploading] = useState(false);
+  const [createdPetAfterAvatarFailure, setCreatedPetAfterAvatarFailure] = useState<Pet | null>(null);
   const createPet = useMutation({
-    mutationFn: (payload: Record<string, unknown>) => api<Pet>("/api/pets", { method: "POST", body: jsonBody(payload) }),
-    onSuccess: (pet) => {
-      setPet(pet);
-      navigate("/");
-    }
+    mutationFn: (payload: Record<string, unknown>) => api<Pet>("/api/pets", { method: "POST", body: jsonBody(payload) })
   });
 
   useEffect(() => {
     if (!pet || isAddingPet) trackEvent("onboarding_started", { isAddingPet });
   }, [isAddingPet, pet]);
 
-  function onSubmit(event: FormEvent<HTMLFormElement>) {
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = Object.fromEntries(new FormData(event.currentTarget));
     trackEvent("pet_create_clicked", { type: String(data.type ?? "") });
-    createPet.mutate({
-      ...data,
-      weightKg: data.weightKg ? data.weightKg : null,
-      ageYears: data.ageYears ? data.ageYears : null,
-      healthNotes: data.healthNotes ? data.healthNotes : null
-    });
+    setAvatarError(null);
+    setCreatedPetAfterAvatarFailure(null);
+    try {
+      const createdPet = await createPet.mutateAsync({
+        ...data,
+        weightKg: data.weightKg ? data.weightKg : null,
+        ageYears: data.ageYears ? data.ageYears : null,
+        healthNotes: data.healthNotes ? data.healthNotes : null
+      });
+      let nextPet = createdPet;
+      if (isAdmin && avatarFile) {
+        setIsAvatarUploading(true);
+        try {
+          nextPet = await uploadPetAvatar(createdPet.id, avatarFile) ?? withAvatarFallback(createdPet, true);
+        } catch {
+          setCreatedPetAfterAvatarFailure(createdPet);
+          setAvatarError(new Error(t("avatarUploadFailed")));
+          return;
+        } finally {
+          setIsAvatarUploading(false);
+        }
+      }
+      setPet(nextPet);
+      navigate("/");
+    } catch {
+      // RequestError below renders the API failure from the mutation.
+    }
   }
 
   if (pet && !isAddingPet) return <Navigate to="/" replace />;
+  const isSaving = createPet.isPending || isAvatarUploading;
 
   return (
     <main className="space-y-4">
@@ -60,7 +86,14 @@ export default function OnboardingPage() {
         <input name="weightKg" className="input" type="number" step="0.1" placeholder={t("weightKg")} />
         <input name="ageYears" className="input" type="number" step="0.1" placeholder={t("ageYears")} />
         <textarea name="healthNotes" className="input min-h-24" placeholder={t("healthNotes")} />
-        <button className="btn btn-primary w-full" disabled={createPet.isPending}>{createPet.isPending ? t("saving") : t("startDiary")}</button>
+        {isAdmin && <AvatarFilePicker file={avatarFile} disabled={isSaving} uploadError={avatarError} onFileChange={setAvatarFile} onClear={() => setAvatarFile(null)} />}
+        <button className="btn btn-primary w-full" disabled={isSaving || Boolean(createdPetAfterAvatarFailure)}>{isSaving ? t("saving") : t("startDiary")}</button>
+        {createdPetAfterAvatarFailure ? (
+          <button className="btn btn-secondary w-full" type="button" onClick={() => { setPet(createdPetAfterAvatarFailure); navigate("/"); }}>
+            {t("startDiary")}
+          </button>
+        ) : null}
+        <RequestError error={createPet.error ?? avatarError} />
       </form>
       <MedicalDisclaimer />
     </main>

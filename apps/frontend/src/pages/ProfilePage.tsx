@@ -11,6 +11,7 @@ import { openChangelogEvent } from "../components/ChangelogModal";
 import { ConfirmAction } from "../components/ConfirmAction";
 import { FeedbackForm } from "../components/FeedbackForm";
 import { MedicalDisclaimer } from "../components/MedicalDisclaimer";
+import { PetAvatar, PetAvatarEditor } from "../components/PetAvatar";
 import { RequestError } from "../components/RequestError";
 import { SelectField } from "../components/SelectField";
 import { useAppStore } from "../store/appStore";
@@ -78,6 +79,10 @@ export default function ProfilePage() {
     setPetDraft((current) => current ? { ...current, [key]: value } : current);
   }
 
+  function replacePet(updatedPet: Pet) {
+    setPets(pets.map((item) => item.id === updatedPet.id ? updatedPet : item));
+  }
+
   function savePet(id: string) {
     if (!petDraft) return;
     updatePet.mutate({
@@ -117,10 +122,13 @@ export default function ProfilePage() {
           {pets.length ? pets.map((item) => (
             <div className={clsx("rounded-lg border px-3 py-3 text-sm", item.id === pet?.id ? "border-mint/60 bg-mint/5" : "border-zinc-200 dark:border-zinc-800")} key={item.id}>
               <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="break-words font-semibold">{item.name}</p>
-                  <p className="text-xs text-zinc-500">{petTypeLabels[item.type]}</p>
-                  {item.id === pet?.id && <p className="mt-1 inline-flex items-center gap-1 text-xs font-bold text-mint"><CheckCircle2 size={13} />{t("activePet")}</p>}
+                <div className="flex min-w-0 gap-3">
+                  {isAdmin && <PetAvatar pet={item} />}
+                  <div className="min-w-0">
+                    <p className="break-words font-semibold">{item.name}</p>
+                    <p className="text-xs text-zinc-500">{petTypeLabels[item.type]}</p>
+                    {item.id === pet?.id && <p className="mt-1 inline-flex items-center gap-1 text-xs font-bold text-mint"><CheckCircle2 size={13} />{t("activePet")}</p>}
+                  </div>
                 </div>
                 <div className="flex shrink-0 gap-1">
                   {item.id !== pet?.id && (
@@ -132,6 +140,7 @@ export default function ProfilePage() {
               </div>
               {editingPetId === item.id && petDraft ? (
                 <div className="mt-3 grid gap-2">
+                  {isAdmin && <PetAvatarEditor pet={item} onPetChange={replacePet} />}
                   <input className="input" value={petDraft.name} onChange={(event) => updatePetDraft("name", event.target.value)} placeholder={t("petName")} />
                   <SelectField value={petDraft.type} onChange={(event) => updatePetDraft("type", event.target.value as PetType)}>
                     <option value="CAT">{t("cat")}</option>

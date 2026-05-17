@@ -17,6 +17,7 @@ type DemoStore = {
 
 const key = "petcare-demo-store";
 const demoAttachmentFiles = new Map<string, Blob>();
+const demoPetAvatarFiles = new Map<string, Blob>();
 
 function uid() {
   return crypto.randomUUID();
@@ -89,6 +90,12 @@ function readStore(): DemoStore {
 
 function writeStore(store: DemoStore) {
   localStorage.setItem(key, JSON.stringify(store));
+}
+
+function demoPngBlob() {
+  const base64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
+  const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+  return new Blob([bytes], { type: "image/png" });
 }
 
 function jsonBody(options: RequestInit) {
@@ -239,11 +246,44 @@ export async function demoApi<T>(path: string, options: RequestInit = {}): Promi
   }
 
   if (path === "/api/pets" && method === "POST") {
-    const pet = { id: uid(), ...jsonBody(options), createdAt: new Date().toISOString() };
+    const pet = { id: uid(), ...jsonBody(options), hasAvatar: false, avatarUpdatedAt: null, createdAt: new Date().toISOString() };
     store.pets = [...(store.pets ?? []), pet];
     store.pet = pet;
     writeStore(store);
     return pet as T;
+  }
+
+  if (path.startsWith("/api/pets/") && path.includes("/avatar")) {
+    const url = new URL(path, "http://demo.local");
+    const segments = url.pathname.split("/").filter(Boolean);
+    const petId = segments[2];
+    const targetPet = (store.pets ?? []).find((item) => item.id === petId) ?? (store.pet?.id === petId ? store.pet : null);
+    if (!targetPet) throw new Error("Pet not found.");
+
+    if (method === "GET" && segments[4] === "file") {
+      return (demoPetAvatarFiles.get(petId) ?? demoPngBlob()) as T;
+    }
+
+    if (method === "POST") {
+      const form = options.body instanceof FormData ? options.body : null;
+      const file = form?.get("file");
+      if (!form || !(file instanceof Blob)) throw new Error("Avatar file is required.");
+      demoPetAvatarFiles.set(petId, file);
+      Object.assign(targetPet, { hasAvatar: true, avatarUpdatedAt: new Date().toISOString() });
+      if (store.pet?.id === petId) store.pet = targetPet;
+      store.pets = (store.pets ?? []).map((item) => item.id === petId ? targetPet : item);
+      writeStore(store);
+      return targetPet as T;
+    }
+
+    if (method === "DELETE") {
+      demoPetAvatarFiles.delete(petId);
+      Object.assign(targetPet, { hasAvatar: false, avatarUpdatedAt: null });
+      if (store.pet?.id === petId) store.pet = targetPet;
+      store.pets = (store.pets ?? []).map((item) => item.id === petId ? targetPet : item);
+      writeStore(store);
+      return targetPet as T;
+    }
   }
 
   if (path === "/api/pets") return (store.pets ?? [store.pet].filter(Boolean)) as T;

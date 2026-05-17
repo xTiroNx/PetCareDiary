@@ -1,0 +1,5 @@
+ALTER TABLE "Pet" ADD COLUMN "avatarStorageKey" TEXT;
+ALTER TABLE "Pet" ADD COLUMN "avatarMimeType" TEXT;
+ALTER TABLE "Pet" ADD COLUMN "avatarFileName" TEXT;
+ALTER TABLE "Pet" ADD COLUMN "avatarSizeBytes" INTEGER;
+ALTER TABLE "Pet" ADD COLUMN "avatarUpdatedAt" TIMESTAMP(3);

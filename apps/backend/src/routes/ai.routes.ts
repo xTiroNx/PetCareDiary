@@ -80,19 +80,29 @@ function dateFormatter(locale: string | undefined | null, timezone: string) {
 function modeInstruction(mode: typeof assistantModes[number]) {
   if (mode === "VET_QUESTIONS") {
     return [
-      "Prepare a practical list of questions the owner can ask a veterinarian.",
+      "Prepare a practical, calm set of topics and questions the owner can discuss with a veterinarian.",
       "Base the questions only on the diary records for the selected period.",
-      "Do not summarize everything first; focus on veterinarian questions.",
-      "If there is little data, include questions that help clarify feeding, symptoms, medicines, water intake, weight, and recent treatments.",
-      "Return 5-8 short bullets."
+      "Start with one short sentence about what seems worth discussing, then list focused questions.",
+      "Include questions about patterns in feeding, symptoms, medicines, water intake, weight, vaccinations or recent treatments when the diary data makes them relevant.",
+      "If there is little data, say that briefly and ask questions that help clarify what the owner should observe next.",
+      "Use a friendly, practical tone. Prefer 5-8 concise bullets, but do not be so terse that the questions lose context."
     ].join("\n");
   }
   return [
-    "Answer the user's free-form question cautiously.",
+    "Answer the user's free-form question cautiously, warmly, and practically.",
     "Use the pet diary records for context when they are relevant.",
     "If the diary does not contain enough information, say that clearly and suggest what to check or record next.",
     "Do not invent facts that are not in the diary.",
-    "Return 3-6 short mobile-friendly bullets."
+    "Use a clear mobile-friendly structure. Prefer 4-7 short sections or bullets. Be practical, but not overly terse.",
+    "When useful, structure the answer like this:",
+    "1. Brief takeaway.",
+    "2. What the diary shows.",
+    "3. Possible everyday explanations or hypotheses, only if they are safe, obvious, and framed as possibilities rather than conclusions.",
+    "4. What the owner can check at home without changing treatment, medication, dosage, or diet in a risky way.",
+    "5. What to record next in the diary.",
+    "6. Red flags for urgent veterinary care.",
+    "7. Questions to ask the veterinarian.",
+    "Avoid panic and avoid long medical textbook paragraphs."
   ].join("\n");
 }
 
@@ -241,13 +251,16 @@ async function askChatCompletionProvider(input: {
             content: [
               "You are a cautious pet diary assistant.",
               "Never diagnose. Never prescribe treatment. Never change medication, dosage, or stop medication.",
+              "Never present a possible explanation as a diagnosis or certainty.",
               "You may summarize diary records, suggest questions to ask a veterinarian, suggest what data to track next, and recommend contacting a veterinarian for severe, recurring, or worsening symptoms.",
+              "You may mention simple, common, non-diagnostic possibilities when they are safe and clearly supported by the diary context, using phrases like 'one possible explanation' or 'this can sometimes happen when'.",
               "Use careful language and make it clear that this does not replace veterinary care.",
+              "Use a warm, calm, practical tone. Help the owner understand what to observe before defaulting to 'ask a veterinarian'.",
               "Do not include chain-of-thought or hidden reasoning.",
               "Do not include <think> tags.",
               "Return only the final user-facing answer.",
               "Follow the task from the user message exactly.",
-              "Keep the answer concise and mobile-friendly, max 5-8 short bullets.",
+              "Use a clear mobile-friendly structure. Prefer 4-7 short sections or bullets. Be practical, but not overly terse.",
               `Answer in ${responseLanguage(input.locale)}.`,
               "Return plain text only."
             ].join("\n")
@@ -263,7 +276,7 @@ async function askChatCompletionProvider(input: {
           }
         ],
         temperature: 0.2,
-        ...(input.tokenField === "max_tokens" ? { max_tokens: 700 } : { max_completion_tokens: 700 })
+        ...(input.tokenField === "max_tokens" ? { max_tokens: 1100 } : { max_completion_tokens: 1100 })
       })
     });
     const data = await response.json().catch(() => null) as { choices?: Array<{ message?: { content?: unknown } }> } | null;
@@ -278,7 +291,7 @@ async function askChatCompletionProvider(input: {
       }));
       throw new HttpError(502, "AI_ASSISTANT_FAILED", "AI assistant provider failed.");
     }
-    const sanitized = sanitizeAiFinalAnswer(content, 3000);
+    const sanitized = sanitizeAiFinalAnswer(content, 4000);
     if (sanitized.reasoningStripped) {
       console.warn(JSON.stringify({ event: "ai_assistant_response_sanitized", ai_assistant_reasoning_stripped: true }));
     }

@@ -94,12 +94,14 @@ for (const model of [
 }
 
 const realFetch = globalThis.fetch.bind(globalThis);
+const providerRequests: unknown[] = [];
 globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
   if (url.includes("api.minimax") || url.includes("openrouter.ai")) {
+    if (typeof init?.body === "string") providerRequests.push(JSON.parse(init.body));
     return new Response(JSON.stringify({
       choices: [
-        { message: { content: "<think>hidden reasoning</think>- Ask the veterinarian about appetite changes." } }
+        { message: { content: "<think>hidden reasoning</think>- Brief takeaway: keep observing appetite patterns.\n- Ask the veterinarian about appetite changes." } }
       ]
     }), {
       status: 200,
@@ -147,16 +149,22 @@ function baseUrl() {
   return `http://127.0.0.1:${address.port}`;
 }
 
-async function postAssistant(telegramId: number, petId = "pet-active"): Promise<JsonResponse> {
+async function postAssistant(input: {
+  telegramId: number;
+  petId?: string;
+  mode?: "VET_QUESTIONS" | "GENERAL_HELP";
+  question?: string;
+}): Promise<JsonResponse> {
   const response = await fetch(`${baseUrl()}/api/ai/assistant`, {
     method: "POST",
     headers: {
-      Authorization: `tma ${signedInitData(telegramId)}`,
+      Authorization: `tma ${signedInitData(input.telegramId)}`,
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      petId,
-      mode: "VET_QUESTIONS",
+      petId: input.petId ?? "pet-active",
+      mode: input.mode ?? "VET_QUESTIONS",
+      question: input.question,
       period: "7",
       timezone: "Europe/Moscow",
       locale: "en"
@@ -166,7 +174,11 @@ async function postAssistant(telegramId: number, petId = "pet-active"): Promise<
 }
 
 try {
-  const active = await postAssistant(Number(activeUser.telegramId));
+  const active = await postAssistant({
+    telegramId: Number(activeUser.telegramId),
+    mode: "GENERAL_HELP",
+    question: "What should I prepare before a vet visit?"
+  });
   assert(active.status === 200, `Expected active non-admin user to access AI assistant, got ${active.status}`);
   assert(typeof active.body === "object" && active.body !== null, "Expected JSON object response for active user.");
   const activeBody = active.body as { answer?: unknown; disclaimer?: unknown; usedPeriod?: unknown };
@@ -174,11 +186,15 @@ try {
   assert(!activeBody.answer.includes("<think>"), "Expected AI answer to be sanitized.");
   assert(typeof activeBody.disclaimer === "string" && activeBody.disclaimer.length > 0, "Expected disclaimer.");
   assert(activeBody.usedPeriod === 7, "Expected usedPeriod to reflect request period.");
+  const generalHelpRequest = providerRequests.at(-1) as { max_completion_tokens?: number; max_tokens?: number; messages?: Array<{ content?: string }> } | undefined;
+  const tokenLimit = generalHelpRequest?.max_completion_tokens ?? generalHelpRequest?.max_tokens;
+  assert(tokenLimit === 1100, `Expected AI token limit to be 1100, got ${tokenLimit}`);
+  assert(generalHelpRequest.messages?.[0]?.content?.includes("not overly terse"), "Expected system prompt to allow more useful answers.");
 
-  const paid = await postAssistant(Number(paidUser.telegramId), "pet-paid");
+  const paid = await postAssistant({ telegramId: Number(paidUser.telegramId), petId: "pet-paid", mode: "VET_QUESTIONS" });
   assert(paid.status === 200, `Expected paid non-admin user to access AI assistant, got ${paid.status}`);
 
-  const expired = await postAssistant(Number(expiredUser.telegramId));
+  const expired = await postAssistant({ telegramId: Number(expiredUser.telegramId) });
   assert(expired.status === 403, `Expected expired user to be rejected, got ${expired.status}`);
 
   console.log("AI assistant smoke checks passed.");

@@ -148,7 +148,7 @@ export default function WeightPage() {
       <form onSubmit={onSubmit} className="panel grid gap-3">
         <DateField name="date" defaultValue={localDateInputValue()} required />
         <input className="input" name="weightKg" type="number" step="0.1" placeholder={t("weightKg")} required />
-        <ActionAttachmentPicker visible={isAdmin} file={attachment.file} disabled={add.isPending || attachment.isUploading} uploadError={attachment.error} onFileChange={attachment.selectFile} onClear={attachment.clearFile} />
+        <ActionAttachmentPicker visible={isAdmin} file={attachment.file} disabled={add.isPending || attachment.isUploading} isPreparing={attachment.isUploading} uploadError={attachment.error} onFileChange={attachment.selectFile} onClear={attachment.clearFile} />
         <button className="btn btn-primary" disabled={add.isPending || attachment.isUploading}>{t("add")}</button>
         <RequestError error={add.error} />
       </form>

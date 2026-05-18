@@ -8,11 +8,11 @@ import {
   deletePetAvatar,
   fetchPetAvatarBlob,
   isSupportedAvatarFile,
-  maxAvatarSizeBytes,
   uploadPetAvatar,
   withAvatarFallback
 } from "../utils/petAvatar";
 import { useI18n } from "../utils/i18n";
+import { AvatarCropModal } from "./AvatarCropModal";
 import { RequestError } from "./RequestError";
 
 type PetAvatarProps = {
@@ -43,7 +43,6 @@ const sizeClassNames = {
 
 function validateAvatar(file: File, t: ReturnType<typeof useI18n>["t"]) {
   if (!isSupportedAvatarFile(file)) return new Error(t("avatarUnsupportedImage"));
-  if (file.size > maxAvatarSizeBytes) return new Error(t("avatarFileTooLarge"));
   return null;
 }
 
@@ -86,6 +85,7 @@ export function AvatarFilePicker({ file, disabled, uploadError, mode = "upload",
   const { t } = useI18n();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [validationError, setValidationError] = useState<Error | null>(null);
+  const [cropFile, setCropFile] = useState<File | null>(null);
 
   function clearInput() {
     if (inputRef.current) inputRef.current.value = "";
@@ -102,7 +102,7 @@ export function AvatarFilePicker({ file, disabled, uploadError, mode = "upload",
       return;
     }
     setValidationError(null);
-    onFileChange(nextFile);
+    setCropFile(nextFile);
   }
 
   function clearSelection() {
@@ -115,7 +115,7 @@ export function AvatarFilePicker({ file, disabled, uploadError, mode = "upload",
     <div className="rounded-lg border border-dashed border-mint/35 bg-mint/5 p-3">
       <div className="flex items-center justify-between gap-2">
         <label className="btn btn-secondary min-h-10 flex-1 cursor-pointer px-3 text-sm">
-          <Camera size={16} />{file ? t("selectedAttachment") : mode === "change" ? t("changeAvatar") : t("uploadAvatar")}
+          <Camera size={16} />{disabled && file ? t("photoPreparing") : file ? t("selectedAttachment") : mode === "change" ? t("changeAvatar") : t("uploadAvatar")}
           <input ref={inputRef} className="sr-only" type="file" accept={avatarAccept} disabled={disabled} onChange={onChange} />
         </label>
         {file ? (
@@ -131,6 +131,20 @@ export function AvatarFilePicker({ file, disabled, uploadError, mode = "upload",
         </p>
       ) : null}
       <RequestError error={validationError ?? uploadError} />
+      {cropFile ? (
+        <AvatarCropModal
+          file={cropFile}
+          onCancel={() => {
+            setCropFile(null);
+            clearInput();
+          }}
+          onSave={(croppedFile) => {
+            setCropFile(null);
+            onFileChange(croppedFile);
+            clearInput();
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -139,6 +153,7 @@ export function PetAvatarEditor({ pet, onPetChange }: PetAvatarEditorProps) {
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const [validationError, setValidationError] = useState<Error | null>(null);
+  const [cropFile, setCropFile] = useState<File | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const upload = useMutation({
     mutationFn: (file: File) => uploadPetAvatar(pet.id, file),
@@ -166,7 +181,7 @@ export function PetAvatarEditor({ pet, onPetChange }: PetAvatarEditorProps) {
       return;
     }
     setValidationError(null);
-    upload.mutate(file);
+    setCropFile(file);
   }
 
   return (
@@ -175,7 +190,7 @@ export function PetAvatarEditor({ pet, onPetChange }: PetAvatarEditorProps) {
         <PetAvatar pet={pet} />
         <div className="grid min-w-0 flex-1 gap-2">
           <label className="btn btn-secondary min-h-9 cursor-pointer px-3 text-xs">
-            <Camera size={15} />{pet.hasAvatar ? t("changeAvatar") : t("uploadAvatar")}
+            <Camera size={15} />{upload.isPending ? t("photoPreparing") : pet.hasAvatar ? t("changeAvatar") : t("uploadAvatar")}
             <input ref={inputRef} className="sr-only" type="file" accept={avatarAccept} disabled={upload.isPending || remove.isPending} onChange={onFileChange} />
           </label>
           {pet.hasAvatar ? (
@@ -186,6 +201,20 @@ export function PetAvatarEditor({ pet, onPetChange }: PetAvatarEditorProps) {
         </div>
       </div>
       <RequestError error={validationError ?? upload.error ?? remove.error} />
+      {cropFile ? (
+        <AvatarCropModal
+          file={cropFile}
+          onCancel={() => {
+            setCropFile(null);
+            if (inputRef.current) inputRef.current.value = "";
+          }}
+          onSave={(croppedFile) => {
+            setCropFile(null);
+            upload.mutate(croppedFile);
+            if (inputRef.current) inputRef.current.value = "";
+          }}
+        />
+      ) : null}
     </div>
   );
 }

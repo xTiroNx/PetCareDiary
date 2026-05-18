@@ -1,4 +1,5 @@
 import { api, apiBlob, apiFormData, DEMO_MODE, jsonBody } from "../api/client";
+import { compressImageFile } from "./imageCompression";
 
 export type AttachmentEntryType = "FEEDING" | "WATER" | "SYMPTOM" | "MEDICINE" | "WEIGHT" | "VACCINATION" | "NOTE";
 
@@ -35,6 +36,18 @@ type DirectDownload = {
 
 export function isSupportedAttachmentFile(file: File) {
   return supportedMimeTypes.has(file.type);
+}
+
+async function prepareAttachmentUploadFile(file: File) {
+  const compressed = await compressImageFile(file, {
+    maxWidth: 1920,
+    maxHeight: 1920,
+    quality: 0.8
+  });
+  if (compressed.size > maxAttachmentSizeBytes) {
+    throw new Error("File is too large. Max 5 MB.");
+  }
+  return compressed;
 }
 
 export function attachmentFileSizeLabel(bytes: number) {
@@ -84,37 +97,40 @@ function uploadEntryAttachmentViaBackend({ petId, entryType, entryId, file }: At
 }
 
 export async function uploadEntryAttachment(payload: AttachmentUploadPayload) {
-  if (DEMO_MODE) return uploadEntryAttachmentViaBackend(payload);
+  const file = await prepareAttachmentUploadFile(payload.file);
+  const preparedPayload = { ...payload, file };
+
+  if (DEMO_MODE) return uploadEntryAttachmentViaBackend(preparedPayload);
 
   try {
     const upload = await api<PresignedUpload>("/api/admin/attachments/presign", {
       method: "POST",
       body: jsonBody({
-        petId: payload.petId,
-        entryType: payload.entryType,
-        entryId: payload.entryId,
-        fileName: payload.file.name,
-        mimeType: payload.file.type,
-        sizeBytes: payload.file.size
+        petId: preparedPayload.petId,
+        entryType: preparedPayload.entryType,
+        entryId: preparedPayload.entryId,
+        fileName: preparedPayload.file.name,
+        mimeType: preparedPayload.file.type,
+        sizeBytes: preparedPayload.file.size
       })
     });
-    await uploadToSignedUrl(upload, payload.file);
+    await uploadToSignedUrl(upload, preparedPayload.file);
     return api<Attachment>("/api/admin/attachments/complete", {
       method: "POST",
       body: jsonBody({
-        petId: payload.petId,
-        entryType: payload.entryType,
-        entryId: payload.entryId,
-        fileName: payload.file.name,
-        mimeType: payload.file.type,
-        sizeBytes: payload.file.size,
+        petId: preparedPayload.petId,
+        entryType: preparedPayload.entryType,
+        entryId: preparedPayload.entryId,
+        fileName: preparedPayload.file.name,
+        mimeType: preparedPayload.file.type,
+        sizeBytes: preparedPayload.file.size,
         storageKey: upload.storageKey
       })
     });
   } catch (error) {
     const requestError = error as Error & { code?: string };
     if (requestError.code === "ATTACHMENT_DIRECT_UPLOAD_UNAVAILABLE") {
-      return uploadEntryAttachmentViaBackend(payload);
+      return uploadEntryAttachmentViaBackend(preparedPayload);
     }
     throw error;
   }

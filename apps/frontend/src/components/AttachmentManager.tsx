@@ -9,7 +9,6 @@ import {
   attachmentFileSizeLabel,
   fetchAttachmentBlob,
   isSupportedAttachmentFile,
-  maxAttachmentSizeBytes,
   uploadEntryAttachment
 } from "../utils/attachments";
 import { useI18n } from "../utils/i18n";
@@ -96,11 +95,6 @@ export function AttachmentManager({ petId, entryType, entryId, visible }: Props)
       if (inputRef.current) inputRef.current.value = "";
       return;
     }
-    if (file.size > maxAttachmentSizeBytes) {
-      setValidationError(new Error(t("attachmentTooLarge")));
-      if (inputRef.current) inputRef.current.value = "";
-      return;
-    }
     setValidationError(null);
     upload.mutate(file);
   }
@@ -138,7 +132,7 @@ export function AttachmentManager({ petId, entryType, entryId, visible }: Props)
           <Paperclip size={14} />{t("attachments")}
         </p>
         <label className="btn btn-secondary min-h-8 px-2 text-xs">
-          <Upload size={14} />{upload.isPending ? t("loading") : t("addAttachment")}
+          <Upload size={14} />{upload.isPending ? t("photoPreparing") : t("addAttachment")}
           <input
             ref={inputRef}
             className="sr-only"

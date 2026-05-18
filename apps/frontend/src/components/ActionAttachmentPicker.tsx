@@ -3,8 +3,7 @@ import { ChangeEvent, useRef, useState } from "react";
 import {
   attachmentAccept,
   attachmentFileSizeLabel,
-  isSupportedAttachmentFile,
-  maxAttachmentSizeBytes
+  isSupportedAttachmentFile
 } from "../utils/attachments";
 import { useI18n } from "../utils/i18n";
 import { RequestError } from "./RequestError";
@@ -13,12 +12,13 @@ type Props = {
   visible: boolean;
   file: File | null;
   disabled?: boolean;
+  isPreparing?: boolean;
   uploadError?: Error | null;
   onFileChange: (file: File | null) => void;
   onClear: () => void;
 };
 
-export function ActionAttachmentPicker({ visible, file, disabled, uploadError, onFileChange, onClear }: Props) {
+export function ActionAttachmentPicker({ visible, file, disabled, isPreparing, uploadError, onFileChange, onClear }: Props) {
   const { t } = useI18n();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [validationError, setValidationError] = useState<Error | null>(null);
@@ -38,12 +38,6 @@ export function ActionAttachmentPicker({ visible, file, disabled, uploadError, o
       clearInput();
       return;
     }
-    if (nextFile.size > maxAttachmentSizeBytes) {
-      setValidationError(new Error(t("attachmentTooLarge")));
-      onFileChange(null);
-      clearInput();
-      return;
-    }
     setValidationError(null);
     onFileChange(nextFile);
   }
@@ -58,7 +52,7 @@ export function ActionAttachmentPicker({ visible, file, disabled, uploadError, o
     <div className="rounded-lg border border-dashed border-mint/35 bg-mint/5 p-3">
       <div className="flex items-center justify-between gap-2">
         <label className="btn btn-secondary min-h-10 flex-1 cursor-pointer px-3 text-sm">
-          <Paperclip size={16} />{file ? t("selectedAttachment") : t("addAttachment")}
+          <Paperclip size={16} />{isPreparing ? t("photoPreparing") : file ? t("selectedAttachment") : t("addAttachment")}
           <input
             ref={inputRef}
             className="sr-only"

@@ -80,7 +80,7 @@ export default function NotePage() {
       <form onSubmit={onSubmit} className="panel grid gap-3">
         <DateTimeFields defaultValue={now} required />
         <textarea className="input min-h-32" name="note" placeholder={t("notePlaceholder")} required />
-        <ActionAttachmentPicker visible={isAdmin} file={attachment.file} disabled={add.isPending || attachment.isUploading} uploadError={attachment.error} onFileChange={attachment.selectFile} onClear={attachment.clearFile} />
+        <ActionAttachmentPicker visible={isAdmin} file={attachment.file} disabled={add.isPending || attachment.isUploading} isPreparing={attachment.isUploading} uploadError={attachment.error} onFileChange={attachment.selectFile} onClear={attachment.clearFile} />
         <button className="btn btn-primary" disabled={add.isPending || attachment.isUploading}>{t("add")}</button>
         <RequestError error={add.error} />
       </form>

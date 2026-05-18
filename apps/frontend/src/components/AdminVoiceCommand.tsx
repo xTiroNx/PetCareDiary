@@ -2,13 +2,16 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check, Mic, RotateCcw, Send, Square, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api, apiFormData, jsonBody } from "../api/client";
+import { useEntryAttachmentUpload } from "../hooks/useEntryAttachmentUpload";
 import { useAppStore } from "../store/appStore";
+import type { AttachmentEntryType } from "../utils/attachments";
 import { localDateTimeInputToUtcIso, localDateTimeInputValue, utcInstantToLocalDateTimeInput } from "../utils/dateTime";
 import { useI18n } from "../utils/i18n";
 import { telegramError, telegramSelection, telegramSuccess } from "../utils/telegram";
 import { trackEvent } from "../utils/telegramAnalytics";
 import { DateField } from "./DateField";
 import { DateTimeFields } from "./DateTimeFields";
+import { ActionAttachmentPicker } from "./ActionAttachmentPicker";
 import { RequestError } from "./RequestError";
 import { SelectField } from "./SelectField";
 import { SeverityScale } from "./SeverityScale";
@@ -32,6 +35,7 @@ type VoiceResponse = {
   draft: Record<string, unknown>;
   warnings: string[];
 };
+type CreatedEntry = { id: string };
 type ReminderDraft = { type: string; title: string; time: string; repeatRule: string; active: boolean };
 type FeedingDraft = { dateTime: string; foodType: string; amount: string; note: string };
 type MedicineDraft = { medicineName: string; dosage: string; dateTime: string; taken: boolean; note: string };
@@ -149,6 +153,15 @@ function canCreateFromVoice(result: VoiceResponse | null) {
   return false;
 }
 
+function attachmentEntryTypeForIntent(intent: VoiceIntent): AttachmentEntryType | null {
+  if (intent === "create_feeding_entry") return "FEEDING";
+  if (intent === "create_medicine_entry") return "MEDICINE";
+  if (intent === "create_symptom_entry") return "SYMPTOM";
+  if (intent === "create_weight_entry") return "WEIGHT";
+  if (intent === "create_note") return "NOTE";
+  return null;
+}
+
 function formatRecordingTime(ms: number) {
   const seconds = Math.max(0, Math.ceil(ms / 1000));
   return `0:${String(seconds).padStart(2, "0")}`;
@@ -222,6 +235,9 @@ export function VoiceCommand({ endpoint = "/api/voice/command", hint, visible = 
   const audioContextRef = useRef<AudioContext | null>(null);
   const recordingStartedAtRef = useRef(0);
   const shouldUploadRef = useRef(false);
+  const attachmentEntryType = result ? attachmentEntryTypeForIntent(result.intent) : null;
+  const attachment = useEntryAttachmentUpload(attachmentEntryType ?? "NOTE", pet?.id, t);
+  const canAttachFile = Boolean(attachmentEntryType && canCreateFromVoice(result));
 
   const voiceCommand = useMutation({
     mutationFn: (audio: Blob) => {
@@ -237,6 +253,7 @@ export function VoiceCommand({ endpoint = "/api/voice/command", hint, visible = 
     onSuccess: (response) => {
       setResult(response);
       setDraft(normalizeDraft(response.intent, response.draft ?? {}));
+      attachment.clearFile();
       setStatus("result");
       telegramSuccess();
     },
@@ -252,28 +269,28 @@ export function VoiceCommand({ endpoint = "/api/voice/command", hint, visible = 
       if (!canCreateFromVoice(result)) throw new Error(t("voiceUnknown"));
       if (result.target === "reminder" && result.intent === "create_reminder") {
         const body = draft as ReminderDraft;
-        return api("/api/reminders", {
+        return api<CreatedEntry>("/api/reminders", {
           method: "POST",
           body: jsonBody({ ...body, petId: pet.id, time: localDateTimeInputToUtcIso(body.time), repeatRule: body.repeatRule || null })
         });
       }
       if (result.target === "diary" && result.intent === "create_feeding_entry") {
         const body = draft as FeedingDraft;
-        return api("/api/feeding", {
+        return api<CreatedEntry>("/api/feeding", {
           method: "POST",
           body: jsonBody({ ...body, petId: pet.id, dateTime: localDateTimeInputToUtcIso(body.dateTime), note: body.note || null })
         });
       }
       if (result.target === "diary" && result.intent === "create_medicine_entry") {
         const body = draft as MedicineDraft;
-        return api("/api/medicines", {
+        return api<CreatedEntry>("/api/medicines", {
           method: "POST",
           body: jsonBody({ ...body, petId: pet.id, dateTime: localDateTimeInputToUtcIso(body.dateTime), note: body.note || null })
         });
       }
       if (result.target === "diary" && result.intent === "create_symptom_entry") {
         const body = draft as SymptomDraft;
-        return api("/api/symptoms", {
+        return api<CreatedEntry>("/api/symptoms", {
           method: "POST",
           body: jsonBody({
             ...body,
@@ -286,21 +303,24 @@ export function VoiceCommand({ endpoint = "/api/voice/command", hint, visible = 
       }
       if (result.target === "diary" && result.intent === "create_weight_entry") {
         const body = draft as WeightDraft;
-        return api("/api/weights", {
+        return api<CreatedEntry>("/api/weights", {
           method: "POST",
           body: jsonBody({ petId: pet.id, weightKg: Number(body.weightKg), date: new Date(body.date).toISOString() })
         });
       }
       if (result.target === "diary" && result.intent === "create_note") {
         const body = draft as NoteDraft;
-        return api("/api/notes", {
+        return api<CreatedEntry>("/api/notes", {
           method: "POST",
           body: jsonBody({ ...body, petId: pet.id, dateTime: localDateTimeInputToUtcIso(body.dateTime) })
         });
       }
       throw new Error(t("voiceUnknown"));
     },
-    onSuccess: () => {
+    onSuccess: async (createdEntry) => {
+      if (createdEntry?.id && attachmentEntryType) {
+        await attachment.uploadForEntry(createdEntry.id);
+      }
       if (pet) {
         queryClient.invalidateQueries({ queryKey: ["reminders", pet.id] });
         queryClient.invalidateQueries({ queryKey: ["feeding", pet.id] });
@@ -336,6 +356,7 @@ export function VoiceCommand({ endpoint = "/api/voice/command", hint, visible = 
     setLocalError(null);
     setCreated(false);
     setStatus("idle");
+    attachment.clearFile();
     voiceCommand.reset();
     createEntry.reset();
   }
@@ -476,7 +497,7 @@ export function VoiceCommand({ endpoint = "/api/voice/command", hint, visible = 
   }
 
   const canCreate = canCreateFromVoice(result);
-  const pending = status === "uploading" || createEntry.isPending;
+  const pending = status === "uploading" || createEntry.isPending || attachment.isUploading;
 
   return (
     <section className="panel space-y-3">
@@ -517,7 +538,7 @@ export function VoiceCommand({ endpoint = "/api/voice/command", hint, visible = 
       )}
       {status === "uploading" && <p className="text-center text-sm font-semibold text-mint">{t("uploadingVoice")}</p>}
       <div className="text-center">
-        <RequestError error={localError ?? voiceCommand.error ?? createEntry.error} />
+        <RequestError error={localError ?? voiceCommand.error ?? createEntry.error ?? attachment.error} />
       </div>
       {created && <p className="inline-flex w-full items-center justify-center gap-2 text-center text-sm font-bold text-mint"><Check size={16} />{t("voiceCreated")}</p>}
 
@@ -543,11 +564,20 @@ export function VoiceCommand({ endpoint = "/api/voice/command", hint, visible = 
               {result.intent === "create_symptom_entry" && renderSymptomDraft(draft as SymptomDraft, updateDraft, t)}
               {result.intent === "create_weight_entry" && renderWeightDraft(draft as WeightDraft, updateDraft, t)}
               {result.intent === "create_note" && renderNoteDraft(draft as NoteDraft, updateDraft, t)}
+              <ActionAttachmentPicker
+                visible={canAttachFile}
+                file={attachment.file}
+                disabled={createEntry.isPending || attachment.isUploading}
+                isPreparing={attachment.isUploading}
+                uploadError={attachment.error}
+                onFileChange={attachment.selectFile}
+                onClear={attachment.clearFile}
+              />
               <div className="grid grid-cols-2 gap-2">
-                <button className="btn btn-primary whitespace-nowrap" type="button" disabled={createEntry.isPending} onClick={() => createEntry.mutate()}>
+                <button className="btn btn-primary whitespace-nowrap" type="button" disabled={pending} onClick={() => createEntry.mutate()}>
                   <Send size={17} />{t("createFromVoice")}
                 </button>
-                <button className="btn btn-secondary whitespace-nowrap" type="button" disabled={createEntry.isPending} onClick={reset}>
+                <button className="btn btn-secondary whitespace-nowrap" type="button" disabled={pending} onClick={reset}>
                   <X size={17} />{t("cancel")}
                 </button>
               </div>

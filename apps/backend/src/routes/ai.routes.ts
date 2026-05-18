@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { env } from "../config/env.js";
 import { prisma } from "../prisma/client.js";
+import { canUseDirectAttachmentStorage, createAttachmentDownloadUrl } from "../services/attachments.service.js";
 import { trackAnalyticsEvent } from "../services/analytics.service.js";
 import { sanitizeAiFinalAnswer } from "../utils/aiResponseSanitizer.js";
 import { HttpError } from "../utils/httpError.js";
@@ -17,7 +18,8 @@ const assistantBodySchema = z.object({
   question: z.string().trim().max(1000).optional().nullable(),
   period: z.coerce.number().int().refine((value) => [7, 14, 30, 90].includes(value)),
   timezone: z.string().min(1).max(80),
-  locale: z.string().min(2).max(16).optional().nullable()
+  locale: z.string().min(2).max(16).optional().nullable(),
+  includeImages: z.coerce.boolean().default(false)
 }).strict();
 
 function startOfUtcDay(date = new Date()) {
@@ -77,6 +79,38 @@ function dateFormatter(locale: string | undefined | null, timezone: string) {
   });
 }
 
+function warningFor(locale: string | undefined | null, code: "imagesNoR2" | "imagesNone" | "imagesPrepareFailed") {
+  const value = (locale ?? "en").toLowerCase();
+  if (value.startsWith("ru")) {
+    if (code === "imagesNoR2") return "Фото не были отправлены в AI: анализ изображений доступен только при R2-хранилище.";
+    if (code === "imagesNone") return "Фото за выбранный период не найдены.";
+    return "Не удалось подготовить фото для AI. Ответ построен только по текстовым записям.";
+  }
+  if (value.startsWith("es")) {
+    if (code === "imagesNoR2") return "Las fotos no se enviaron a la IA: el análisis de imágenes requiere almacenamiento R2.";
+    if (code === "imagesNone") return "No se encontraron fotos para el periodo seleccionado.";
+    return "No se pudieron preparar las fotos para la IA. La respuesta usa solo registros de texto.";
+  }
+  if (value.startsWith("fr")) {
+    if (code === "imagesNoR2") return "Les photos n'ont pas été envoyées à l'IA : l'analyse d'images nécessite le stockage R2.";
+    if (code === "imagesNone") return "Aucune photo trouvée pour la période sélectionnée.";
+    return "Impossible de préparer les photos pour l'IA. La réponse utilise seulement les notes texte.";
+  }
+  if (value.startsWith("de")) {
+    if (code === "imagesNoR2") return "Fotos wurden nicht an die KI gesendet: Bildanalyse benötigt R2-Speicher.";
+    if (code === "imagesNone") return "Für den ausgewählten Zeitraum wurden keine Fotos gefunden.";
+    return "Fotos konnten nicht für die KI vorbereitet werden. Die Antwort nutzt nur Texteinträge.";
+  }
+  if (value.startsWith("zh")) {
+    if (code === "imagesNoR2") return "照片未发送给 AI：图片分析需要 R2 存储。";
+    if (code === "imagesNone") return "所选周期内没有找到照片。";
+    return "无法为 AI 准备照片。回答仅基于文字记录。";
+  }
+  if (code === "imagesNoR2") return "Photos were not sent to AI: image analysis requires R2 storage.";
+  if (code === "imagesNone") return "No photos were found for the selected period.";
+  return "Could not prepare photos for AI. The answer uses text records only.";
+}
+
 function modeInstruction(mode: typeof assistantModes[number]) {
   if (mode === "VET_QUESTIONS") {
     return [
@@ -112,6 +146,7 @@ async function loadAssistantData(input: {
   period: number;
   timezone: string;
   locale?: string | null;
+  includeImages?: boolean;
 }) {
   const from = new Date(Date.now() - input.period * 24 * 60 * 60 * 1000);
   const format = dateFormatter(input.locale, input.timezone);
@@ -124,45 +159,128 @@ async function loadAssistantData(input: {
       where: { userId: input.userId, petId: input.petId, dateTime: { gte: from } },
       orderBy: { dateTime: "asc" },
       take: 200,
-      select: { dateTime: true, foodType: true, amount: true, note: true }
+      select: { id: true, dateTime: true, foodType: true, amount: true, note: true }
     }),
     prisma.symptomEntry.findMany({
       where: { userId: input.userId, petId: input.petId, dateTime: { gte: from } },
       orderBy: { dateTime: "asc" },
       take: 200,
-      select: { dateTime: true, symptomType: true, severity: true, note: true }
+      select: { id: true, dateTime: true, symptomType: true, severity: true, note: true }
     }),
     prisma.medicineEntry.findMany({
       where: { userId: input.userId, petId: input.petId, dateTime: { gte: from } },
       orderBy: { dateTime: "asc" },
       take: 200,
-      select: { dateTime: true, medicineName: true, dosage: true, taken: true, note: true }
+      select: { id: true, dateTime: true, medicineName: true, dosage: true, taken: true, note: true }
     }),
     prisma.weightEntry.findMany({
       where: { userId: input.userId, petId: input.petId, date: { gte: from } },
       orderBy: { date: "asc" },
       take: 200,
-      select: { date: true, weightKg: true }
+      select: { id: true, date: true, weightKg: true }
     }),
     prisma.noteEntry.findMany({
       where: { userId: input.userId, petId: input.petId, dateTime: { gte: from } },
       orderBy: { dateTime: "asc" },
       take: 200,
-      select: { dateTime: true, note: true }
+      select: { id: true, dateTime: true, note: true }
     }),
     prisma.waterEntry.findMany({
       where: { userId: input.userId, petId: input.petId, dateTime: { gte: from } },
       orderBy: { dateTime: "asc" },
       take: 200,
-      select: { dateTime: true, amountMl: true, note: true }
+      select: { id: true, dateTime: true, amountMl: true, note: true }
     }),
     prisma.vaccinationEntry.findMany({
       where: { userId: input.userId, petId: input.petId, date: { gte: from } },
       orderBy: { date: "asc" },
       take: 200,
-      select: { date: true, procedureType: true, title: true, nextDueDate: true, note: true }
+      select: { id: true, date: true, procedureType: true, title: true, nextDueDate: true, note: true }
     })
   ]);
+
+  const imageWarnings: string[] = [];
+  const sourceByEntry = new Map<string, string>();
+  const rememberSource = (entryType: string, entryId: string, source: string) => {
+    sourceByEntry.set(`${entryType}:${entryId}`, source);
+  };
+  feeding.forEach((entry) => rememberSource("FEEDING", entry.id, `Feeding, ${format.format(entry.dateTime)}, ${entry.foodType}${entry.note ? `, note: ${entry.note}` : ""}`));
+  symptoms.forEach((entry) => rememberSource("SYMPTOM", entry.id, `Symptom, ${format.format(entry.dateTime)}, ${entry.symptomType}, severity ${entry.severity}${entry.note ? `, note: ${entry.note}` : ""}`));
+  medicines.forEach((entry) => rememberSource("MEDICINE", entry.id, `Medicine, ${format.format(entry.dateTime)}, ${entry.medicineName}${entry.dosage ? `, dosage: ${entry.dosage}` : ""}${entry.note ? `, note: ${entry.note}` : ""}`));
+  weights.forEach((entry) => rememberSource("WEIGHT", entry.id, `Weight, ${format.format(entry.date)}, ${entry.weightKg.toString()} kg`));
+  notes.forEach((entry) => rememberSource("NOTE", entry.id, `Note, ${format.format(entry.dateTime)}${entry.note ? `, note: ${entry.note}` : ""}`));
+  water.forEach((entry) => rememberSource("WATER", entry.id, `Water, ${format.format(entry.dateTime)}, ${entry.amountMl} ml${entry.note ? `, note: ${entry.note}` : ""}`));
+  vaccinations.forEach((entry) => rememberSource("VACCINATION", entry.id, `Vaccination/treatment, ${format.format(entry.date)}, ${entry.procedureType}, ${entry.title}${entry.note ? `, note: ${entry.note}` : ""}`));
+
+  const attachmentFilters = [
+    { entryType: "FEEDING", ids: feeding.map((entry) => entry.id) },
+    { entryType: "SYMPTOM", ids: symptoms.map((entry) => entry.id) },
+    { entryType: "MEDICINE", ids: medicines.map((entry) => entry.id) },
+    { entryType: "WEIGHT", ids: weights.map((entry) => entry.id) },
+    { entryType: "NOTE", ids: notes.map((entry) => entry.id) },
+    { entryType: "WATER", ids: water.map((entry) => entry.id) },
+    { entryType: "VACCINATION", ids: vaccinations.map((entry) => entry.id) }
+  ].filter((item) => item.ids.length > 0);
+
+  const imageAttachments = await (async () => {
+    if (!input.includeImages || env.AI_ASSISTANT_IMAGE_LIMIT < 1) return [];
+    if (!canUseDirectAttachmentStorage()) {
+      imageWarnings.push(warningFor(input.locale, "imagesNoR2"));
+      return [];
+    }
+    if (!attachmentFilters.length) {
+      imageWarnings.push(warningFor(input.locale, "imagesNone"));
+      return [];
+    }
+
+    try {
+      const attachments = await prisma.attachment.findMany({
+        where: {
+          userId: input.userId,
+          petId: input.petId,
+          mimeType: { in: ["image/jpeg", "image/png", "image/webp"] },
+          OR: attachmentFilters.map((item) => ({ entryType: item.entryType, entryId: { in: item.ids } }))
+        },
+        orderBy: { createdAt: "desc" },
+        take: env.AI_ASSISTANT_IMAGE_LIMIT,
+        select: {
+          id: true,
+          entryType: true,
+          entryId: true,
+          fileName: true,
+          mimeType: true,
+          sizeBytes: true,
+          storageKey: true,
+          createdAt: true
+        }
+      });
+      if (!attachments.length) {
+        imageWarnings.push(warningFor(input.locale, "imagesNone"));
+        return [];
+      }
+      return Promise.all(attachments.map(async (attachment) => ({
+        id: attachment.id,
+        entryType: attachment.entryType,
+        entryId: attachment.entryId,
+        fileName: attachment.fileName,
+        mimeType: attachment.mimeType,
+        sizeBytes: attachment.sizeBytes,
+        createdAt: attachment.createdAt,
+        source: sourceByEntry.get(`${attachment.entryType}:${attachment.entryId}`) ?? `${attachment.entryType} record`,
+        url: await createAttachmentDownloadUrl({
+          storageKey: attachment.storageKey,
+          contentType: attachment.mimeType
+        })
+      })));
+    } catch (error) {
+      console.warn(JSON.stringify({
+        event: "ai_assistant_images_prepare_failed",
+        error: error instanceof Error ? error.name : "unknown"
+      }));
+      imageWarnings.push(warningFor(input.locale, "imagesPrepareFailed"));
+      return [];
+    }
+  })();
 
   return {
     pet: {
@@ -186,7 +304,9 @@ async function loadAssistantData(input: {
         localDate: format.format(entry.date),
         nextDueLocalDate: entry.nextDueDate ? format.format(entry.nextDueDate) : null
       }))
-    }
+    },
+    imageAttachments,
+    imageWarnings
   };
 }
 
@@ -235,6 +355,28 @@ async function askChatCompletionProvider(input: {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), input.timeoutMs);
   try {
+    const visionImages = input.provider === "openrouter" ? input.data.imageAttachments : [];
+    const reportData = {
+      ...input.data,
+      imageAnalysisEnabled: visionImages.length > 0,
+      imageAttachments: input.data.imageAttachments.map(({ url: _url, ...attachment }) => attachment)
+    };
+    const userText = JSON.stringify({
+      mode: input.mode,
+      task: modeInstruction(input.mode),
+      question: input.question,
+      reportData
+    });
+    const userContent = visionImages.length
+      ? [
+          { type: "text", text: userText },
+          ...visionImages.map((image) => ({
+            type: "image_url",
+            image_url: { url: image.url }
+          }))
+        ]
+      : userText;
+
     const response = await fetch(input.url, {
       method: "POST",
       signal: controller.signal,
@@ -254,6 +396,8 @@ async function askChatCompletionProvider(input: {
               "Never present a possible explanation as a diagnosis or certainty.",
               "You may summarize diary records, suggest questions to ask a veterinarian, suggest what data to track next, and recommend contacting a veterinarian for severe, recurring, or worsening symptoms.",
               "You may mention simple, common, non-diagnostic possibilities when they are safe and clearly supported by the diary context, using phrases like 'one possible explanation' or 'this can sometimes happen when'.",
+              "When image inputs are attached, use them as visual context together with the diary records. Describe only visible, relevant details and uncertainty; do not infer a diagnosis from an image.",
+              "If image metadata is present but imageAnalysisEnabled is false, do not claim you inspected the photos.",
               "Do not include a final medical disclaimer in the answer. The app already shows a separate disclaimer below the answer.",
               "Do not write phrases like 'I am not a veterinarian', 'I am not a doctor', or 'this does not replace veterinary care' inside the answer.",
               "Still mention urgent red flags and when to contact a veterinarian urgently when relevant.",
@@ -271,12 +415,7 @@ async function askChatCompletionProvider(input: {
           },
           {
             role: "user",
-            content: JSON.stringify({
-              mode: input.mode,
-              task: modeInstruction(input.mode),
-              question: input.question,
-              reportData: input.data
-            })
+            content: userContent
           }
         ],
         temperature: 0.2,
@@ -326,7 +465,8 @@ router.post("/assistant", async (req, res, next) => {
       petId: body.petId,
       period: body.period,
       timezone,
-      locale: body.locale ?? req.user!.languageCode
+      locale: body.locale ?? req.user!.languageCode,
+      includeImages: body.includeImages
     });
     const answer = await askAiProvider({
       mode: body.mode,
@@ -343,7 +483,7 @@ router.post("/assistant", async (req, res, next) => {
       answer,
       disclaimer: disclaimerFor(body.locale ?? req.user!.languageCode),
       usedPeriod: body.period,
-      warnings: []
+      warnings: data.imageWarnings
     });
   } catch (error) {
     next(error);

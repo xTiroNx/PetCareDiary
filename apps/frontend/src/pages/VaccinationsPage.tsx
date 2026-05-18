@@ -50,7 +50,6 @@ function titleOf(entry: VaccinationEntry) {
 export default function VaccinationsPage() {
   const { language, t } = useI18n();
   const pet = useAppStore((state) => state.pet);
-  const isAdmin = useAppStore((state) => state.isAdmin);
   const queryClient = useQueryClient();
   const attachment = useEntryAttachmentUpload("VACCINATION", pet?.id, t);
   const saved = useSuccessFlash();
@@ -155,7 +154,7 @@ export default function VaccinationsPage() {
           {t("createReminder")}
         </label>
         <textarea className="input" name="note" placeholder={t("note")} />
-        <ActionAttachmentPicker visible={isAdmin} file={attachment.file} disabled={add.isPending || attachment.isUploading} isPreparing={attachment.isUploading} uploadError={attachment.error} onFileChange={attachment.selectFile} onClear={attachment.clearFile} />
+        <ActionAttachmentPicker visible file={attachment.file} disabled={add.isPending || attachment.isUploading} isPreparing={attachment.isUploading} uploadError={attachment.error} onFileChange={attachment.selectFile} onClear={attachment.clearFile} />
         <button className="btn btn-primary" disabled={add.isPending || attachment.isUploading}><CalendarCheck size={17} />{t("add")}</button>
         <SuccessFlash show={saved.visible} />
         <RequestError error={add.error} />

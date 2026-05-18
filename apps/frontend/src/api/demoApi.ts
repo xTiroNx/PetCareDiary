@@ -165,12 +165,13 @@ export async function demoApi<T>(path: string, options: RequestInit = {}): Promi
     return { items: telegramId ? users.filter((user) => String(user.telegramId) === telegramId) : users, nextOffset: null } as T;
   }
 
-  if (path.startsWith("/api/admin/attachments")) {
+  if (path.startsWith("/api/admin/attachments") || path.startsWith("/api/attachments")) {
     const url = new URL(path, "http://demo.local");
     const segments = url.pathname.split("/").filter(Boolean);
-    const attachmentId = segments[3];
+    const attachmentBaseIndex = segments[1] === "admin" ? 2 : 1;
+    const attachmentId = segments[attachmentBaseIndex + 1];
 
-    if (method === "GET" && segments[4] === "file") {
+    if (method === "GET" && segments[attachmentBaseIndex + 2] === "file") {
       const attachment = store.attachments.find((item) => item.id === attachmentId);
       if (!attachment) throw new Error("Attachment not found.");
       return (demoAttachmentFiles.get(String(attachmentId)) ?? new Blob(["demo attachment"], { type: String(attachment.mimeType || "application/octet-stream") })) as T;

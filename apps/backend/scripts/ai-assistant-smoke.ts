@@ -154,6 +154,7 @@ async function postAssistant(input: {
   petId?: string;
   mode?: "VET_QUESTIONS" | "GENERAL_HELP";
   question?: string;
+  includeImages?: boolean;
 }): Promise<JsonResponse> {
   const response = await fetch(`${baseUrl()}/api/ai/assistant`, {
     method: "POST",
@@ -167,7 +168,8 @@ async function postAssistant(input: {
       question: input.question,
       period: "7",
       timezone: "Europe/Moscow",
-      locale: "en"
+      locale: "en",
+      includeImages: input.includeImages ?? false
     })
   });
   return { status: response.status, body: await response.json() };
@@ -177,11 +179,12 @@ try {
   const active = await postAssistant({
     telegramId: Number(activeUser.telegramId),
     mode: "GENERAL_HELP",
-    question: "What should I prepare before a vet visit?"
+    question: "What should I prepare before a vet visit?",
+    includeImages: true
   });
   assert(active.status === 200, `Expected active non-admin user to access AI assistant, got ${active.status}`);
   assert(typeof active.body === "object" && active.body !== null, "Expected JSON object response for active user.");
-  const activeBody = active.body as { answer?: unknown; disclaimer?: unknown; usedPeriod?: unknown };
+  const activeBody = active.body as { answer?: unknown; disclaimer?: unknown; usedPeriod?: unknown; warnings?: unknown };
   assert(typeof activeBody.answer === "string" && activeBody.answer.includes("veterinarian"), "Expected AI answer text.");
   assert(!activeBody.answer.includes("<think>"), "Expected AI answer to be sanitized.");
   assert(!activeBody.answer.includes("* Brief takeaway"), "Expected markdown star bullets to be normalized.");
@@ -189,12 +192,18 @@ try {
   assert(!/not a veterinarian|does not replace veterinary care/i.test(activeBody.answer), "Expected final boilerplate disclaimer to be stripped from answer.");
   assert(typeof activeBody.disclaimer === "string" && activeBody.disclaimer.length > 0, "Expected disclaimer.");
   assert(activeBody.usedPeriod === 7, "Expected usedPeriod to reflect request period.");
+  assert(
+    Array.isArray(activeBody.warnings)
+    && activeBody.warnings.some((warning) => /image analysis requires R2|No photos were found/.test(String(warning))),
+    "Expected includeImages to warn when images cannot be attached."
+  );
   const generalHelpRequest = providerRequests.at(-1) as { max_completion_tokens?: number; max_tokens?: number; messages?: Array<{ content?: string }> } | undefined;
   const tokenLimit = generalHelpRequest?.max_completion_tokens ?? generalHelpRequest?.max_tokens;
   assert(tokenLimit === 1100, `Expected AI token limit to be 1100, got ${tokenLimit}`);
   assert(generalHelpRequest.messages?.[0]?.content?.includes("not overly terse"), "Expected system prompt to allow more useful answers.");
   assert(generalHelpRequest.messages?.[0]?.content?.includes("Do not include a final medical disclaimer"), "Expected system prompt to suppress duplicate disclaimer.");
   assert(generalHelpRequest.messages?.[0]?.content?.includes("Use '-' for bullet points"), "Expected system prompt to require dash bullets.");
+  assert(generalHelpRequest.messages?.[1]?.content?.includes("\"imageAnalysisEnabled\":false"), "Expected provider prompt to mark images as not inspected when unavailable.");
 
   const paid = await postAssistant({ telegramId: Number(paidUser.telegramId), petId: "pet-paid", mode: "VET_QUESTIONS" });
   assert(paid.status === 200, `Expected paid non-admin user to access AI assistant, got ${paid.status}`);

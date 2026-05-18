@@ -62,7 +62,6 @@ function WaterBars({ values }: { values: Array<{ date: string; totalMl: number }
 export default function WaterPage() {
   const { language, t } = useI18n();
   const pet = useAppStore((state) => state.pet);
-  const isAdmin = useAppStore((state) => state.isAdmin);
   const queryClient = useQueryClient();
   const attachment = useEntryAttachmentUpload("WATER", pet?.id, t);
   const saved = useSuccessFlash();
@@ -158,7 +157,7 @@ export default function WaterPage() {
         <DateTimeFields defaultValue={localDateTimeInputValue()} required />
         <input className="input" name="amountMl" type="number" inputMode="numeric" min="1" placeholder={t("waterVolumeMl")} required />
         <textarea className="input" name="note" placeholder={t("note")} />
-        <ActionAttachmentPicker visible={isAdmin} file={attachment.file} disabled={add.isPending || attachment.isUploading} isPreparing={attachment.isUploading} uploadError={attachment.error} onFileChange={attachment.selectFile} onClear={attachment.clearFile} />
+        <ActionAttachmentPicker visible file={attachment.file} disabled={add.isPending || attachment.isUploading} isPreparing={attachment.isUploading} uploadError={attachment.error} onFileChange={attachment.selectFile} onClear={attachment.clearFile} />
         <button className="btn btn-primary" disabled={add.isPending || attachment.isUploading}><Droplets size={17} />{t("add")}</button>
         <SuccessFlash show={saved.visible} />
         <RequestError error={add.error} />

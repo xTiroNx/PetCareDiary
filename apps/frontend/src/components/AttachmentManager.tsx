@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText, Image, Paperclip, Trash2, Upload, X } from "lucide-react";
 import { ChangeEvent, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { api } from "../api/client";
 import {
   type Attachment,
@@ -64,7 +65,7 @@ export function AttachmentManager({ petId, entryType, entryId, visible }: Props)
   const queryKey = ["attachments", entryType, entryId];
   const attachments = useQuery({
     queryKey,
-    queryFn: () => api<Attachment[]>(`/api/admin/attachments?${attachmentQuery(petId, entryType, entryId)}`),
+    queryFn: () => api<Attachment[]>(`/api/attachments?${attachmentQuery(petId, entryType, entryId)}`),
     enabled: visible
   });
   const upload = useMutation({
@@ -75,7 +76,7 @@ export function AttachmentManager({ petId, entryType, entryId, visible }: Props)
     }
   });
   const remove = useMutation({
-    mutationFn: (id: string) => api<void>(`/api/admin/attachments/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => api<void>(`/api/attachments/${id}`, { method: "DELETE" }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey })
   });
 
@@ -162,9 +163,9 @@ export function AttachmentManager({ petId, entryType, entryId, visible }: Props)
         </div>
       ) : null}
       <RequestError error={attachments.error ?? validationError ?? upload.error ?? remove.error ?? openError} />
-      {preview ? (
+      {preview ? createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3" role="dialog" aria-modal="true" aria-label={t("attachmentPreview")}>
-          <section className="panel max-h-[calc(100vh-2rem)] w-full space-y-3 overflow-y-auto border-mint/40 sm:max-w-md">
+          <section className="panel max-h-[calc(100dvh-2rem)] w-full space-y-3 overflow-y-auto border-mint/40 sm:max-w-md">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="section-title">{t("attachmentPreview")}</p>
@@ -176,10 +177,11 @@ export function AttachmentManager({ petId, entryType, entryId, visible }: Props)
               </button>
             </div>
             <div className="overflow-hidden rounded-xl bg-black">
-              <img className="max-h-[70vh] w-full object-contain" src={preview.url} alt={preview.attachment.fileName} />
+              <img className="max-h-[calc(100dvh-12rem)] w-full object-contain" src={preview.url} alt={preview.attachment.fileName} />
             </div>
           </section>
-        </div>
+        </div>,
+        document.body
       ) : null}
     </div>
   );

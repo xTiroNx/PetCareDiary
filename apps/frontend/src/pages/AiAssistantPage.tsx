@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { Bot, Send } from "lucide-react";
+import { Bot, ImageIcon, Send } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { api, jsonBody } from "../api/client";
 import { MedicalDisclaimer } from "../components/MedicalDisclaimer";
@@ -43,6 +43,7 @@ export default function AiAssistantPage() {
   const pet = useAppStore((state) => state.pet);
   const [period, setPeriod] = useState<AiPeriod>("7");
   const [question, setQuestion] = useState("");
+  const [includeImages, setIncludeImages] = useState(false);
 
   const ask = useMutation({
     mutationFn: () => api<AiResponse>("/api/ai/assistant", {
@@ -53,7 +54,8 @@ export default function AiAssistantPage() {
         question: question.trim(),
         period,
         timezone: getDeviceTimeZone(),
-        locale: language
+        locale: language,
+        includeImages
       })
     })
   });
@@ -91,6 +93,20 @@ export default function AiAssistantPage() {
           placeholder={t("aiQuestion")}
           required
         />
+        <label className="flex items-start gap-3 rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-700 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200">
+          <input
+            className="mt-1 h-5 w-5 accent-mint"
+            type="checkbox"
+            checked={includeImages}
+            onChange={(event) => setIncludeImages(event.target.checked)}
+          />
+          <span className="min-w-0">
+            <span className="flex items-center gap-2 font-semibold">
+              <ImageIcon size={16} />{t("aiIncludeImages")}
+            </span>
+            <span className="mt-1 block text-xs leading-5 text-zinc-500 dark:text-zinc-400">{t("aiIncludeImagesHint")}</span>
+          </span>
+        </label>
         <button className="btn btn-primary w-full" disabled={ask.isPending || !question.trim()}>
           <Send size={17} />{ask.isPending ? t("loading") : t("askAi")}
         </button>

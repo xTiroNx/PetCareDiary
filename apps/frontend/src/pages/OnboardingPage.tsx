@@ -19,7 +19,6 @@ export default function OnboardingPage() {
   const [searchParams] = useSearchParams();
   const pet = useAppStore((state) => state.pet);
   const setPet = useAppStore((state) => state.setPet);
-  const isAdmin = useAppStore((state) => state.isAdmin);
   const isAddingPet = searchParams.get("new") === "1";
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarError, setAvatarError] = useState<Error | null>(null);
@@ -47,7 +46,7 @@ export default function OnboardingPage() {
         healthNotes: data.healthNotes ? data.healthNotes : null
       });
       let nextPet = createdPet;
-      if (isAdmin && avatarFile) {
+      if (avatarFile) {
         setIsAvatarUploading(true);
         try {
           nextPet = await uploadPetAvatar(createdPet.id, avatarFile) ?? withAvatarFallback(createdPet, true);
@@ -86,7 +85,7 @@ export default function OnboardingPage() {
         <input name="weightKg" className="input" type="number" step="0.1" placeholder={t("weightKg")} />
         <input name="ageYears" className="input" type="number" step="0.1" placeholder={t("ageYears")} />
         <textarea name="healthNotes" className="input min-h-24" placeholder={t("healthNotes")} />
-        {isAdmin && <AvatarFilePicker file={avatarFile} disabled={isSaving} uploadError={avatarError} onFileChange={setAvatarFile} onClear={() => setAvatarFile(null)} />}
+        <AvatarFilePicker file={avatarFile} disabled={isSaving} uploadError={avatarError} onFileChange={setAvatarFile} onClear={() => setAvatarFile(null)} />
         <button className="btn btn-primary w-full" disabled={isSaving || Boolean(createdPetAfterAvatarFailure)}>{isSaving ? t("saving") : t("startDiary")}</button>
         {createdPetAfterAvatarFailure ? (
           <button className="btn btn-secondary w-full" type="button" onClick={() => { setPet(createdPetAfterAvatarFailure); navigate("/"); }}>

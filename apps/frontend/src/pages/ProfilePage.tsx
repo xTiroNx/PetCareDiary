@@ -123,7 +123,7 @@ export default function ProfilePage() {
             <div className={clsx("rounded-lg border px-3 py-3 text-sm", item.id === pet?.id ? "border-mint/60 bg-mint/5" : "border-zinc-200 dark:border-zinc-800")} key={item.id}>
               <div className="flex items-start justify-between gap-2">
                 <div className="flex min-w-0 gap-3">
-                  {isAdmin && <PetAvatar pet={item} />}
+                  <PetAvatar pet={item} />
                   <div className="min-w-0">
                     <p className="break-words font-semibold">{item.name}</p>
                     <p className="text-xs text-zinc-500">{petTypeLabels[item.type]}</p>
@@ -140,7 +140,7 @@ export default function ProfilePage() {
               </div>
               {editingPetId === item.id && petDraft ? (
                 <div className="mt-3 grid gap-2">
-                  {isAdmin && <PetAvatarEditor pet={item} onPetChange={replacePet} />}
+                  <PetAvatarEditor pet={item} onPetChange={replacePet} />
                   <input className="input" value={petDraft.name} onChange={(event) => updatePetDraft("name", event.target.value)} placeholder={t("petName")} />
                   <SelectField value={petDraft.type} onChange={(event) => updatePetDraft("type", event.target.value as PetType)}>
                     <option value="CAT">{t("cat")}</option>

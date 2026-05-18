@@ -26,7 +26,6 @@ type SymptomDraft = { dateTime: string; symptomType: string; severity: string; n
 export default function SymptomsPage() {
   const { language, t } = useI18n();
   const pet = useAppStore((state) => state.pet);
-  const isAdmin = useAppStore((state) => state.isAdmin);
   const queryClient = useQueryClient();
   const attachment = useEntryAttachmentUpload("SYMPTOM", pet?.id, t);
   const saved = useSuccessFlash();
@@ -102,7 +101,7 @@ export default function SymptomsPage() {
         </SelectField>
         <SeverityScale defaultValue="1" />
         <textarea className="input" name="note" placeholder={t("comment")} />
-        <ActionAttachmentPicker visible={isAdmin} file={attachment.file} disabled={add.isPending || attachment.isUploading} isPreparing={attachment.isUploading} uploadError={attachment.error} onFileChange={attachment.selectFile} onClear={attachment.clearFile} />
+        <ActionAttachmentPicker visible file={attachment.file} disabled={add.isPending || attachment.isUploading} isPreparing={attachment.isUploading} uploadError={attachment.error} onFileChange={attachment.selectFile} onClear={attachment.clearFile} />
         <button className="btn btn-primary" disabled={add.isPending || attachment.isUploading}>{t("add")}</button>
         <SuccessFlash show={saved.visible} />
         <RequestError error={add.error} />

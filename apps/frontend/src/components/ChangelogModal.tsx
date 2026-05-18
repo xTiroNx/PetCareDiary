@@ -1,8 +1,9 @@
-import { Sparkles, X } from "lucide-react";
+import { Gift, MessageCircle, Sparkles, X } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useI18n } from "../utils/i18n";
 import { telegramSelection } from "../utils/telegram";
 
-export const changelogSeenKey = "petcare-changelog-seen-v2026-05-15";
+export const changelogSeenKey = "petcare-changelog-seen-v2026-05-18-promo-feedback";
 export const openChangelogEvent = "petcare-open-changelog";
 
 type ChangelogModalProps = {
@@ -12,17 +13,19 @@ type ChangelogModalProps = {
 
 export function ChangelogModal({ open, onClose }: ChangelogModalProps) {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const updateItems = [
-    t("changelogItemPromo"),
     t("changelogItemHealthActions"),
+    t("changelogItemPhotoAttachments"),
+    t("changelogItemPetAvatars"),
+    t("changelogItemAiPhotos"),
     t("changelogPlanAi"),
     t("changelogItemStt"),
-    t("changelogItemFeedback"),
     t("changelogItemStability"),
     t("changelogItemUx")
   ];
   const plannedItems = [
-    t("changelogPlanImages")
+    t("changelogPlanReports")
   ];
 
   if (!open) return null;
@@ -30,6 +33,21 @@ export function ChangelogModal({ open, onClose }: ChangelogModalProps) {
   function close() {
     telegramSelection();
     onClose();
+  }
+
+  function openOffer() {
+    telegramSelection();
+    onClose();
+    navigate("/paywall");
+  }
+
+  function openFeedback() {
+    telegramSelection();
+    onClose();
+    navigate("/profile#feedback");
+    window.setTimeout(() => {
+      document.getElementById("feedback")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
   }
 
   return (
@@ -42,6 +60,26 @@ export function ChangelogModal({ open, onClose }: ChangelogModalProps) {
           </div>
           <button className="icon-btn shrink-0" type="button" aria-label={t("closeApp")} title={t("closeApp")} onClick={close}>
             <X size={17} />
+          </button>
+        </div>
+
+        <div className="rounded-lg border border-coral/40 bg-coral/10 p-3">
+          <p className="inline-flex items-center gap-2 text-sm font-extrabold text-coral">
+            <Gift size={17} />{t("changelogPromoTitle")}
+          </p>
+          <p className="mt-2 text-sm font-semibold leading-6 text-zinc-800 dark:text-zinc-100">{t("changelogItemPromo")}</p>
+          <button className="btn btn-primary mt-3 w-full whitespace-nowrap" type="button" onClick={openOffer}>
+            {t("changelogPromoCta")}
+          </button>
+        </div>
+
+        <div className="rounded-lg border border-mint/40 bg-mint/10 p-3">
+          <p className="inline-flex items-center gap-2 text-sm font-extrabold text-mint">
+            <MessageCircle size={17} />{t("changelogFeedbackTitle")}
+          </p>
+          <p className="mt-2 text-sm font-semibold leading-6 text-zinc-800 dark:text-zinc-100">{t("changelogItemFeedback")}</p>
+          <button className="btn btn-secondary mt-3 w-full whitespace-nowrap" type="button" onClick={openFeedback}>
+            {t("changelogFeedbackCta")}
           </button>
         </div>
 

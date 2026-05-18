@@ -91,7 +91,6 @@ function WeightChart({ values, locale }: { values: WeightEntry[]; locale: string
 export default function WeightPage() {
   const { language, t } = useI18n();
   const pet = useAppStore((state) => state.pet);
-  const isAdmin = useAppStore((state) => state.isAdmin);
   const queryClient = useQueryClient();
   const attachment = useEntryAttachmentUpload("WEIGHT", pet?.id, t);
   const saved = useSuccessFlash();
@@ -153,7 +152,7 @@ export default function WeightPage() {
       <form onSubmit={onSubmit} className="panel grid gap-3">
         <DateField name="date" defaultValue={localDateInputValue()} required />
         <input className="input" name="weightKg" type="number" step="0.1" placeholder={t("weightKg")} required />
-        <ActionAttachmentPicker visible={isAdmin} file={attachment.file} disabled={add.isPending || attachment.isUploading} isPreparing={attachment.isUploading} uploadError={attachment.error} onFileChange={attachment.selectFile} onClear={attachment.clearFile} />
+        <ActionAttachmentPicker visible file={attachment.file} disabled={add.isPending || attachment.isUploading} isPreparing={attachment.isUploading} uploadError={attachment.error} onFileChange={attachment.selectFile} onClear={attachment.clearFile} />
         <button className="btn btn-primary" disabled={add.isPending || attachment.isUploading}>{t("add")}</button>
         <SuccessFlash show={saved.visible} />
         <RequestError error={add.error} />

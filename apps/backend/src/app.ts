@@ -46,6 +46,7 @@ export function createApp() {
   app.use("/api/feedback", authMiddleware, rateLimit({ keyPrefix: "feedback", windowMs: 10 * 60_000, max: 5 }), feedbackRoutes);
   app.use("/api/voice", authMiddleware, requireActiveAccess, rateLimit({ keyPrefix: "user-voice", windowMs: 60_000, max: 10 }), voiceRoutes);
   app.use("/api/ai", authMiddleware, requireActiveAccess, rateLimit({ keyPrefix: "ai-assistant", windowMs: 60_000, max: 10 }), aiRoutes);
+  app.use("/api/attachments", authMiddleware, requireActiveAccess, rateLimit({ keyPrefix: "attachments", windowMs: 60_000, max: 60 }), attachmentsRoutes);
   app.use("/api/pets", authMiddleware, requireActiveAccess, petsRoutes);
   app.use("/api/reminders", authMiddleware, requireActiveAccess, remindersRoutes);
   app.use("/api/vaccinations", authMiddleware, requireActiveAccess, vaccinationsRoutes);

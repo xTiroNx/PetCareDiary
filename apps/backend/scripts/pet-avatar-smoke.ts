@@ -20,6 +20,7 @@ const [{ createApp }, { prisma }] = await Promise.all([
 ]);
 
 const now = new Date("2026-05-17T12:00:00.000Z");
+const activeTrialEndsAt = new Date("2030-01-01T00:00:00.000Z");
 const users = new Map([
   [3001n, {
     id: "user-owner",
@@ -31,7 +32,7 @@ const users = new Map([
     createdAt: now,
     updatedAt: now,
     trialStartedAt: now,
-    trialEndsAt: new Date(now.getTime() + 86_400_000),
+    trialEndsAt: activeTrialEndsAt,
     accessUntil: null,
     lifetimeAccess: false
   }],
@@ -45,7 +46,7 @@ const users = new Map([
     createdAt: now,
     updatedAt: now,
     trialStartedAt: now,
-    trialEndsAt: new Date(now.getTime() + 86_400_000),
+    trialEndsAt: activeTrialEndsAt,
     accessUntil: null,
     lifetimeAccess: false
   }]

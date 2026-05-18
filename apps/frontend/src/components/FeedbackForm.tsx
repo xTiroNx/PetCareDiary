@@ -45,7 +45,7 @@ export function FeedbackForm() {
   }
 
   return (
-    <section className="panel space-y-3">
+    <section id="feedback" className="panel scroll-mt-24 space-y-3">
       <div>
         <h2 className="section-title">{t("feedbackTitle")}</h2>
         <p className="muted mt-1">{t("feedbackHint")}</p>

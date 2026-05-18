@@ -73,15 +73,15 @@ async function fetchDirectBlob(url: string) {
 }
 
 export async function fetchAttachmentBlob(attachmentId: string) {
-  if (DEMO_MODE) return apiBlob(`/api/admin/attachments/${encodeURIComponent(attachmentId)}/file`);
+  if (DEMO_MODE) return apiBlob(`/api/attachments/${encodeURIComponent(attachmentId)}/file`);
 
   try {
-    const download = await api<DirectDownload>(`/api/admin/attachments/${encodeURIComponent(attachmentId)}/file-url`);
+    const download = await api<DirectDownload>(`/api/attachments/${encodeURIComponent(attachmentId)}/file-url`);
     return fetchDirectBlob(download.url);
   } catch (error) {
     const requestError = error as Error & { code?: string };
     if (requestError.code === "ATTACHMENT_DIRECT_DOWNLOAD_UNAVAILABLE") {
-      return apiBlob(`/api/admin/attachments/${encodeURIComponent(attachmentId)}/file`);
+      return apiBlob(`/api/attachments/${encodeURIComponent(attachmentId)}/file`);
     }
     throw error;
   }
@@ -93,7 +93,7 @@ function uploadEntryAttachmentViaBackend({ petId, entryType, entryId, file }: At
   form.set("entryType", entryType);
   form.set("entryId", entryId);
   form.set("file", file);
-  return apiFormData<Attachment>("/api/admin/attachments", form);
+  return apiFormData<Attachment>("/api/attachments", form);
 }
 
 export async function uploadEntryAttachment(payload: AttachmentUploadPayload) {
@@ -103,7 +103,7 @@ export async function uploadEntryAttachment(payload: AttachmentUploadPayload) {
   if (DEMO_MODE) return uploadEntryAttachmentViaBackend(preparedPayload);
 
   try {
-    const upload = await api<PresignedUpload>("/api/admin/attachments/presign", {
+    const upload = await api<PresignedUpload>("/api/attachments/presign", {
       method: "POST",
       body: jsonBody({
         petId: preparedPayload.petId,
@@ -115,7 +115,7 @@ export async function uploadEntryAttachment(payload: AttachmentUploadPayload) {
       })
     });
     await uploadToSignedUrl(upload, preparedPayload.file);
-    return api<Attachment>("/api/admin/attachments/complete", {
+    return api<Attachment>("/api/attachments/complete", {
       method: "POST",
       body: jsonBody({
         petId: preparedPayload.petId,

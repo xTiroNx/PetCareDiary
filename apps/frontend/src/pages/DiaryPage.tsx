@@ -74,7 +74,6 @@ function vaccinationTitle(entry: VaccinationEntry) {
 export default function DiaryPage() {
   const { language, t } = useI18n();
   const pet = useAppStore((state) => state.pet);
-  const isAdmin = useAppStore((state) => state.isAdmin);
   const queryClient = useQueryClient();
   const currentDate = localDateInputValue();
   const [type, setType] = useState<DiaryType>("ALL");
@@ -447,7 +446,7 @@ export default function DiaryPage() {
                 <p className="mt-1 text-xs text-zinc-500">{new Date(entry.date).toLocaleString(languageLocale(language))}</p>
                 {entry.note ? <p className="mt-2 text-sm">{entry.note}</p> : null}
                 {editing?.id === entry.id && editing.type === entry.type ? renderEditForm(entry) : null}
-                {pet && <AttachmentManager petId={pet.id} entryType={entry.type} entryId={entry.id} visible={isAdmin} />}
+                {pet && <AttachmentManager petId={pet.id} entryType={entry.type} entryId={entry.id} visible />}
               </div>
             </article>
           );

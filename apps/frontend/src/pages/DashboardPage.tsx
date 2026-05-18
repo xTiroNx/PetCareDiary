@@ -26,7 +26,7 @@ export default function DashboardPage() {
       <header className="panel bg-ink text-white dark:bg-zinc-900">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            {isAdmin && <PetAvatar pet={pet} size="xl" />}
+            <PetAvatar pet={pet} size="xl" />
             <div className="min-w-0">
               <h1 className="break-words text-[32px] font-extrabold leading-none">{pet.name}</h1>
               <p className="mt-2 text-sm leading-5 text-white/70">{petMeta}</p>

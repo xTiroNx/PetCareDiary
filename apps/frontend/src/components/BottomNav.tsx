@@ -26,8 +26,8 @@ export function BottomNav() {
           onClick={() => telegramSelection()}
           className={({ isActive }) =>
             clsx(
-              "flex min-h-[50px] min-w-0 flex-col items-center justify-center gap-0.5 rounded-full px-1 text-[9px] font-bold leading-[1.05] transition",
-              isActive ? "bg-mint text-white shadow-soft" : "text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
+              "flex min-h-[50px] min-w-0 flex-col items-center justify-center gap-0.5 rounded-full px-1 text-[9px] font-bold leading-[1.05] transition-[background-color,color,box-shadow] duration-150 ease-out active:scale-[0.98]",
+              isActive ? "bg-mint text-white shadow-soft" : "text-zinc-500 hover:bg-zinc-100 hover:text-ink dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-white"
             )
           }
         >

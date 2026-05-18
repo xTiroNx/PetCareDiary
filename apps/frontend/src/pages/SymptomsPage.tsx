@@ -10,8 +10,11 @@ import { LoadMore } from "../components/LoadMore";
 import { RequestError } from "../components/RequestError";
 import { SelectField } from "../components/SelectField";
 import { SeverityScale } from "../components/SeverityScale";
+import { SkeletonBlock } from "../components/SkeletonBlock";
+import { SuccessFlash } from "../components/SuccessFlash";
 import { useEntryAttachmentUpload } from "../hooks/useEntryAttachmentUpload";
 import { usePaginatedApi } from "../hooks/usePaginatedApi";
+import { useSuccessFlash } from "../hooks/useSuccessFlash";
 import { useAppStore } from "../store/appStore";
 import { localDateTimeInputToUtcIso, localDateTimeInputValue } from "../utils/dateTime";
 import { languageLocale, useI18n } from "../utils/i18n";
@@ -26,6 +29,7 @@ export default function SymptomsPage() {
   const isAdmin = useAppStore((state) => state.isAdmin);
   const queryClient = useQueryClient();
   const attachment = useEntryAttachmentUpload("SYMPTOM", pet?.id, t);
+  const saved = useSuccessFlash();
   const now = localDateTimeInputValue();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<SymptomDraft | null>(null);
@@ -38,6 +42,7 @@ export default function SymptomsPage() {
       queryClient.invalidateQueries({ queryKey: ["symptoms", pet?.id] });
       queryClient.invalidateQueries({ queryKey: ["symptoms-analytics", pet?.id] });
       await attachment.uploadForEntry(created.id);
+      saved.show();
     }
   });
   const update = useMutation({
@@ -99,10 +104,11 @@ export default function SymptomsPage() {
         <textarea className="input" name="note" placeholder={t("comment")} />
         <ActionAttachmentPicker visible={isAdmin} file={attachment.file} disabled={add.isPending || attachment.isUploading} isPreparing={attachment.isUploading} uploadError={attachment.error} onFileChange={attachment.selectFile} onClear={attachment.clearFile} />
         <button className="btn btn-primary" disabled={add.isPending || attachment.isUploading}>{t("add")}</button>
+        <SuccessFlash show={saved.visible} />
         <RequestError error={add.error} />
       </form>
       <section className="panel"><h2 className="section-title">{t("last7Days")}</h2><div className="mt-2 flex flex-wrap gap-2">{analytics.data?.length ? analytics.data.map((item) => <span className="rounded-full bg-skysoft px-3 py-1 text-xs font-semibold text-ink" key={item.symptomType}>{symptomLabels[item.symptomType] ?? item.symptomType}: {item.count}</span>) : <span className="text-sm text-zinc-500">{t("noRepeats")}</span>}</div></section>
-      {entries.isLoading && <div className="panel text-center">{t("loading")}</div>}
+      {entries.isLoading && <SkeletonBlock rows={3} />}
       {entries.error && <div className="panel text-coral"><RequestError error={entries.error} /></div>}
       {entries.items.length ? (
         <>

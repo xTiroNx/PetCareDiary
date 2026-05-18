@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { ChangelogModal, changelogSeenKey, openChangelogEvent } from "./components/ChangelogModal";
 import { Layout } from "./components/Layout";
+import { SkeletonBlock } from "./components/SkeletonBlock";
 import { useAuth } from "./hooks/useAuth";
 import { useAppStore } from "./store/appStore";
 import DashboardPage from "./pages/DashboardPage";
@@ -113,7 +114,7 @@ export default function App() {
   }
 
   if (!user && !auth.error) {
-    return <Layout><div className="panel mt-20 text-center">{t("appLoading")}</div></Layout>;
+    return <Layout><SkeletonBlock rows={4} className="mt-20" /><p className="mt-3 text-center text-xs font-semibold text-zinc-500">{t("appLoading")}</p></Layout>;
   }
 
   if (auth.error && !user) {

@@ -8,8 +8,11 @@ import { DateTimeFields } from "../components/DateTimeFields";
 import { EmptyState } from "../components/EmptyState";
 import { LoadMore } from "../components/LoadMore";
 import { RequestError } from "../components/RequestError";
+import { SkeletonBlock } from "../components/SkeletonBlock";
+import { SuccessFlash } from "../components/SuccessFlash";
 import { useEntryAttachmentUpload } from "../hooks/useEntryAttachmentUpload";
 import { usePaginatedApi } from "../hooks/usePaginatedApi";
+import { useSuccessFlash } from "../hooks/useSuccessFlash";
 import { useAppStore } from "../store/appStore";
 import { localDateTimeInputToUtcIso, localDateTimeInputValue } from "../utils/dateTime";
 import { languageLocale, useI18n } from "../utils/i18n";
@@ -23,6 +26,7 @@ export default function NotePage() {
   const isAdmin = useAppStore((state) => state.isAdmin);
   const queryClient = useQueryClient();
   const attachment = useEntryAttachmentUpload("NOTE", pet?.id, t);
+  const saved = useSuccessFlash();
   const now = localDateTimeInputValue();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<NoteDraft | null>(null);
@@ -32,6 +36,7 @@ export default function NotePage() {
     onSuccess: async (created) => {
       queryClient.invalidateQueries({ queryKey: ["notes", pet?.id] });
       await attachment.uploadForEntry(created.id);
+      saved.show();
     }
   });
   const update = useMutation({
@@ -82,9 +87,10 @@ export default function NotePage() {
         <textarea className="input min-h-32" name="note" placeholder={t("notePlaceholder")} required />
         <ActionAttachmentPicker visible={isAdmin} file={attachment.file} disabled={add.isPending || attachment.isUploading} isPreparing={attachment.isUploading} uploadError={attachment.error} onFileChange={attachment.selectFile} onClear={attachment.clearFile} />
         <button className="btn btn-primary" disabled={add.isPending || attachment.isUploading}>{t("add")}</button>
+        <SuccessFlash show={saved.visible} />
         <RequestError error={add.error} />
       </form>
-      {entries.isLoading && <div className="panel text-center">{t("loading")}</div>}
+      {entries.isLoading && <SkeletonBlock rows={3} />}
       {entries.error && <div className="panel text-coral"><RequestError error={entries.error} /></div>}
       {entries.items.length ? (
         <>

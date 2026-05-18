@@ -124,6 +124,48 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes success-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes skeleton-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
 .safe-bottom {
   padding-bottom: max(env(safe-area-inset-bottom), var(--tg-safe-bottom), var(--tg-content-safe-bottom));
 }
@@ -181,6 +223,41 @@ body {
   .muted {
     @apply text-sm leading-6 text-zinc-600 dark:text-zinc-400;
   }
+  .success-flash {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-mint/25 bg-mint/10 px-3 py-2 text-sm font-bold text-mint;
+    animation: success-pop 150ms ease-out both;
+  }
+  .skeleton-line {
+    @apply relative h-4 overflow-hidden rounded-full bg-zinc-200/80 dark:bg-zinc-800;
+  }
+  .skeleton-line::after {
+    @apply absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent dark:via-white/10;
+    content: "";
+    animation: skeleton-sweep 1.4s ease-in-out infinite;
+  }
+}
+
+.app-shell > main {
+  animation: page-enter 160ms ease-out both;
+}
+
+.app-shell main > .panel,
+.app-shell main > form.panel,
+.app-shell main > section.panel,
+.app-shell main > header.panel {
+  animation: card-enter 180ms ease-out both;
+}
+
+.app-shell main > .panel:nth-child(2),
+.app-shell main > form.panel:nth-child(2),
+.app-shell main > section.panel:nth-child(2) {
+  animation-delay: 25ms;
+}
+
+.app-shell main > .panel:nth-child(3),
+.app-shell main > form.panel:nth-child(3),
+.app-shell main > section.panel:nth-child(3) {
+  animation-delay: 50ms;
 }
 
 .btn > svg {
@@ -199,6 +276,25 @@ body {
   text-align: center;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .app-shell > main,
+  .app-shell main > .panel,
+  .app-shell main > form.panel,
+  .app-shell main > section.panel,
+  .app-shell main > header.panel {
+    animation: none !important;
+  }
 }
 
 @media (max-width: 360px) {

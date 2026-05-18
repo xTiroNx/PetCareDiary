@@ -8,6 +8,7 @@ import { EmptyState } from "../components/EmptyState";
 import { LoadMore } from "../components/LoadMore";
 import { RequestError } from "../components/RequestError";
 import { SelectField } from "../components/SelectField";
+import { SkeletonBlock } from "../components/SkeletonBlock";
 import { usePaginatedApi } from "../hooks/usePaginatedApi";
 import { useAppStore } from "../store/appStore";
 import { localDateTimeInputToUtcIso, localDateTimeInputValue } from "../utils/dateTime";
@@ -141,7 +142,7 @@ export default function RemindersPage() {
         <button className="btn btn-primary">{t("create")}</button>
         <RequestError error={add.error} />
       </form>
-      {reminders.isLoading && <div className="panel text-center">{t("loading")}</div>}
+      {reminders.isLoading && <SkeletonBlock rows={4} />}
       {reminders.error && <div className="panel text-coral"><RequestError error={reminders.error} /></div>}
       {reminders.items.length ? (
         <>

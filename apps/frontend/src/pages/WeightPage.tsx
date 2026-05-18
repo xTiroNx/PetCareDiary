@@ -8,8 +8,11 @@ import { DateField } from "../components/DateField";
 import { EmptyState } from "../components/EmptyState";
 import { LoadMore } from "../components/LoadMore";
 import { RequestError } from "../components/RequestError";
+import { SkeletonBlock } from "../components/SkeletonBlock";
+import { SuccessFlash } from "../components/SuccessFlash";
 import { useEntryAttachmentUpload } from "../hooks/useEntryAttachmentUpload";
 import { usePaginatedApi } from "../hooks/usePaginatedApi";
+import { useSuccessFlash } from "../hooks/useSuccessFlash";
 import { useAppStore } from "../store/appStore";
 import { localDateInputValue } from "../utils/dateTime";
 import { languageLocale, useI18n } from "../utils/i18n";
@@ -91,6 +94,7 @@ export default function WeightPage() {
   const isAdmin = useAppStore((state) => state.isAdmin);
   const queryClient = useQueryClient();
   const attachment = useEntryAttachmentUpload("WEIGHT", pet?.id, t);
+  const saved = useSuccessFlash();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<WeightDraft | null>(null);
   const entries = usePaginatedApi<WeightEntry>(["weights", pet?.id], `/api/weights?petId=${pet?.id ?? ""}`, Boolean(pet));
@@ -99,6 +103,7 @@ export default function WeightPage() {
     onSuccess: async (created) => {
       queryClient.invalidateQueries({ queryKey: ["weights", pet?.id] });
       await attachment.uploadForEntry(created.id);
+      saved.show();
     }
   });
   const update = useMutation({
@@ -150,13 +155,14 @@ export default function WeightPage() {
         <input className="input" name="weightKg" type="number" step="0.1" placeholder={t("weightKg")} required />
         <ActionAttachmentPicker visible={isAdmin} file={attachment.file} disabled={add.isPending || attachment.isUploading} isPreparing={attachment.isUploading} uploadError={attachment.error} onFileChange={attachment.selectFile} onClear={attachment.clearFile} />
         <button className="btn btn-primary" disabled={add.isPending || attachment.isUploading}>{t("add")}</button>
+        <SuccessFlash show={saved.visible} />
         <RequestError error={add.error} />
       </form>
       <section className="panel">
         <h2 className="section-title">{t("weightChart")}</h2>
         <WeightChart values={chartValues} locale={languageLocale(language)} />
       </section>
-      {entries.isLoading && <div className="panel text-center">{t("loading")}</div>}
+      {entries.isLoading && <SkeletonBlock rows={3} />}
       {entries.error && <div className="panel text-coral"><RequestError error={entries.error} /></div>}
       {entries.items.length ? (
         <>

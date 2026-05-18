@@ -8,8 +8,11 @@ import { DateTimeFields } from "../components/DateTimeFields";
 import { EmptyState } from "../components/EmptyState";
 import { LoadMore } from "../components/LoadMore";
 import { RequestError } from "../components/RequestError";
+import { SkeletonBlock } from "../components/SkeletonBlock";
+import { SuccessFlash } from "../components/SuccessFlash";
 import { useEntryAttachmentUpload } from "../hooks/useEntryAttachmentUpload";
 import { usePaginatedApi } from "../hooks/usePaginatedApi";
+import { useSuccessFlash } from "../hooks/useSuccessFlash";
 import { useAppStore } from "../store/appStore";
 import { localDateTimeInputToUtcIso, localDateTimeInputValue } from "../utils/dateTime";
 import { languageLocale, useI18n } from "../utils/i18n";
@@ -23,6 +26,7 @@ export default function MedicinesPage() {
   const isAdmin = useAppStore((state) => state.isAdmin);
   const queryClient = useQueryClient();
   const attachment = useEntryAttachmentUpload("MEDICINE", pet?.id, t);
+  const saved = useSuccessFlash();
   const now = localDateTimeInputValue();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<MedicineDraft | null>(null);
@@ -32,6 +36,7 @@ export default function MedicinesPage() {
     onSuccess: async (created) => {
       queryClient.invalidateQueries({ queryKey: ["medicines", pet?.id] });
       await attachment.uploadForEntry(created.id);
+      saved.show();
     }
   });
   const mark = useMutation({ mutationFn: (entry: MedicineEntry) => api(`/api/medicines/${entry.id}/taken`, { method: "PATCH", body: jsonBody({ taken: !entry.taken }) }), onSuccess: () => queryClient.invalidateQueries({ queryKey: ["medicines", pet?.id] }) });
@@ -88,9 +93,10 @@ export default function MedicinesPage() {
         <textarea className="input" name="note" placeholder={t("comment")} />
         <ActionAttachmentPicker visible={isAdmin} file={attachment.file} disabled={add.isPending || attachment.isUploading} isPreparing={attachment.isUploading} uploadError={attachment.error} onFileChange={attachment.selectFile} onClear={attachment.clearFile} />
         <button className="btn btn-primary" disabled={add.isPending || attachment.isUploading}>{t("add")}</button>
+        <SuccessFlash show={saved.visible} />
         <RequestError error={add.error} />
       </form>
-      {entries.isLoading && <div className="panel text-center">{t("loading")}</div>}
+      {entries.isLoading && <SkeletonBlock rows={3} />}
       {entries.error && <div className="panel text-coral"><RequestError error={entries.error} /></div>}
       {entries.items.length ? (
         <>

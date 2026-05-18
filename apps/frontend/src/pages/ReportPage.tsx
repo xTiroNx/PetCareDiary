@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Download } from "lucide-react";
 import { API_URL, api, apiBlob } from "../api/client";
 import { SelectField } from "../components/SelectField";
+import { SkeletonBlock } from "../components/SkeletonBlock";
 import { useAppStore } from "../store/appStore";
 import { useI18n } from "../utils/i18n";
 import { downloadTelegramFile, getInitData, isTelegram } from "../utils/telegram";
@@ -159,7 +160,7 @@ export default function ReportPage() {
           <option value="7">{t("days7")}</option><option value="14">{t("days14")}</option><option value="30">{t("days30")}</option><option value="90">{t("days90")}</option><option value="all">{t("allPeriod")}</option>
         </SelectField>
       </div>
-      <section className="panel grid grid-cols-2 gap-3 text-center">
+      {report.isLoading ? <SkeletonBlock rows={5} /> : <section className="panel grid grid-cols-2 gap-3 text-center">
         <div className="rounded-lg bg-zinc-50 p-3 dark:bg-zinc-950"><p className="text-2xl font-bold">{report.data?.counts.feeding ?? 0}</p><p className="mt-1 text-[11px] font-semibold leading-tight text-zinc-500">{t("feedingsCount")}</p></div>
         <div className="rounded-lg bg-zinc-50 p-3 dark:bg-zinc-950"><p className="text-2xl font-bold">{report.data?.counts.water ?? 0}</p><p className="mt-1 text-[11px] font-semibold leading-tight text-zinc-500">{t("waterTitle")}</p></div>
         <div className="rounded-lg bg-zinc-50 p-3 dark:bg-zinc-950"><p className="text-2xl font-bold">{report.data?.counts.symptoms ?? 0}</p><p className="mt-1 text-[11px] font-semibold leading-tight text-zinc-500">{t("symptomsCount")}</p></div>
@@ -167,7 +168,7 @@ export default function ReportPage() {
         <div className="rounded-lg bg-zinc-50 p-3 dark:bg-zinc-950"><p className="text-2xl font-bold">{report.data?.counts.weights ?? 0}</p><p className="mt-1 text-[11px] font-semibold leading-tight text-zinc-500">{t("weightCount")}</p></div>
         <div className="rounded-lg bg-zinc-50 p-3 dark:bg-zinc-950"><p className="text-2xl font-bold">{report.data?.counts.vaccinations ?? 0}</p><p className="mt-1 text-[11px] font-semibold leading-tight text-zinc-500">{t("vaccinations")}</p></div>
         <div className="col-span-2 rounded-lg bg-zinc-50 p-3 dark:bg-zinc-950"><p className="text-2xl font-bold">{report.data?.counts.notes ?? 0}</p><p className="mt-1 text-[11px] font-semibold leading-tight text-zinc-500">{t("notesCount")}</p></div>
-      </section>
+      </section>}
       <section className="panel space-y-3">
         <div>
           <p className="section-title">{t("exportPdf")}</p>
@@ -181,7 +182,7 @@ export default function ReportPage() {
       </section>
       <section className="panel space-y-3">
         <h2 className="text-lg font-extrabold">{report.data?.petName ?? t("reportTitle")}</h2>
-        {report.isLoading ? <p className="muted">{t("loading")}</p> : null}
+        {report.isLoading ? <SkeletonBlock rows={3} className="border-0 bg-transparent p-0 shadow-none" /> : null}
         {report.error ? <p className="text-sm font-semibold text-coral">{report.error.message}</p> : null}
         {report.data ? (
           <div className="space-y-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">

@@ -101,7 +101,7 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     if (typeof init?.body === "string") providerRequests.push(JSON.parse(init.body));
     return new Response(JSON.stringify({
       choices: [
-        { message: { content: "<think>hidden reasoning</think>- Brief takeaway: keep observing appetite patterns.\n- Ask the veterinarian about appetite changes." } }
+        { message: { content: "<think>hidden reasoning</think>* Brief takeaway: keep observing appetite patterns.\n* Ask the veterinarian about appetite changes.\nPlease remember that I am not a veterinarian and this does not replace veterinary care." } }
       ]
     }), {
       status: 200,
@@ -184,12 +184,17 @@ try {
   const activeBody = active.body as { answer?: unknown; disclaimer?: unknown; usedPeriod?: unknown };
   assert(typeof activeBody.answer === "string" && activeBody.answer.includes("veterinarian"), "Expected AI answer text.");
   assert(!activeBody.answer.includes("<think>"), "Expected AI answer to be sanitized.");
+  assert(!activeBody.answer.includes("* Brief takeaway"), "Expected markdown star bullets to be normalized.");
+  assert(activeBody.answer.includes("- Brief takeaway"), "Expected dash bullets in sanitized answer.");
+  assert(!/not a veterinarian|does not replace veterinary care/i.test(activeBody.answer), "Expected final boilerplate disclaimer to be stripped from answer.");
   assert(typeof activeBody.disclaimer === "string" && activeBody.disclaimer.length > 0, "Expected disclaimer.");
   assert(activeBody.usedPeriod === 7, "Expected usedPeriod to reflect request period.");
   const generalHelpRequest = providerRequests.at(-1) as { max_completion_tokens?: number; max_tokens?: number; messages?: Array<{ content?: string }> } | undefined;
   const tokenLimit = generalHelpRequest?.max_completion_tokens ?? generalHelpRequest?.max_tokens;
   assert(tokenLimit === 1100, `Expected AI token limit to be 1100, got ${tokenLimit}`);
   assert(generalHelpRequest.messages?.[0]?.content?.includes("not overly terse"), "Expected system prompt to allow more useful answers.");
+  assert(generalHelpRequest.messages?.[0]?.content?.includes("Do not include a final medical disclaimer"), "Expected system prompt to suppress duplicate disclaimer.");
+  assert(generalHelpRequest.messages?.[0]?.content?.includes("Use '-' for bullet points"), "Expected system prompt to require dash bullets.");
 
   const paid = await postAssistant({ telegramId: Number(paidUser.telegramId), petId: "pet-paid", mode: "VET_QUESTIONS" });
   assert(paid.status === 200, `Expected paid non-admin user to access AI assistant, got ${paid.status}`);

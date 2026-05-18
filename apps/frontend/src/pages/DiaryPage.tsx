@@ -12,6 +12,7 @@ import { LoadMore } from "../components/LoadMore";
 import { RequestError } from "../components/RequestError";
 import { SelectField } from "../components/SelectField";
 import { SeverityScale } from "../components/SeverityScale";
+import { SkeletonBlock } from "../components/SkeletonBlock";
 import { usePaginatedApi } from "../hooks/usePaginatedApi";
 import { useAppStore } from "../store/appStore";
 import { localDateInputValue, localDateTimeInputToUtcIso, localDateTimeInputValue } from "../utils/dateTime";
@@ -419,7 +420,7 @@ export default function DiaryPage() {
           <h2 className="section-title">{t("allRecords")}</h2>
           <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-ink dark:bg-zinc-900 dark:text-white">{timeline.length}</span>
         </div>
-        {isLoading ? <div className="panel text-center">{t("loading")}</div> : null}
+        {isLoading ? <SkeletonBlock rows={4} /> : null}
         {!isLoading && !timeline.length ? <EmptyState title={t("emptyTitle")} text={t("noRecordsFiltered")} /> : null}
         {timeline.map((entry) => {
           const Icon = iconByType[entry.type];

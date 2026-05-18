@@ -9,6 +9,7 @@ import { AccessBadge } from "../components/AccessBadge";
 import { AdminVoiceCommand } from "../components/AdminVoiceCommand";
 import { EmptyState } from "../components/EmptyState";
 import { LoadMore } from "../components/LoadMore";
+import { SkeletonBlock } from "../components/SkeletonBlock";
 import { usePaginatedApi } from "../hooks/usePaginatedApi";
 import { useAppStore } from "../store/appStore";
 import { languageLocale, useI18n } from "../utils/i18n";
@@ -125,7 +126,7 @@ export default function AdminPage() {
         </button>
       </form>
 
-      {isLoading && <section className="panel text-center">{t("loading")}</section>}
+      {isLoading && <SkeletonBlock rows={5} />}
       {error && <section className="panel text-coral">{error.message}</section>}
       {!isLoading && !users.length && <EmptyState title={t("emptyTitle")} text={t("adminNoUsers")} />}
 
@@ -244,7 +245,7 @@ function AdminAnalyticsPanel({
         <p className="mt-1 break-words">aff_en · aff_fr · aff_es · aff_ru · aff_de · aff_it · telegram_ads · profile_button · direct</p>
       </div>
 
-      {summaryLoading && <div className="rounded-lg bg-zinc-50 p-3 text-center text-sm dark:bg-zinc-950">Загружаем аналитику...</div>}
+      {summaryLoading && <SkeletonBlock rows={5} className="border-0 bg-transparent p-0 shadow-none" />}
       {summaryError && <div className="rounded-lg bg-coral/10 p-3 text-sm font-semibold text-coral">{summaryError.message}</div>}
       {!summaryLoading && !summaryError && !summary ? <EmptyState title="Пока нет данных" text="Аналитика появится после первых событий." /> : null}
 
@@ -371,7 +372,7 @@ function LatestEventsTable({ events, error, loading }: { events: AnalyticsEvent[
   return (
     <div className="space-y-2">
       <h2 className="section-title">Последние события</h2>
-      {loading && <div className="rounded-lg bg-zinc-50 p-3 text-center text-sm dark:bg-zinc-950">Загружаем события...</div>}
+      {loading && <SkeletonBlock rows={4} className="border-0 bg-transparent p-0 shadow-none" />}
       {error && <div className="rounded-lg bg-coral/10 p-3 text-sm font-semibold text-coral">{error.message}</div>}
       {!loading && !error && !events.length ? <EmptyState title="Событий нет" text="Последние события появятся после трекинга." /> : null}
       {events.length ? (

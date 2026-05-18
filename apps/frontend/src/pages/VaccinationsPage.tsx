@@ -9,8 +9,11 @@ import { EmptyState } from "../components/EmptyState";
 import { LoadMore } from "../components/LoadMore";
 import { RequestError } from "../components/RequestError";
 import { SelectField } from "../components/SelectField";
+import { SkeletonBlock } from "../components/SkeletonBlock";
+import { SuccessFlash } from "../components/SuccessFlash";
 import { useEntryAttachmentUpload } from "../hooks/useEntryAttachmentUpload";
 import { usePaginatedApi } from "../hooks/usePaginatedApi";
+import { useSuccessFlash } from "../hooks/useSuccessFlash";
 import { useAppStore } from "../store/appStore";
 import { localDateInputValue } from "../utils/dateTime";
 import { languageLocale, useI18n } from "../utils/i18n";
@@ -50,6 +53,7 @@ export default function VaccinationsPage() {
   const isAdmin = useAppStore((state) => state.isAdmin);
   const queryClient = useQueryClient();
   const attachment = useEntryAttachmentUpload("VACCINATION", pet?.id, t);
+  const saved = useSuccessFlash();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<VaccinationDraft | null>(null);
   const typeLabels: Record<string, string> = {
@@ -67,6 +71,7 @@ export default function VaccinationsPage() {
       queryClient.invalidateQueries({ queryKey: ["reminders", pet?.id] });
       queryClient.invalidateQueries({ queryKey: ["report", pet?.id] });
       await attachment.uploadForEntry(created.id);
+      saved.show();
     }
   });
   const update = useMutation({
@@ -152,10 +157,11 @@ export default function VaccinationsPage() {
         <textarea className="input" name="note" placeholder={t("note")} />
         <ActionAttachmentPicker visible={isAdmin} file={attachment.file} disabled={add.isPending || attachment.isUploading} isPreparing={attachment.isUploading} uploadError={attachment.error} onFileChange={attachment.selectFile} onClear={attachment.clearFile} />
         <button className="btn btn-primary" disabled={add.isPending || attachment.isUploading}><CalendarCheck size={17} />{t("add")}</button>
+        <SuccessFlash show={saved.visible} />
         <RequestError error={add.error} />
       </form>
 
-      {entries.isLoading && <div className="panel text-center">{t("loading")}</div>}
+      {entries.isLoading && <SkeletonBlock rows={3} />}
       {entries.error && <div className="panel text-coral"><RequestError error={entries.error} /></div>}
       {entries.items.length ? (
         <>

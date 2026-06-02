@@ -40,15 +40,15 @@ export default function DashboardPage() {
       <AccessNotice />
       <section className="panel p-3.5">
         <h2 className="section-title mb-3">{t("quickActions")}</h2>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2 min-[900px]:grid-cols-3">
           <Link className="btn btn-primary quick-action" to="/feeding"><Utensils size={18} />{t("feeding")}</Link>
           <Link className="btn btn-secondary quick-action" to="/water"><Droplets size={18} />{t("water")}</Link>
           <Link className="btn btn-secondary quick-action" to="/medicines"><Pill size={18} />{t("medicine")}</Link>
           <Link className="btn btn-secondary quick-action" to="/symptoms"><HeartPulse size={18} />{t("symptom")}</Link>
           <Link className="btn btn-secondary quick-action" to="/weight"><Scale size={18} />{t("weight")}</Link>
           <Link className="btn btn-secondary quick-action" to="/vaccinations"><CalendarCheck size={18} />{t("vaccination")}</Link>
-          <Link className="btn btn-secondary quick-action col-span-2 min-h-[50px]" to="/notes"><FileText size={18} />{t("otherNote")}</Link>
-          {hasActiveAccess && <Link className="btn btn-secondary quick-action col-span-2 min-h-[50px]" to="/ai"><Bot size={18} />{t("aiAssistant")}</Link>}
+          <Link className="btn btn-secondary quick-action col-span-2 min-h-[50px] min-[900px]:col-span-1" to="/notes"><FileText size={18} />{t("otherNote")}</Link>
+          {hasActiveAccess && <Link className="btn btn-secondary quick-action col-span-2 min-h-[50px] min-[900px]:col-span-1" to="/ai"><Bot size={18} />{t("aiAssistant")}</Link>}
         </div>
       </section>
       {hasActiveAccess && <VoiceCommand endpoint="/api/voice/command" />}

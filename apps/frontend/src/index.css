@@ -332,3 +332,21 @@ body {
     width: 100%;
   }
 }
+
+@media (min-width: 900px) {
+  :root {
+    --app-inline-padding: 1.5rem;
+  }
+
+  .app-shell {
+    max-width: min(1040px, calc(100vw - 3rem));
+  }
+
+  .bottom-nav {
+    left: 50%;
+    right: auto;
+    width: min(640px, calc(100vw - 3rem));
+    max-width: 640px;
+    transform: translateX(-50%);
+  }
+}

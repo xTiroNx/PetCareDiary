@@ -1,0 +1,8 @@
+[Unit]
+Description=PetCare Diary PostgreSQL backup
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/petcare-postgres-backup

@@ -100,6 +100,11 @@ function isUniqueConflict(error: unknown) {
   return typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "P2002";
 }
 
+function errorDetails(error: unknown) {
+  if (!(error instanceof Error)) return { error: "unknown" };
+  return { error: error.name, message: error.message };
+}
+
 async function createAccessNotificationLog(input: {
   userId: string;
   type: AccessNotificationType;
@@ -159,7 +164,14 @@ async function sendLoggedAccessNotification(input: {
 }) {
   const alreadySent = await hasAccessNotificationLog({ userId: input.user.id, type: input.type, dayKey: input.dayKey });
   if (alreadySent) return false;
-  await sendTelegramMessage(input.user.telegramId, accessNotificationMessage(input.type, input.date));
+  try {
+    await sendTelegramMessage(input.user.telegramId, accessNotificationMessage(input.type, input.date));
+  } catch (error) {
+    // Avoid retrying the same expired/trial access notification every scheduler tick
+    // when Telegram can no longer deliver to a chat.
+    await createAccessNotificationLog({ userId: input.user.id, type: input.type, dayKey: input.dayKey });
+    throw error;
+  }
   return createAccessNotificationLog({ userId: input.user.id, type: input.type, dayKey: input.dayKey });
 }
 
@@ -250,7 +262,7 @@ async function processAccessNotifications(now = new Date()) {
         date: user.trialEndsAt
       })) processed += 1;
     } catch (error) {
-      console.warn(JSON.stringify({ event: "access_notification_failed", userId: user.id, type: "TRIAL_ENDING_SOON", error: error instanceof Error ? error.name : "unknown" }));
+      console.warn(JSON.stringify({ event: "access_notification_failed", userId: user.id, type: "TRIAL_ENDING_SOON", ...errorDetails(error) }));
     }
   }
 
@@ -263,7 +275,7 @@ async function processAccessNotifications(now = new Date()) {
         date: user.accessUntil
       })) processed += 1;
     } catch (error) {
-      console.warn(JSON.stringify({ event: "access_notification_failed", userId: user.id, type: "PAID_ENDING_SOON", error: error instanceof Error ? error.name : "unknown" }));
+      console.warn(JSON.stringify({ event: "access_notification_failed", userId: user.id, type: "PAID_ENDING_SOON", ...errorDetails(error) }));
     }
   }
 
@@ -277,7 +289,7 @@ async function processAccessNotifications(now = new Date()) {
         date: accessEndedAt
       })) processed += 1;
     } catch (error) {
-      console.warn(JSON.stringify({ event: "access_notification_failed", userId: user.id, type: "ACCESS_EXPIRED", error: error instanceof Error ? error.name : "unknown" }));
+      console.warn(JSON.stringify({ event: "access_notification_failed", userId: user.id, type: "ACCESS_EXPIRED", ...errorDetails(error) }));
     }
   }
 
@@ -317,7 +329,7 @@ export async function sendPaymentReceiptNotification(paymentId: string) {
     console.warn(JSON.stringify({
       event: "payment_receipt_notification_failed",
       paymentId,
-      error: error instanceof Error ? error.name : "unknown"
+      ...errorDetails(error)
     }));
     return false;
   }

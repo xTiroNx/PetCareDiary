@@ -50,6 +50,14 @@ const attachmentEntrySchema = z.object({
   entryId: z.string().min(1).max(128)
 }).strict();
 
+const attachmentBatchSchema = z.object({
+  petId: z.string().min(1).max(128),
+  entries: z.array(z.object({
+    entryType: entryTypeSchema,
+    entryId: z.string().min(1).max(128)
+  }).strict()).max(500)
+}).strict();
+
 const attachmentUploadMetadataSchema = attachmentEntrySchema.extend({
   fileName: z.string().min(1).max(240),
   mimeType: z.string().min(1).max(100),
@@ -130,6 +138,33 @@ router.get("/", async (req, res, next) => {
       orderBy: { createdAt: "asc" }
     });
     res.json(attachments.map(serializeAttachment));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/batch", async (req, res, next) => {
+  try {
+    const body = attachmentBatchSchema.parse(req.body);
+    const uniqueEntries = Array.from(
+      new Map(body.entries.map((entry) => [`${entry.entryType}:${entry.entryId}`, entry])).values()
+    );
+
+    if (!uniqueEntries.length) {
+      res.json({ items: [] });
+      return;
+    }
+
+    const attachments = await prisma.attachment.findMany({
+      where: {
+        userId: req.user!.id,
+        petId: body.petId,
+        OR: uniqueEntries.map((entry) => ({ entryType: entry.entryType, entryId: entry.entryId }))
+      },
+      orderBy: { createdAt: "asc" }
+    });
+
+    res.json({ items: attachments.map(serializeAttachment) });
   } catch (error) {
     next(error);
   }

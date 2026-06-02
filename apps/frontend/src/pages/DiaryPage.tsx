@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarCheck, CalendarDays, Droplets, Edit3, FileText, HeartPulse, Pill, Save, Scale, Trash2, Utensils, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import clsx from "clsx";
@@ -16,6 +16,7 @@ import { SkeletonBlock } from "../components/SkeletonBlock";
 import { usePaginatedApi } from "../hooks/usePaginatedApi";
 import { useAppStore } from "../store/appStore";
 import { localDateInputValue, localDateTimeInputToUtcIso, localDateTimeInputValue } from "../utils/dateTime";
+import type { Attachment } from "../utils/attachments";
 import { languageLocale, useI18n } from "../utils/i18n";
 
 type DiaryType = "ALL" | "FEEDING" | "WATER" | "SYMPTOM" | "MEDICINE" | "WEIGHT" | "VACCINATION" | "NOTE";
@@ -50,6 +51,8 @@ type TimelineEntry = {
 };
 
 type EditDraft = Record<string, string | boolean>;
+type AttachmentBatchResponse = { items: Attachment[] };
+const EMPTY_ATTACHMENTS: Attachment[] = [];
 
 function toApiDate(value: string, endOfDay = false) {
   if (!value) return "";
@@ -69,6 +72,10 @@ function localDateToUtcIso(value: string | null | undefined) {
 
 function vaccinationTitle(entry: VaccinationEntry) {
   return entry.title ?? entry.name ?? entry.productName ?? "";
+}
+
+function attachmentEntryKey(entryType: string, entryId: string) {
+  return `${entryType}:${entryId}`;
 }
 
 export default function DiaryPage() {
@@ -191,6 +198,31 @@ export default function DiaryPage() {
       .filter((entry) => type === "ALL" || entry.type === type)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [feeding.items, labels.food, labels.procedure, labels.symptom, language, medicines.items, notes.items, symptoms.items, t, type, vaccinations.items, water.items, weights.items]);
+
+  const attachmentEntries = useMemo(() => {
+    return timeline.map((entry) => ({ entryType: entry.type, entryId: entry.id }));
+  }, [timeline]);
+  const attachmentEntriesKey = useMemo(() => {
+    return attachmentEntries.map((entry) => attachmentEntryKey(entry.entryType, entry.entryId)).join("|");
+  }, [attachmentEntries]);
+  const timelineAttachments = useQuery({
+    queryKey: ["diary-attachments", pet?.id, attachmentEntriesKey],
+    queryFn: () => api<AttachmentBatchResponse>("/api/attachments/batch", {
+      method: "POST",
+      body: jsonBody({ petId: pet!.id, entries: attachmentEntries })
+    }),
+    enabled: Boolean(pet) && attachmentEntries.length > 0,
+    staleTime: 60_000,
+    retry: false
+  });
+  const attachmentsByEntry = useMemo(() => {
+    const grouped = new Map<string, Attachment[]>();
+    for (const attachment of timelineAttachments.data?.items ?? []) {
+      const key = attachmentEntryKey(attachment.entryType, attachment.entryId);
+      grouped.set(key, [...(grouped.get(key) ?? []), attachment]);
+    }
+    return grouped;
+  }, [timelineAttachments.data?.items]);
 
   const activeSources = [feeding, water, symptoms, medicines, weights, vaccinations, notes].filter((source) => source.isEnabled);
   const isLoading = activeSources.some((source) => source.isLoading);
@@ -446,7 +478,15 @@ export default function DiaryPage() {
                 <p className="mt-1 text-xs text-zinc-500">{new Date(entry.date).toLocaleString(languageLocale(language))}</p>
                 {entry.note ? <p className="mt-2 text-sm">{entry.note}</p> : null}
                 {editing?.id === entry.id && editing.type === entry.type ? renderEditForm(entry) : null}
-                {pet && <AttachmentManager petId={pet.id} entryType={entry.type} entryId={entry.id} visible />}
+                {pet && (
+                  <AttachmentManager
+                    petId={pet.id}
+                    entryType={entry.type}
+                    entryId={entry.id}
+                    visible
+                    initialAttachments={attachmentsByEntry.get(attachmentEntryKey(entry.type, entry.id)) ?? EMPTY_ATTACHMENTS}
+                  />
+                )}
               </div>
             </article>
           );

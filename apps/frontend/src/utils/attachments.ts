@@ -17,6 +17,8 @@ export type AttachmentUploadPayload = {
 
 export type Attachment = {
   id: string;
+  entryType: AttachmentEntryType;
+  entryId: string;
   fileName: string;
   mimeType: string;
   sizeBytes: number;

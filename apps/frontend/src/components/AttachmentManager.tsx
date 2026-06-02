@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText, Image, Paperclip, Trash2, Upload, X } from "lucide-react";
-import { ChangeEvent, useEffect, useRef, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { api } from "../api/client";
 import {
@@ -21,6 +21,7 @@ type Props = {
   entryType: string;
   entryId: string;
   visible: boolean;
+  initialAttachments?: Attachment[];
 };
 
 function attachmentQuery(petId: string, entryType: string, entryId: string) {
@@ -34,7 +35,8 @@ function AttachmentThumb({ attachment }: { attachment: Attachment }) {
     queryKey: ["attachment-file", attachment.id],
     queryFn: () => fetchAttachmentBlob(attachment.id),
     enabled: isImage,
-    staleTime: 5 * 60_000
+    staleTime: 5 * 60_000,
+    retry: false
   });
 
   useEffect(() => {
@@ -55,30 +57,45 @@ function AttachmentThumb({ attachment }: { attachment: Attachment }) {
   return <img alt="" className="h-12 w-12 rounded-md object-cover" src={objectUrl} />;
 }
 
-export function AttachmentManager({ petId, entryType, entryId, visible }: Props) {
+export function AttachmentManager({ petId, entryType, entryId, visible, initialAttachments }: Props) {
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [validationError, setValidationError] = useState<Error | null>(null);
   const [openError, setOpenError] = useState<Error | null>(null);
   const [preview, setPreview] = useState<{ attachment: Attachment; url: string } | null>(null);
-  const queryKey = ["attachments", entryType, entryId];
+  const queryKey = useMemo(() => ["attachments", entryType, entryId], [entryType, entryId]);
   const attachments = useQuery({
     queryKey,
     queryFn: () => api<Attachment[]>(`/api/attachments?${attachmentQuery(petId, entryType, entryId)}`),
-    enabled: visible
+    enabled: visible && initialAttachments === undefined,
+    initialData: initialAttachments,
+    staleTime: 60_000,
+    retry: false
   });
   const upload = useMutation({
     mutationFn: (file: File) => uploadEntryAttachment({ petId, entryType: entryType as AttachmentEntryType, entryId, file }),
-    onSuccess: () => {
+    onSuccess: (attachment) => {
+      queryClient.setQueryData<Attachment[]>(queryKey, (current = []) => [
+        ...current.filter((item) => item.id !== attachment.id),
+        attachment
+      ]);
       if (inputRef.current) inputRef.current.value = "";
-      void queryClient.invalidateQueries({ queryKey });
+      void queryClient.invalidateQueries({ queryKey: ["diary-attachments"] });
     }
   });
   const remove = useMutation({
     mutationFn: (id: string) => api<void>(`/api/attachments/${id}`, { method: "DELETE" }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey })
+    onSuccess: (_data, id) => {
+      queryClient.setQueryData<Attachment[]>(queryKey, (current = []) => current.filter((item) => item.id !== id));
+      void queryClient.invalidateQueries({ queryKey: ["diary-attachments"] });
+    }
   });
+
+  useEffect(() => {
+    if (initialAttachments === undefined) return;
+    queryClient.setQueryData(queryKey, initialAttachments);
+  }, [initialAttachments, queryClient, queryKey]);
 
   useEffect(() => {
     return () => {
@@ -87,6 +104,7 @@ export function AttachmentManager({ petId, entryType, entryId, visible }: Props)
   }, [preview?.url]);
 
   if (!visible) return null;
+  const attachmentItems = attachments.data ?? initialAttachments ?? [];
 
   function onFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -146,9 +164,9 @@ export function AttachmentManager({ petId, entryType, entryId, visible }: Props)
       </div>
       <p className="mt-1 text-[11px] font-semibold leading-4 text-zinc-500">{t("attachmentUploadHint")}</p>
       {attachments.isLoading ? <p className="mt-2 text-xs text-zinc-500">{t("loading")}</p> : null}
-      {attachments.data?.length ? (
+      {attachmentItems.length ? (
         <div className="mt-2 grid gap-2">
-          {attachments.data.map((attachment) => (
+          {attachmentItems.map((attachment) => (
             <div className="flex items-center gap-2 rounded-md bg-white p-2 dark:bg-zinc-900" key={attachment.id}>
               <AttachmentThumb attachment={attachment} />
               <button className="min-w-0 flex-1 text-left" type="button" onClick={() => void openAttachment(attachment)}>

@@ -87,6 +87,7 @@ model User {
   lastSeenAt      DateTime?
   trialStartedAt DateTime
   trialEndsAt    DateTime
+  reactivationTrialGrantedAt DateTime?
   accessUntil    DateTime?
   lifetimeAccess Boolean         @default(false)
   pets           Pet[]

@@ -59,7 +59,7 @@ export default function OnboardingPage() {
         }
       }
       setPet(nextPet);
-      navigate("/");
+      navigate("/?welcome=1");
     } catch {
       // RequestError below renders the API failure from the mutation.
     }
@@ -88,7 +88,7 @@ export default function OnboardingPage() {
         <AvatarFilePicker file={avatarFile} disabled={isSaving} uploadError={avatarError} onFileChange={setAvatarFile} onClear={() => setAvatarFile(null)} />
         <button className="btn btn-primary w-full" disabled={isSaving || Boolean(createdPetAfterAvatarFailure)}>{isSaving ? t("saving") : t("startDiary")}</button>
         {createdPetAfterAvatarFailure ? (
-          <button className="btn btn-secondary w-full" type="button" onClick={() => { setPet(createdPetAfterAvatarFailure); navigate("/"); }}>
+          <button className="btn btn-secondary w-full" type="button" onClick={() => { setPet(createdPetAfterAvatarFailure); navigate("/?welcome=1"); }}>
             {t("startDiary")}
           </button>
         ) : null}

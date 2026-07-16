@@ -10,6 +10,7 @@
     "security:smoke": "tsx scripts/security-smoke.ts",
     "payment:smoke": "tsx scripts/payment-hardening-smoke.ts",
     "payment:products-smoke": "tsx scripts/payment-products-smoke.ts",
+    "auth:reactivation-smoke": "tsx scripts/reactivation-trial-smoke.ts",
     "voice:parser-smoke": "tsx scripts/voice-parser-smoke.ts",
     "voice:golden-smoke": "tsx scripts/voice-parser-golden-smoke.ts",
     "voice:endpoint-smoke": "tsx scripts/voice-endpoint-smoke.ts",

@@ -254,6 +254,12 @@ export async function demoApi<T>(path: string, options: RequestInit = {}): Promi
     return pet as T;
   }
 
+  if (path === "/api/pets/onboarding-progress") {
+    const hasDiaryEntry = [store.feeding, store.symptoms, store.medicines, store.weights, store.notes, store.water, store.vaccinations]
+      .some((items) => items.length > 0);
+    return { hasPet: Boolean(store.pet), hasDiaryEntry, hasReminder: store.reminders.length > 0 } as T;
+  }
+
   if (path.startsWith("/api/pets/") && path.includes("/avatar")) {
     const url = new URL(path, "http://demo.local");
     const segments = url.pathname.split("/").filter(Boolean);
@@ -382,8 +388,8 @@ export async function demoApi<T>(path: string, options: RequestInit = {}): Promi
 
   if (path === "/api/payments/create-invoice") {
     const body = jsonBody(options);
-    const amounts: Record<string, number> = { MONTHLY: 205, SIX_MONTHS: 999, YEARLY: 1799, ADMIN_TEST_DAY: 1 };
-    return { invoiceLink: "https://t.me/$demo-invoice", amountStars: amounts[String(body.productType)] ?? 205 } as T;
+    const amounts: Record<string, number> = { MONTHLY: 149, SIX_MONTHS: 699, YEARLY: 1199, ADMIN_TEST_DAY: 1 };
+    return { invoiceLink: "https://t.me/$demo-invoice", amountStars: amounts[String(body.productType)] ?? 149 } as T;
   }
 
   if (path === "/api/ai/assistant") {

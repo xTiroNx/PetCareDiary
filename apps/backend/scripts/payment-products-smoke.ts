@@ -4,9 +4,9 @@ process.env.FRONTEND_URL ??= "http://localhost:5173";
 process.env.DATABASE_URL ??= "postgresql://user:password@localhost:5432/petcare";
 process.env.BOT_TOKEN ??= "123456:test_bot_token";
 process.env.BOT_USERNAME ??= "petcare_test_bot";
-process.env.MONTHLY_PRICE_STARS = "205";
-process.env.SIX_MONTHS_PRICE_STARS = "999";
-process.env.YEARLY_PRICE_STARS = "1799";
+process.env.MONTHLY_PRICE_STARS = "149";
+process.env.SIX_MONTHS_PRICE_STARS = "699";
+process.env.YEARLY_PRICE_STARS = "1199";
 
 const [{ prisma }, { createStarsInvoice, grantAccessForSuccessfulPayment }, { HttpError }] = await Promise.all([
   import("../src/prisma/client.js"),
@@ -56,9 +56,9 @@ async function assertInvoice(productType: ProductType, amountStars: number, isAd
   assert(request?.amount === amountStars, `Expected ${productType} invoice request amount ${amountStars}.`);
 }
 
-await assertInvoice("MONTHLY", 205);
-await assertInvoice("SIX_MONTHS", 999);
-await assertInvoice("YEARLY", 1799);
+await assertInvoice("MONTHLY", 149);
+await assertInvoice("SIX_MONTHS", 699);
+await assertInvoice("YEARLY", 1199);
 await expectHttpError("ADMIN_PAYMENT_PRODUCT_FORBIDDEN", () => createStarsInvoice("user-products-smoke", "ADMIN_TEST_DAY"));
 await assertInvoice("ADMIN_TEST_DAY", 1, true);
 await expectHttpError("PAYMENT_PRODUCT_UNAVAILABLE", () => createStarsInvoice("user-products-smoke", "LIFETIME" as ProductType));
@@ -119,9 +119,9 @@ async function assertGrantDuration(productType: ProductType, amountStars: number
   assert(updatedAccessUntil?.getTime() === activeUntil.getTime() + durationDays * 24 * 60 * 60 * 1000, `Expected ${productType} to extend by ${durationDays} days from active accessUntil.`);
 }
 
-await assertGrantDuration("MONTHLY", 205, 30);
-await assertGrantDuration("SIX_MONTHS", 999, 180);
-await assertGrantDuration("YEARLY", 1799, 365);
+await assertGrantDuration("MONTHLY", 149, 30);
+await assertGrantDuration("SIX_MONTHS", 699, 180);
+await assertGrantDuration("YEARLY", 1199, 365);
 await assertGrantDuration("ADMIN_TEST_DAY", 1, 1);
 
 console.log("Payment product smoke checks passed.");

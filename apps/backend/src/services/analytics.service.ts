@@ -7,6 +7,7 @@ export const analyticsEvents = [
   "pet_create_clicked",
   "pet_created",
   "first_entry_created",
+  "reactivation_trial_started",
   "paywall_opened",
   "invoice_created",
   "invoice_opened",

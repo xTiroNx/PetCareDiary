@@ -4,7 +4,7 @@ import multer from "multer";
 import { z } from "zod";
 import { env } from "../config/env.js";
 import { prisma } from "../prisma/client.js";
-import { trackAnalyticsEvent } from "../services/analytics.service.js";
+import { hasAnyDiaryEntry, trackAnalyticsEvent } from "../services/analytics.service.js";
 import {
   canUseDirectAttachmentStorage,
   createAttachmentDownloadUrl,
@@ -117,6 +117,19 @@ router.get("/", async (req, res, next) => {
   try {
     const pets = await prisma.pet.findMany({ where: { userId: req.user!.id }, orderBy: { createdAt: "asc" }, select: petSelect });
     res.json(pets.map(serializePet));
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/onboarding-progress", async (req, res, next) => {
+  try {
+    const [pet, hasDiaryEntry, reminder] = await Promise.all([
+      prisma.pet.findFirst({ where: { userId: req.user!.id }, select: { id: true } }),
+      hasAnyDiaryEntry(req.user!.id),
+      prisma.reminder.findFirst({ where: { userId: req.user!.id }, select: { id: true } })
+    ]);
+    res.json({ hasPet: Boolean(pet), hasDiaryEntry, hasReminder: Boolean(reminder) });
   } catch (error) {
     next(error);
   }

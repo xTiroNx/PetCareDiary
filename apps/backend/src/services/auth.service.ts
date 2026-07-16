@@ -1,7 +1,7 @@
 import { env } from "../config/env.js";
 import { prisma } from "../prisma/client.js";
 import { validateTelegramInitData } from "./telegramAuth.service.js";
-import { normalizeSource } from "./analytics.service.js";
+import { normalizeSource, trackAnalyticsEvent } from "./analytics.service.js";
 import { accessEndsAt, getAccessStatus } from "../utils/access.js";
 import { isAdminUser } from "../utils/admin.js";
 import { publicPetSelect, serializePet } from "../utils/petSerialization.js";
@@ -37,7 +37,8 @@ export async function authenticateTelegram(initData: string, acquisition?: {
       source,
       lastSeenAt: now,
       trialStartedAt: now,
-      trialEndsAt
+      trialEndsAt,
+      reactivationTrialGrantedAt: now
     },
     update: {
       username: parsed.user.username,
@@ -51,6 +52,28 @@ export async function authenticateTelegram(initData: string, acquisition?: {
   });
   if (startParam && !user.firstStartParam) {
     user = await prisma.user.update({ where: { id: user.id }, data: { firstStartParam: startParam } });
+  }
+
+  if (
+    !user.lifetimeAccess &&
+    !user.reactivationTrialGrantedAt &&
+    (!user.accessUntil || user.accessUntil <= now) &&
+    user.trialEndsAt <= now
+  ) {
+    const granted = await prisma.user.updateMany({
+      where: {
+        id: user.id,
+        lifetimeAccess: false,
+        reactivationTrialGrantedAt: null,
+        trialEndsAt: { lte: now },
+        OR: [{ accessUntil: null }, { accessUntil: { lte: now } }]
+      },
+      data: { trialStartedAt: now, trialEndsAt, reactivationTrialGrantedAt: now }
+    });
+    if (granted.count > 0) {
+      user = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+      await trackAnalyticsEvent({ userId: user.id, event: "reactivation_trial_started" });
+    }
   }
 
   const pets = await prisma.pet.findMany({

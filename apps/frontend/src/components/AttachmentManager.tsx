@@ -13,6 +13,7 @@ import {
   uploadEntryAttachment
 } from "../utils/attachments";
 import { useI18n } from "../utils/i18n";
+import { useAppStore } from "../store/appStore";
 import { ConfirmAction } from "./ConfirmAction";
 import { RequestError } from "./RequestError";
 
@@ -59,6 +60,9 @@ function AttachmentThumb({ attachment }: { attachment: Attachment }) {
 
 export function AttachmentManager({ petId, entryType, entryId, visible, initialAttachments }: Props) {
   const { t } = useI18n();
+  const accessStatus = useAppStore((state) => state.accessStatus);
+  const isAdmin = useAppStore((state) => state.isAdmin);
+  const canManageAttachments = isAdmin || accessStatus !== "expired";
   const queryClient = useQueryClient();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [validationError, setValidationError] = useState<Error | null>(null);
@@ -150,17 +154,19 @@ export function AttachmentManager({ petId, entryType, entryId, visible, initialA
         <p className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-zinc-500">
           <Paperclip size={14} />{t("attachments")}
         </p>
-        <label className="btn btn-secondary min-h-8 px-2 text-xs">
-          <Upload size={14} />{upload.isPending ? t("photoPreparing") : t("addAttachment")}
-          <input
-            ref={inputRef}
-            className="sr-only"
-            type="file"
-            accept={attachmentAccept}
-            disabled={upload.isPending}
-            onChange={onFileChange}
-          />
-        </label>
+        {canManageAttachments ? (
+          <label className="btn btn-secondary min-h-8 px-2 text-xs">
+            <Upload size={14} />{upload.isPending ? t("photoPreparing") : t("addAttachment")}
+            <input
+              ref={inputRef}
+              className="sr-only"
+              type="file"
+              accept={attachmentAccept}
+              disabled={upload.isPending}
+              onChange={onFileChange}
+            />
+          </label>
+        ) : null}
       </div>
       <p className="mt-1 text-[11px] font-semibold leading-4 text-zinc-500">{t("attachmentUploadHint")}</p>
       {attachments.isLoading ? <p className="mt-2 text-xs text-zinc-500">{t("loading")}</p> : null}
@@ -173,9 +179,11 @@ export function AttachmentManager({ petId, entryType, entryId, visible, initialA
                 <span className="block truncate text-sm font-semibold">{attachment.fileName}</span>
                 <span className="text-xs text-zinc-500">{attachmentFileSizeLabel(attachment.sizeBytes)}</span>
               </button>
-              <ConfirmAction className="icon-btn" ariaLabel={t("deleteAttachment")} disabled={remove.isPending} onConfirm={() => remove.mutate(attachment.id)}>
-                <Trash2 size={15} />
-              </ConfirmAction>
+              {canManageAttachments ? (
+                <ConfirmAction className="icon-btn" ariaLabel={t("deleteAttachment")} disabled={remove.isPending} onConfirm={() => remove.mutate(attachment.id)}>
+                  <Trash2 size={15} />
+                </ConfirmAction>
+              ) : null}
             </div>
           ))}
         </div>

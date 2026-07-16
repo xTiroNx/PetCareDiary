@@ -229,6 +229,35 @@ type WallDateTime = {
   millisecond: number;
 };
 
+type ParserProvider = {
+  apiKey: string;
+  model: string;
+  url: string;
+  tokenLimitField: "max_completion_tokens" | "max_tokens";
+};
+
+function voiceParserProvider(): ParserProvider {
+  if (env.OPENROUTER_STT_PARSER) {
+    return {
+      apiKey: env.OPENROUTER_STT_PARSER,
+      model: env.OPENROUTER_STT_MODEL_PARSER,
+      url: "https://openrouter.ai/api/v1/chat/completions",
+      tokenLimitField: "max_tokens"
+    };
+  }
+
+  if (env.MINIMAX_API_KEY) {
+    return {
+      apiKey: env.MINIMAX_API_KEY,
+      model: env.MINIMAX_PARSER_MODEL,
+      url: `${env.MINIMAX_API_BASE_URL.replace(/\/$/, "")}/v1/chat/completions`,
+      tokenLimitField: "max_completion_tokens"
+    };
+  }
+
+  throw new HttpError(422, "VOICE_PARSE_FAILED", "Voice command parser provider is not configured.");
+}
+
 function zonedParts(date: Date, timeZone: string): WallDateTime {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone,
@@ -881,18 +910,18 @@ export async function parseVoiceCommandWithMinimax(input: {
     logTranscript?: boolean;
   };
 }) {
-  if (!env.MINIMAX_API_KEY) {
-    throw new HttpError(422, "VOICE_PARSE_FAILED", "MiniMax API key is not configured.");
-  }
+  const provider = voiceParserProvider();
 
-  const response = await fetch(`${env.MINIMAX_API_BASE_URL.replace(/\/$/, "")}/v1/chat/completions`, {
+  const response = await fetch(provider.url, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${env.MINIMAX_API_KEY}`,
-      "Content-Type": "application/json"
+      Authorization: `Bearer ${provider.apiKey}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": env.FRONTEND_URL,
+      "X-Title": "PetCare Diary"
     },
     body: JSON.stringify({
-      model: env.MINIMAX_PARSER_MODEL,
+      model: provider.model,
       messages: [
         { role: "system", content: parserSystemPrompt() },
         {
@@ -907,7 +936,7 @@ export async function parseVoiceCommandWithMinimax(input: {
       ],
       temperature: 0.1,
       response_format: { type: "json_object" },
-      max_completion_tokens: 700
+      [provider.tokenLimitField]: 700
     })
   });
 

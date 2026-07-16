@@ -46,13 +46,13 @@ export function createApp() {
   app.use("/api/feedback", authMiddleware, rateLimit({ keyPrefix: "feedback", windowMs: 10 * 60_000, max: 5 }), feedbackRoutes);
   app.use("/api/voice", authMiddleware, requireActiveAccess, rateLimit({ keyPrefix: "user-voice", windowMs: 60_000, max: 10 }), voiceRoutes);
   app.use("/api/ai", authMiddleware, requireActiveAccess, rateLimit({ keyPrefix: "ai-assistant", windowMs: 60_000, max: 10 }), aiRoutes);
-  app.use("/api/attachments", authMiddleware, requireActiveAccess, rateLimit({ keyPrefix: "attachments", windowMs: 60_000, max: 60 }), attachmentsRoutes);
-  app.use("/api/pets", authMiddleware, requireActiveAccess, petsRoutes);
+  app.use("/api/attachments", authMiddleware, rateLimit({ keyPrefix: "attachments", windowMs: 60_000, max: 60 }), attachmentsRoutes);
+  app.use("/api/pets", authMiddleware, petsRoutes);
   app.use("/api/reminders", authMiddleware, requireActiveAccess, remindersRoutes);
-  app.use("/api/vaccinations", authMiddleware, requireActiveAccess, vaccinationsRoutes);
-  app.use("/api/water", authMiddleware, requireActiveAccess, waterRoutes);
+  app.use("/api/vaccinations", authMiddleware, vaccinationsRoutes);
+  app.use("/api/water", authMiddleware, waterRoutes);
   app.use("/api/reports", authMiddleware, requireActiveAccess, rateLimit({ keyPrefix: "reports", windowMs: 60_000, max: 60 }), reportsRoutes);
-  app.use("/api", authMiddleware, requireActiveAccess, diaryRoutes);
+  app.use("/api", authMiddleware, diaryRoutes);
 
   app.use(notFoundMiddleware);
   app.use(errorMiddleware);

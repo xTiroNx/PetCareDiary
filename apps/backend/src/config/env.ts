@@ -26,7 +26,7 @@ const envSchema = z.object({
   FEEDBACK_TELEGRAM_IDS: z.string().default(""),
   REMINDER_SCHEDULER_ENABLED: z.coerce.boolean().default(true),
   REMINDER_POLL_INTERVAL_MS: z.coerce.number().int().min(10_000).default(60_000),
-  MONTHLY_PRICE_STARS: z.coerce.number().int().positive().default(199),
+  MONTHLY_PRICE_STARS: z.coerce.number().int().positive().default(205),
   SIX_MONTHS_PRICE_STARS: z.coerce.number().int().positive().default(999),
   YEARLY_PRICE_STARS: z.coerce.number().int().positive().default(1799),
   TRIAL_DAYS: z.coerce.number().int().positive().default(3),
@@ -38,6 +38,8 @@ const envSchema = z.object({
   VOICE_PARSER_DEBUG_LOGS: z.coerce.boolean().default(false),
   OPENROUTER_API_KEY: z.string().min(1).optional(),
   OPENROUTER_STT_MODEL: z.string().min(1).default("openai/gpt-4o-mini-transcribe"),
+  OPENROUTER_STT_PARSER: z.string().min(1).optional(),
+  OPENROUTER_STT_MODEL_PARSER: z.string().min(1).default("minimax/minimax-m3"),
   OPENROUTER_API_KEY_AI_HELPER: z.string().min(1).optional(),
   OPENROUTER_AI_HELPER_MODEL: z.string().min(1).default("google/gemini-3.1-flash-lite"),
   OPENROUTER_AI_HELPER_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(60_000).default(50_000),
@@ -78,11 +80,11 @@ const envSchema = z.object({
       message: "OPENROUTER_API_KEY is required when VOICE_COMMANDS_ENABLED=true."
     });
   }
-  if (value.VOICE_COMMANDS_ENABLED && !value.MINIMAX_API_KEY) {
+  if (value.VOICE_COMMANDS_ENABLED && !value.OPENROUTER_STT_PARSER && !value.MINIMAX_API_KEY) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      path: ["MINIMAX_API_KEY"],
-      message: "MINIMAX_API_KEY is required when VOICE_COMMANDS_ENABLED=true."
+      path: ["OPENROUTER_STT_PARSER"],
+      message: "OPENROUTER_STT_PARSER or MINIMAX_API_KEY is required when VOICE_COMMANDS_ENABLED=true."
     });
   }
   if (value.FILE_STORAGE_DRIVER === "r2") {

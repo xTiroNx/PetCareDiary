@@ -25,7 +25,7 @@ import { useI18n } from "./utils/i18n";
 import { hideTelegramBackButton } from "./utils/telegram";
 import { trackEvent } from "./utils/telegramAnalytics";
 
-const freeRoutes = new Set(["/paywall", "/profile", "/admin"]);
+const proRoutes = new Set(["/ai", "/reminders", "/report"]);
 const routesWithoutPet = new Set(["/onboarding", "/paywall", "/profile", "/admin"]);
 const appOpenedSessionKey = "petcare-analytics-app-opened";
 
@@ -85,9 +85,12 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
     const isAddingPet = location.pathname === "/onboarding" && new URLSearchParams(location.search).get("new") === "1";
-    if (accessStatus === "expired" && !isAdmin && !freeRoutes.has(location.pathname)) navigate("/paywall", { replace: true });
+    if (accessStatus === "expired" && !isAdmin && proRoutes.has(location.pathname)) {
+      navigate("/paywall", { replace: true });
+      return;
+    }
     if (pet && location.pathname === "/onboarding" && !isAddingPet) navigate("/", { replace: true });
-    if (accessStatus !== "expired" && !pet && !routesWithoutPet.has(location.pathname)) navigate("/onboarding", { replace: true });
+    if (!pet && !routesWithoutPet.has(location.pathname)) navigate("/onboarding", { replace: true });
   }, [user, accessStatus, isAdmin, pet, location.pathname, location.search, navigate]);
 
   useEffect(() => {

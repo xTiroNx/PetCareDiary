@@ -4,6 +4,7 @@ import { Router, type NextFunction, type Request, type Response } from "express"
 import multer from "multer";
 import { z } from "zod";
 import { env } from "../config/env.js";
+import { requireActiveAccess } from "../middlewares/access.middleware.js";
 import { prisma } from "../prisma/client.js";
 import {
   assertAttachableEntry,
@@ -170,7 +171,7 @@ router.post("/batch", async (req, res, next) => {
   }
 });
 
-router.post("/presign", async (req, res, next) => {
+router.post("/presign", requireActiveAccess, async (req, res, next) => {
   try {
     if (!canUseDirectAttachmentStorage()) {
       throw new HttpError(503, "ATTACHMENT_DIRECT_UPLOAD_UNAVAILABLE", "Direct attachment upload is available only with R2 storage.");
@@ -208,7 +209,7 @@ router.post("/presign", async (req, res, next) => {
   }
 });
 
-router.post("/complete", async (req, res, next) => {
+router.post("/complete", requireActiveAccess, async (req, res, next) => {
   let storageKey: string | null = null;
   try {
     if (!canUseDirectAttachmentStorage()) {
@@ -255,7 +256,7 @@ router.post("/complete", async (req, res, next) => {
   }
 });
 
-router.post("/", uploadAttachment, async (req, res, next) => {
+router.post("/", requireActiveAccess, uploadAttachment, async (req, res, next) => {
   let storageKey: string | null = null;
   try {
     const body = attachmentEntrySchema.parse(req.body);
@@ -356,7 +357,7 @@ router.get("/:id/file", async (req, res, next) => {
   }
 });
 
-router.delete("/:id", async (req, res, next) => {
+router.delete("/:id", requireActiveAccess, async (req, res, next) => {
   try {
     const { id } = idParamSchema.parse(req.params);
     const attachment = await prisma.attachment.findFirst({ where: { id, userId: req.user!.id } });

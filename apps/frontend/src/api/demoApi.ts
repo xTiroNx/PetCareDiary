@@ -382,8 +382,8 @@ export async function demoApi<T>(path: string, options: RequestInit = {}): Promi
 
   if (path === "/api/payments/create-invoice") {
     const body = jsonBody(options);
-    const amounts: Record<string, number> = { MONTHLY: 199, SIX_MONTHS: 999, YEARLY: 1799 };
-    return { invoiceLink: "https://t.me/$demo-invoice", amountStars: amounts[String(body.productType)] ?? 199 } as T;
+    const amounts: Record<string, number> = { MONTHLY: 205, SIX_MONTHS: 999, YEARLY: 1799 };
+    return { invoiceLink: "https://t.me/$demo-invoice", amountStars: amounts[String(body.productType)] ?? 205 } as T;
   }
 
   if (path === "/api/ai/assistant") {

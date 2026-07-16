@@ -12,7 +12,7 @@ router.post("/create-invoice", async (req, res, next) => {
     const result = await createStarsInvoice(req.user!.id, productType, { isAdmin: req.isAdmin });
     await trackAnalyticsEvent({
       userId: req.user!.id,
-      event: "invoice_opened",
+      event: "invoice_created",
       metadata: { paymentId: result.payment.id, productType: result.payment.productType, amountStars: result.payment.amountStars }
     });
     res.status(201).json(serialize({

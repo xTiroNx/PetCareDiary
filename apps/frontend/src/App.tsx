@@ -12,6 +12,7 @@ import FeedingPage from "./pages/FeedingPage";
 import MedicinesPage from "./pages/MedicinesPage";
 import NotePage from "./pages/NotePage";
 import AdminPage from "./pages/AdminPage";
+import AdminFirstVisitPreviewPage from "./pages/AdminFirstVisitPreviewPage";
 import OnboardingPage from "./pages/OnboardingPage";
 import PaywallPage from "./pages/PaywallPage";
 import ProfilePage from "./pages/ProfilePage";
@@ -26,7 +27,7 @@ import { hideTelegramBackButton } from "./utils/telegram";
 import { trackEvent } from "./utils/telegramAnalytics";
 
 const proRoutes = new Set(["/ai", "/reminders", "/report"]);
-const routesWithoutPet = new Set(["/onboarding", "/paywall", "/profile", "/admin"]);
+const routesWithoutPet = new Set(["/onboarding", "/paywall", "/profile", "/admin", "/admin/first-visit-preview"]);
 const appOpenedSessionKey = "petcare-analytics-app-opened";
 
 function hasSeenChangelog() {
@@ -143,6 +144,7 @@ export default function App() {
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/paywall" element={<PaywallPage />} />
         <Route path="/admin" element={<AdminPage />} />
+        <Route path="/admin/first-visit-preview" element={<AdminFirstVisitPreviewPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <ChangelogModal open={changelogOpen} onClose={closeChangelog} />

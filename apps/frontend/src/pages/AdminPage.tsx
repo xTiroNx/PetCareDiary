@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BarChart3, Crown, RefreshCw, Search, ShieldCheck, TimerReset, XCircle } from "lucide-react";
+import { BarChart3, Crown, Eye, RefreshCw, Search, ShieldCheck, TimerReset, XCircle } from "lucide-react";
 import { FormEvent, useState } from "react";
+import { Link } from "react-router-dom";
 import { getAdminAnalyticsEvents, getAdminAnalyticsSummary } from "../api/analytics";
 import type { AnalyticsDailyRow, AnalyticsEvent, AnalyticsLanguageBreakdown, AnalyticsPeriod, AnalyticsPlatformBreakdown, AnalyticsSourceBreakdown, AnalyticsSummary } from "../api/analytics";
 import { api, jsonBody } from "../api/client";
@@ -87,6 +88,10 @@ export default function AdminPage() {
           <AccessBadge />
         </div>
       </header>
+
+      <Link className="btn btn-secondary w-full" to="/admin/first-visit-preview">
+        <Eye size={18} />Предпросмотр первого входа
+      </Link>
 
       <AdminVoiceCommand />
 

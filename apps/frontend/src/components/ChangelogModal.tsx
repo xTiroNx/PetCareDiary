@@ -5,6 +5,7 @@ import { telegramSelection } from "../utils/telegram";
 
 export const changelogSeenKey = "petcare-changelog-seen-v2026-05-18-promo-feedback";
 export const openChangelogEvent = "petcare-open-changelog";
+const showLaunchPromo = true;
 
 type ChangelogModalProps = {
   open: boolean;
@@ -63,15 +64,17 @@ export function ChangelogModal({ open, onClose }: ChangelogModalProps) {
           </button>
         </div>
 
-        <div className="rounded-lg border border-coral/40 bg-coral/10 p-3">
-          <p className="inline-flex items-center gap-2 text-sm font-extrabold text-coral">
-            <Gift size={17} />{t("changelogPromoTitle")}
-          </p>
-          <p className="mt-2 text-sm font-semibold leading-6 text-zinc-800 dark:text-zinc-100">{t("changelogItemPromo")}</p>
-          <button className="btn btn-primary mt-3 w-full whitespace-nowrap" type="button" onClick={openOffer}>
-            {t("changelogPromoCta")}
-          </button>
-        </div>
+        {showLaunchPromo ? (
+          <div className="rounded-lg border border-coral/40 bg-coral/10 p-3">
+            <p className="inline-flex items-center gap-2 text-sm font-extrabold text-coral">
+              <Gift size={17} />{t("changelogPromoTitle")}
+            </p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-zinc-800 dark:text-zinc-100">{t("changelogItemPromo")}</p>
+            <button className="btn btn-primary mt-3 w-full whitespace-nowrap" type="button" onClick={openOffer}>
+              {t("changelogPromoCta")}
+            </button>
+          </div>
+        ) : null}
 
         <div className="rounded-lg border border-mint/40 bg-mint/10 p-3">
           <p className="inline-flex items-center gap-2 text-sm font-extrabold text-mint">

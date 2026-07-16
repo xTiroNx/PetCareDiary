@@ -2,6 +2,8 @@ type CompressImageOptions = {
   maxWidth: number;
   maxHeight: number;
   quality: number;
+  targetSizeBytes?: number;
+  minQuality?: number;
 };
 
 const preferredOutputType = "image/webp";
@@ -62,6 +64,10 @@ function outputFileName(fileName: string, mimeType: string) {
   return `${baseName || "image"}.${extension}`;
 }
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
 export async function compressImageFile(file: File, options: CompressImageOptions) {
   if (!file.type.startsWith("image/")) return file;
 
@@ -72,18 +78,48 @@ export async function compressImageFile(file: File, options: CompressImageOption
     const width = Math.max(1, Math.round(image.width * scale));
     const height = Math.max(1, Math.round(image.height * scale));
     const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
     const context = canvas.getContext("2d");
     if (!context) return file;
-
-    context.drawImage(image.source, 0, 0, width, height);
+    const drawingContext = context;
     const outputType = await supportsWebp() ? preferredOutputType : fallbackOutputType;
-    const blob = await canvasToBlob(canvas, outputType, options.quality);
-    if (!blob || blob.size >= file.size) return file;
+    const targetSizeBytes = options.targetSizeBytes;
+    const minQuality = clamp(options.minQuality ?? Math.max(0.5, options.quality - 0.2), 0.35, options.quality);
+    let outputWidth = width;
+    let outputHeight = height;
+    let quality = options.quality;
 
-    return new File([blob], outputFileName(file.name, blob.type || outputType), {
-      type: blob.type || outputType,
+    async function encode() {
+      canvas.width = outputWidth;
+      canvas.height = outputHeight;
+      drawingContext.imageSmoothingEnabled = true;
+      drawingContext.imageSmoothingQuality = "high";
+      drawingContext.drawImage(image!.source, 0, 0, outputWidth, outputHeight);
+      return canvasToBlob(canvas, outputType, quality);
+    }
+
+    let blob = await encode();
+    let bestBlob = blob;
+    while (blob && targetSizeBytes && blob.size > targetSizeBytes && quality > minQuality) {
+      quality = Math.max(minQuality, Number((quality - 0.1).toFixed(2)));
+      blob = await encode();
+      if (blob && (!bestBlob || blob.size < bestBlob.size)) bestBlob = blob;
+    }
+
+    for (let attempt = 0; blob && targetSizeBytes && blob.size > targetSizeBytes && attempt < 4; attempt += 1) {
+      const scaleDown = clamp(Math.sqrt(targetSizeBytes / blob.size) * 0.95, 0.6, 0.9);
+      const nextWidth = Math.max(1, Math.round(outputWidth * scaleDown));
+      const nextHeight = Math.max(1, Math.round(outputHeight * scaleDown));
+      if (nextWidth === outputWidth && nextHeight === outputHeight) break;
+      outputWidth = nextWidth;
+      outputHeight = nextHeight;
+      blob = await encode();
+      if (blob && (!bestBlob || blob.size < bestBlob.size)) bestBlob = blob;
+    }
+
+    if (!bestBlob || bestBlob.size >= file.size) return file;
+
+    return new File([bestBlob], outputFileName(file.name, bestBlob.type || outputType), {
+      type: bestBlob.type || outputType,
       lastModified: Date.now()
     });
   } catch {

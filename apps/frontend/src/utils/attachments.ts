@@ -5,6 +5,7 @@ export type AttachmentEntryType = "FEEDING" | "WATER" | "SYMPTOM" | "MEDICINE" |
 
 export const attachmentAccept = "image/jpeg,image/png,image/webp";
 export const maxAttachmentSizeBytes = 5 * 1024 * 1024;
+const targetAttachmentSizeBytes = 1.5 * 1024 * 1024;
 
 const supportedMimeTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 
@@ -44,7 +45,9 @@ async function prepareAttachmentUploadFile(file: File) {
   const compressed = await compressImageFile(file, {
     maxWidth: 1920,
     maxHeight: 1920,
-    quality: 0.8
+    quality: 0.8,
+    minQuality: 0.6,
+    targetSizeBytes: targetAttachmentSizeBytes
   });
   if (compressed.size > maxAttachmentSizeBytes) {
     throw new Error("File is too large. Max 5 MB.");

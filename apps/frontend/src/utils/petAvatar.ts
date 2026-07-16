@@ -6,6 +6,7 @@ import { compressImageFile } from "./imageCompression";
 export const avatarAccept = "image/jpeg,image/png,image/webp";
 
 const supportedAvatarMimeTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const targetAvatarSizeBytes = 400 * 1024;
 
 export function isSupportedAvatarFile(file: File) {
   return supportedAvatarMimeTypes.has(file.type);
@@ -15,7 +16,9 @@ async function preparePetAvatarFile(file: File) {
   const compressed = await compressImageFile(file, {
     maxWidth: 768,
     maxHeight: 768,
-    quality: 0.8
+    quality: 0.8,
+    minQuality: 0.65,
+    targetSizeBytes: targetAvatarSizeBytes
   });
   if (compressed.size > maxAttachmentSizeBytes) {
     throw new Error("Image is too large. Max 5 MB.");

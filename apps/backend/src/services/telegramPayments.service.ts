@@ -5,26 +5,32 @@ import { trackAnalyticsEvent } from "./analytics.service.js";
 import { sendPaymentReceiptNotification } from "./reminderScheduler.service.js";
 import { HttpError } from "../utils/httpError.js";
 
-export type CheckoutProductType = "MONTHLY" | "SIX_MONTHS" | "YEARLY";
+export type CheckoutProductType = "MONTHLY" | "SIX_MONTHS" | "YEARLY" | "ADMIN_TEST_DAY";
 
 const checkoutProducts: Record<CheckoutProductType, { priceStars: number; durationDays: number; title: string; description: string }> = {
   MONTHLY: {
     priceStars: env.MONTHLY_PRICE_STARS,
     durationDays: 30,
     title: "PetCare Diary: 1 month access",
-    description: "30 days of access to feeding, symptoms, medicines, weight, reminders and reports."
+    description: "30 days of Pro access to AI, voice commands, reminders, reports and photo uploads."
   },
   SIX_MONTHS: {
     priceStars: env.SIX_MONTHS_PRICE_STARS,
     durationDays: 180,
     title: "PetCare Diary: 6 months access",
-    description: "180 days of access to feeding, symptoms, medicines, weight, reminders and reports."
+    description: "180 days of Pro access to AI, voice commands, reminders, reports and photo uploads."
   },
   YEARLY: {
     priceStars: env.YEARLY_PRICE_STARS,
     durationDays: 365,
     title: "PetCare Diary: 1 year access",
-    description: "365 days of access to feeding, symptoms, medicines, weight, reminders and reports."
+    description: "365 days of Pro access to AI, voice commands, reminders, reports and photo uploads."
+  },
+  ADMIN_TEST_DAY: {
+    priceStars: 1,
+    durationDays: 1,
+    title: "PetCare Diary: admin payment test",
+    description: "Admin-only payment test with 1 day of Pro access."
   }
 };
 
@@ -40,10 +46,14 @@ function accessDurationDays(productType: string) {
   if (productType === "MONTHLY") return 30;
   if (productType === "SIX_MONTHS") return 180;
   if (productType === "YEARLY") return 365;
+  if (productType === "ADMIN_TEST_DAY") return 1;
   return null;
 }
 
-export async function createStarsInvoice(userId: string, productType: CheckoutProductType) {
+export async function createStarsInvoice(userId: string, productType: CheckoutProductType, options: { isAdmin?: boolean } = {}) {
+  if (productType === "ADMIN_TEST_DAY" && !options.isAdmin) {
+    throw new HttpError(403, "ADMIN_PAYMENT_PRODUCT_FORBIDDEN", "Admin payment product is available only to administrators.");
+  }
   const product = checkoutProduct(productType);
   const amountStars = product.priceStars;
   const invoicePayload = `petcare:${productType.toLowerCase()}:${userId}:${nanoid(16)}`;

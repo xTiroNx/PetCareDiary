@@ -46,6 +46,7 @@ enum PaymentProductType {
   MONTHLY
   SIX_MONTHS
   YEARLY
+  ADMIN_TEST_DAY
   LIFETIME
 }
 

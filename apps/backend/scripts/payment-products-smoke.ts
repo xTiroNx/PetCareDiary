@@ -4,7 +4,7 @@ process.env.FRONTEND_URL ??= "http://localhost:5173";
 process.env.DATABASE_URL ??= "postgresql://user:password@localhost:5432/petcare";
 process.env.BOT_TOKEN ??= "123456:test_bot_token";
 process.env.BOT_USERNAME ??= "petcare_test_bot";
-process.env.MONTHLY_PRICE_STARS = "199";
+process.env.MONTHLY_PRICE_STARS = "205";
 process.env.SIX_MONTHS_PRICE_STARS = "999";
 process.env.YEARLY_PRICE_STARS = "1799";
 
@@ -14,7 +14,7 @@ const [{ prisma }, { createStarsInvoice, grantAccessForSuccessfulPayment }, { Ht
   import("../src/utils/httpError.js")
 ]);
 
-type ProductType = "MONTHLY" | "SIX_MONTHS" | "YEARLY";
+type ProductType = "MONTHLY" | "SIX_MONTHS" | "YEARLY" | "ADMIN_TEST_DAY";
 
 function assert(condition: unknown, message: string) {
   if (!condition) throw new Error(message);
@@ -48,17 +48,19 @@ globalThis.fetch = async (_input: RequestInfo | URL, init?: RequestInit) => {
   });
 };
 
-async function assertInvoice(productType: ProductType, amountStars: number) {
-  const result = await createStarsInvoice("user-products-smoke", productType);
+async function assertInvoice(productType: ProductType, amountStars: number, isAdmin = false) {
+  const result = await createStarsInvoice("user-products-smoke", productType, { isAdmin });
   assert(result.payment.productType === productType, `Expected ${productType} payment product type.`);
   assert(result.payment.amountStars === amountStars, `Expected ${productType} amount ${amountStars}.`);
   const request = invoiceRequests.find((item) => item.payload === result.payment.invoicePayload);
   assert(request?.amount === amountStars, `Expected ${productType} invoice request amount ${amountStars}.`);
 }
 
-await assertInvoice("MONTHLY", 199);
+await assertInvoice("MONTHLY", 205);
 await assertInvoice("SIX_MONTHS", 999);
 await assertInvoice("YEARLY", 1799);
+await expectHttpError("ADMIN_PAYMENT_PRODUCT_FORBIDDEN", () => createStarsInvoice("user-products-smoke", "ADMIN_TEST_DAY"));
+await assertInvoice("ADMIN_TEST_DAY", 1, true);
 await expectHttpError("PAYMENT_PRODUCT_UNAVAILABLE", () => createStarsInvoice("user-products-smoke", "LIFETIME" as ProductType));
 
 async function assertGrantDuration(productType: ProductType, amountStars: number, durationDays: number) {
@@ -117,8 +119,9 @@ async function assertGrantDuration(productType: ProductType, amountStars: number
   assert(updatedAccessUntil?.getTime() === activeUntil.getTime() + durationDays * 24 * 60 * 60 * 1000, `Expected ${productType} to extend by ${durationDays} days from active accessUntil.`);
 }
 
-await assertGrantDuration("MONTHLY", 199, 30);
+await assertGrantDuration("MONTHLY", 205, 30);
 await assertGrantDuration("SIX_MONTHS", 999, 180);
 await assertGrantDuration("YEARLY", 1799, 365);
+await assertGrantDuration("ADMIN_TEST_DAY", 1, 1);
 
 console.log("Payment product smoke checks passed.");

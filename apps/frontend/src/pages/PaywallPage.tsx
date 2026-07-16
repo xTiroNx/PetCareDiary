@@ -8,18 +8,25 @@ import { useAuth } from "../hooks/useAuth";
 import { useI18n } from "../utils/i18n";
 import { trackEvent } from "../utils/telegramAnalytics";
 import { useEffect } from "react";
+import { useAppStore } from "../store/appStore";
 
 type InvoiceResponse = { invoiceLink: string; amountStars: number };
-type ProductType = "MONTHLY" | "SIX_MONTHS" | "YEARLY";
+type ProductType = "MONTHLY" | "SIX_MONTHS" | "YEARLY" | "ADMIN_TEST_DAY";
+type PlanLabelKey = "buyMonthly" | "buySixMonths" | "buyYearly" | "buyAdminTestDay";
 
-const plans: Array<{ productType: ProductType; labelKey: "buyMonthly" | "buySixMonths" | "buyYearly" }> = [
+const plans: Array<{ productType: ProductType; labelKey: PlanLabelKey }> = [
   { productType: "MONTHLY", labelKey: "buyMonthly" },
   { productType: "SIX_MONTHS", labelKey: "buySixMonths" },
   { productType: "YEARLY", labelKey: "buyYearly" }
 ];
+const adminTestPlan: { productType: ProductType; labelKey: PlanLabelKey } = {
+  productType: "ADMIN_TEST_DAY",
+  labelKey: "buyAdminTestDay"
+};
 
 export default function PaywallPage() {
   const { t } = useI18n();
+  const isAdmin = useAppStore((state) => state.isAdmin);
   const auth = useAuth();
   const createInvoice = useMutation({
     mutationFn: (productType: ProductType) => api<InvoiceResponse>("/api/payments/create-invoice", { method: "POST", body: jsonBody({ productType }) }),
@@ -42,7 +49,7 @@ export default function PaywallPage() {
       </div>
       <AccessNotice />
       <div className="grid gap-2">
-        {plans.map((plan, index) => (
+        {[...plans, ...(isAdmin ? [adminTestPlan] : [])].map((plan, index) => (
           <button
             className={index === 0 ? "btn btn-primary w-full" : "btn btn-secondary w-full"}
             disabled={createInvoice.isPending}

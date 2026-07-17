@@ -34,6 +34,10 @@ const cases: Case[] = [
   { phrase: "рвота утром", locale: "ru", expected: { intent: "create_symptom_entry", target: "diary", draft: { symptomType: "VOMITING" } } },
   { phrase: "вес 4 и 2", locale: "ru", expected: { intent: "create_weight_entry", target: "diary", draft: { weightKg: 4.2 } } },
   { phrase: "запиши заметку плохо ел утром", locale: "ru", expected: { intent: "create_note", target: "diary" } },
+  { phrase: "кот выпил 200 мл воды", locale: "ru", expected: { intent: "create_water_entry", target: "diary", draft: { amountMl: 200 } } },
+  { phrase: "сегодня сделали прививку от бешенства", locale: "ru", expected: { intent: "create_vaccination_entry", target: "diary", draft: { procedureType: "VACCINE" } } },
+  { phrase: "запиши питьё для Барсика сегодня в 10 утра выпил 200 мл воды", locale: "ru", expected: { intent: "create_water_entry", target: "diary", draft: { amountMl: 200 } } },
+  { phrase: "запиши вакцинацию для Барсика сегодня сделали прививку от бешенства", locale: "ru", expected: { intent: "create_vaccination_entry", target: "diary", draft: { procedureType: "VACCINE" } } },
 
   { phrase: "remind me to give antepsin at 5", locale: "en", expected: { intent: "create_reminder", target: "reminder", draft: { type: "MEDICINE" } } },
   { phrase: "remind me to feed at 5", locale: "en", expected: { intent: "create_reminder", target: "reminder", draft: { type: "FEEDING" } } },
@@ -45,6 +49,8 @@ const cases: Case[] = [
   { phrase: "vomited this morning", locale: "en", expected: { intent: "create_symptom_entry", target: "diary", draft: { symptomType: "VOMITING" } } },
   { phrase: "weight four point two", locale: "en", expected: { intent: "create_weight_entry", target: "diary", draft: { weightKg: 4.2 } } },
   { phrase: "write note no appetite in the morning", locale: "en", expected: { intent: "create_note", target: "diary" } },
+  { phrase: "the cat drank 200 ml of water", locale: "en", expected: { intent: "create_water_entry", target: "diary", draft: { amountMl: 200 } } },
+  { phrase: "completed deworming today", locale: "en", expected: { intent: "create_vaccination_entry", target: "diary", draft: { procedureType: "DEWORMING" } } },
 
   { phrase: "recuérdame darle medicina a las 17", locale: "es", expected: { intent: "create_reminder", target: "reminder", draft: { type: "MEDICINE" } } },
   { phrase: "comió a la una y cuarto", locale: "es", expected: { intent: "create_feeding_entry", target: "diary" } },
@@ -54,6 +60,8 @@ const cases: Case[] = [
   { phrase: "vómito por la mañana", locale: "es", expected: { intent: "create_symptom_entry", target: "diary", draft: { symptomType: "VOMITING" } } },
   { phrase: "peso 4,2 kg", locale: "es", expected: { intent: "create_weight_entry", target: "diary", draft: { weightKg: 4.2 } } },
   { phrase: "nota sin apetito por la mañana", locale: "es", expected: { intent: "create_note", target: "diary" } },
+  { phrase: "el gato bebió 200 ml de agua", locale: "es", expected: { intent: "create_water_entry", target: "diary", draft: { amountMl: 200 } } },
+  { phrase: "vacuna contra la rabia puesta hoy", locale: "es", expected: { intent: "create_vaccination_entry", target: "diary", draft: { procedureType: "VACCINE" } } },
 
   { phrase: "rappelle-moi de donner le médicament à 17h", locale: "fr", expected: { intent: "create_reminder", target: "reminder", draft: { type: "MEDICINE" } } },
   { phrase: "a mangé à une heure moins vingt", locale: "fr", expected: { intent: "create_feeding_entry", target: "diary" } },
@@ -63,6 +71,8 @@ const cases: Case[] = [
   { phrase: "vomi ce matin", locale: "fr", expected: { intent: "create_symptom_entry", target: "diary", draft: { symptomType: "VOMITING" } } },
   { phrase: "poids quatre virgule deux", locale: "fr", expected: { intent: "create_weight_entry", target: "diary", draft: { weightKg: 4.2 } } },
   { phrase: "note pas d'appétit ce matin", locale: "fr", expected: { intent: "create_note", target: "diary" } },
+  { phrase: "le chat a bu 200 ml d'eau", locale: "fr", expected: { intent: "create_water_entry", target: "diary", draft: { amountMl: 200 } } },
+  { phrase: "vermifuge donné aujourd'hui", locale: "fr", expected: { intent: "create_vaccination_entry", target: "diary", draft: { procedureType: "DEWORMING" } } },
 
   { phrase: "erinnere mich um 17 Uhr an Medikament", locale: "de", expected: { intent: "create_reminder", target: "reminder", draft: { type: "MEDICINE" } } },
   { phrase: "gefüttert um Viertel nach eins", locale: "de", expected: { intent: "create_feeding_entry", target: "diary" } },
@@ -72,6 +82,8 @@ const cases: Case[] = [
   { phrase: "heute Morgen erbrochen", locale: "de", expected: { intent: "create_symptom_entry", target: "diary", draft: { symptomType: "VOMITING" } } },
   { phrase: "Gewicht vier komma zwei", locale: "de", expected: { intent: "create_weight_entry", target: "diary", draft: { weightKg: 4.2 } } },
   { phrase: "Notiz kein Appetit am Morgen", locale: "de", expected: { intent: "create_note", target: "diary" } },
+  { phrase: "die Katze hat 200 ml Wasser getrunken", locale: "de", expected: { intent: "create_water_entry", target: "diary", draft: { amountMl: 200 } } },
+  { phrase: "heute gegen Tollwut geimpft", locale: "de", expected: { intent: "create_vaccination_entry", target: "diary", draft: { procedureType: "VACCINE" } } },
 
   { phrase: "提醒我五点喂药", locale: "zh", expected: { intent: "create_reminder", target: "reminder", draft: { type: "MEDICINE" } } },
   { phrase: "给了药 antepsin", locale: "zh", expected: { intent: "create_medicine_entry", target: "diary", draft: { medicineName: "antepsin" } } },
@@ -79,7 +91,9 @@ const cases: Case[] = [
   { phrase: "今天没胃口", locale: "zh", expected: { intent: "create_symptom_entry", target: "diary", draft: { symptomType: "NO_APPETITE" } } },
   { phrase: "早上吐了两次", locale: "zh", expected: { intent: "create_symptom_entry", target: "diary", draft: { symptomType: "VOMITING" } } },
   { phrase: "体重4.2公斤", locale: "zh", expected: { intent: "create_weight_entry", target: "diary", draft: { weightKg: 4.2 } } },
-  { phrase: "记录备注 早上没胃口", locale: "zh", expected: { intent: "create_note", target: "diary" } }
+  { phrase: "记录备注 早上没胃口", locale: "zh", expected: { intent: "create_note", target: "diary" } },
+  { phrase: "猫喝了200毫升水", locale: "zh", expected: { intent: "create_water_entry", target: "diary", draft: { amountMl: 200 } } },
+  { phrase: "今天接种了狂犬病疫苗", locale: "zh", expected: { intent: "create_vaccination_entry", target: "diary", draft: { procedureType: "VACCINE" } } }
 ];
 
 function assert(condition: unknown, message: string) {

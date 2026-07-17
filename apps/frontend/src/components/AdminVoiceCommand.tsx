@@ -23,6 +23,8 @@ type VoiceIntent =
   | "create_symptom_entry"
   | "create_weight_entry"
   | "create_note"
+  | "create_water_entry"
+  | "create_vaccination_entry"
   | "unknown";
 type VoiceTarget = "reminder" | "diary" | "unknown";
 type VoiceStatus = "idle" | "recording" | "uploading" | "result" | "error";
@@ -42,6 +44,8 @@ type MedicineDraft = { medicineName: string; dosage: string; dateTime: string; t
 type SymptomDraft = { dateTime: string; symptomType: string; severity: string; note: string };
 type WeightDraft = { date: string; weightKg: string };
 type NoteDraft = { dateTime: string; note: string };
+type WaterDraft = { dateTime: string; amountMl: string; note: string };
+type VaccinationDraft = { procedureType: string; title: string; date: string; nextDueDate: string; createReminder: boolean; note: string };
 type EditableDraft = Record<string, string | boolean>;
 type AudioContextConstructor = new () => AudioContext;
 type VoiceCommandProps = {
@@ -112,6 +116,23 @@ function normalizeDraft(intent: VoiceIntent, draft: Record<string, unknown>): Ed
       note: asString(draft.note)
     };
   }
+  if (intent === "create_water_entry") {
+    return {
+      dateTime: normalizeDateTime(draft.dateTime),
+      amountMl: String(typeof draft.amountMl === "number" ? draft.amountMl : asString(draft.amountMl)),
+      note: asString(draft.note)
+    };
+  }
+  if (intent === "create_vaccination_entry") {
+    return {
+      procedureType: asString(draft.procedureType, "VACCINE"),
+      title: asString(draft.title),
+      date: normalizeDateTime(draft.date).slice(0, 10),
+      nextDueDate: typeof draft.nextDueDate === "string" ? normalizeDateTime(draft.nextDueDate).slice(0, 10) : "",
+      createReminder: asBoolean(draft.createReminder),
+      note: asString(draft.note)
+    };
+  }
   return {};
 }
 
@@ -122,6 +143,8 @@ function intentLabel(intent: VoiceIntent, t: ReturnType<typeof useI18n>["t"]) {
   if (intent === "create_symptom_entry") return t("symptom");
   if (intent === "create_weight_entry") return t("weight");
   if (intent === "create_note") return t("voiceIntentNote");
+  if (intent === "create_water_entry") return t("waterTitle");
+  if (intent === "create_vaccination_entry") return t("vaccination");
   return t("voiceIntentUnknown");
 }
 
@@ -142,7 +165,9 @@ function isDiaryIntent(intent: VoiceIntent) {
     intent === "create_medicine_entry" ||
     intent === "create_symptom_entry" ||
     intent === "create_weight_entry" ||
-    intent === "create_note"
+    intent === "create_note" ||
+    intent === "create_water_entry" ||
+    intent === "create_vaccination_entry"
   );
 }
 
@@ -159,6 +184,8 @@ function attachmentEntryTypeForIntent(intent: VoiceIntent): AttachmentEntryType 
   if (intent === "create_symptom_entry") return "SYMPTOM";
   if (intent === "create_weight_entry") return "WEIGHT";
   if (intent === "create_note") return "NOTE";
+  if (intent === "create_water_entry") return "WATER";
+  if (intent === "create_vaccination_entry") return "VACCINATION";
   return null;
 }
 
@@ -244,6 +271,8 @@ export function VoiceCommand({ endpoint = "/api/voice/command", hint, visible = 
     t("voiceExampleSymptom", { pet: pet?.name ?? t("pet") }),
     t("voiceExampleWeight", { pet: pet?.name ?? t("pet") }),
     t("voiceExampleNote", { pet: pet?.name ?? t("pet") }),
+    t("voiceExampleWater", { pet: pet?.name ?? t("pet") }),
+    t("voiceExampleVaccination", { pet: pet?.name ?? t("pet") }),
     t("voiceExampleReminder", { pet: pet?.name ?? t("pet") })
   ];
 
@@ -323,6 +352,26 @@ export function VoiceCommand({ endpoint = "/api/voice/command", hint, visible = 
           body: jsonBody({ ...body, petId: pet.id, dateTime: localDateTimeInputToUtcIso(body.dateTime) })
         });
       }
+      if (result.target === "diary" && result.intent === "create_water_entry") {
+        const body = draft as WaterDraft;
+        return api<CreatedEntry>("/api/water", {
+          method: "POST",
+          body: jsonBody({ ...body, petId: pet.id, amountMl: Number(body.amountMl), dateTime: localDateTimeInputToUtcIso(body.dateTime), note: body.note || null })
+        });
+      }
+      if (result.target === "diary" && result.intent === "create_vaccination_entry") {
+        const body = draft as VaccinationDraft;
+        return api<CreatedEntry>("/api/vaccinations", {
+          method: "POST",
+          body: jsonBody({
+            ...body,
+            petId: pet.id,
+            date: new Date(`${body.date}T00:00:00`).toISOString(),
+            nextDueDate: body.nextDueDate ? new Date(`${body.nextDueDate}T00:00:00`).toISOString() : null,
+            note: body.note || null
+          })
+        });
+      }
       throw new Error(t("voiceUnknown"));
     },
     onSuccess: async (createdEntry) => {
@@ -337,6 +386,9 @@ export function VoiceCommand({ endpoint = "/api/voice/command", hint, visible = 
         queryClient.invalidateQueries({ queryKey: ["symptoms-analytics", pet.id] });
         queryClient.invalidateQueries({ queryKey: ["weights", pet.id] });
         queryClient.invalidateQueries({ queryKey: ["notes", pet.id] });
+        queryClient.invalidateQueries({ queryKey: ["water", pet.id] });
+        queryClient.invalidateQueries({ queryKey: ["water-analytics", pet.id] });
+        queryClient.invalidateQueries({ queryKey: ["vaccinations", pet.id] });
         queryClient.invalidateQueries({ queryKey: ["diary"] });
         queryClient.invalidateQueries({ queryKey: ["report"] });
       }
@@ -577,6 +629,8 @@ export function VoiceCommand({ endpoint = "/api/voice/command", hint, visible = 
               {result.intent === "create_symptom_entry" && renderSymptomDraft(draft as SymptomDraft, updateDraft, t)}
               {result.intent === "create_weight_entry" && renderWeightDraft(draft as WeightDraft, updateDraft, t)}
               {result.intent === "create_note" && renderNoteDraft(draft as NoteDraft, updateDraft, t)}
+              {result.intent === "create_water_entry" && renderWaterDraft(draft as WaterDraft, updateDraft, t)}
+              {result.intent === "create_vaccination_entry" && renderVaccinationDraft(draft as VaccinationDraft, updateDraft, t)}
               <ActionAttachmentPicker
                 visible={canAttachFile}
                 file={attachment.file}
@@ -706,6 +760,36 @@ function renderNoteDraft(draft: NoteDraft, updateDraft: (key: string, value: str
     <>
       <DateTimeFields name="voiceNoteDateTime" value={draft.dateTime} onChange={(value) => updateDraft("dateTime", value)} />
       <textarea className="input min-h-28" value={draft.note} onChange={(event) => updateDraft("note", event.target.value)} placeholder={t("notePlaceholder")} />
+    </>
+  );
+}
+
+function renderWaterDraft(draft: WaterDraft, updateDraft: (key: string, value: string | boolean) => void, t: ReturnType<typeof useI18n>["t"]) {
+  return (
+    <>
+      <DateTimeFields name="voiceWaterDateTime" value={draft.dateTime} onChange={(value) => updateDraft("dateTime", value)} />
+      <input className="input" type="number" inputMode="numeric" min="1" max="50000" value={draft.amountMl} onChange={(event) => updateDraft("amountMl", event.target.value)} placeholder={t("waterVolumeMl")} />
+      <textarea className="input" value={draft.note} onChange={(event) => updateDraft("note", event.target.value)} placeholder={t("comment")} />
+    </>
+  );
+}
+
+function renderVaccinationDraft(draft: VaccinationDraft, updateDraft: (key: string, value: string | boolean) => void, t: ReturnType<typeof useI18n>["t"]) {
+  return (
+    <>
+      <SelectField value={draft.procedureType} onChange={(event) => updateDraft("procedureType", event.target.value)}>
+        <option value="VACCINE">{t("procedureVaccine")}</option>
+        <option value="DEWORMING">{t("procedureDeworming")}</option>
+        <option value="FLEA_TICK">{t("procedureFleaTick")}</option>
+        <option value="OTHER">{t("procedureOther")}</option>
+      </SelectField>
+      <input className="input" value={draft.title} onChange={(event) => updateDraft("title", event.target.value)} placeholder={t("procedureName")} />
+      <DateField name="voiceVaccinationDate" label={t("procedureDate")} value={draft.date} onChange={(value) => updateDraft("date", value)} />
+      <DateField name="voiceVaccinationNextDueDate" label={t("nextDueDate")} value={draft.nextDueDate} allowEmpty onChange={(value) => updateDraft("nextDueDate", value)} />
+      <label className="flex items-center gap-2 text-sm font-semibold">
+        <input type="checkbox" checked={draft.createReminder} onChange={(event) => updateDraft("createReminder", event.target.checked)} />{t("createReminder")}
+      </label>
+      <textarea className="input" value={draft.note} onChange={(event) => updateDraft("note", event.target.value)} placeholder={t("comment")} />
     </>
   );
 }

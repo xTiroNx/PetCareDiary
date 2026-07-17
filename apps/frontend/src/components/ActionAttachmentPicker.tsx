@@ -6,7 +6,6 @@ import {
   isSupportedAttachmentFile
 } from "../utils/attachments";
 import { useI18n } from "../utils/i18n";
-import { useAppStore } from "../store/appStore";
 import { RequestError } from "./RequestError";
 
 type Props = {
@@ -21,12 +20,10 @@ type Props = {
 
 export function ActionAttachmentPicker({ visible, file, disabled, isPreparing, uploadError, onFileChange, onClear }: Props) {
   const { t } = useI18n();
-  const accessStatus = useAppStore((state) => state.accessStatus);
-  const isAdmin = useAppStore((state) => state.isAdmin);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [validationError, setValidationError] = useState<Error | null>(null);
 
-  if (!visible || (accessStatus === "expired" && !isAdmin)) return null;
+  if (!visible) return null;
 
   function clearInput() {
     if (inputRef.current) inputRef.current.value = "";

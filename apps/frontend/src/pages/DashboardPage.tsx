@@ -92,7 +92,7 @@ export default function DashboardPage() {
                 {onboardingProgress.hasReminder ? <CheckCircle2 className="text-mint" size={19} /> : <Circle className="text-zinc-400" size={19} />}
                 {t("firstDayReminder")}
               </div>
-              {!onboardingProgress.hasReminder ? <Link className="btn btn-secondary mt-2 w-full" to={hasActiveAccess ? "/reminders" : "/paywall"}><CalendarCheck size={16} />{t("createReminder")}</Link> : null}
+              {!onboardingProgress.hasReminder ? <Link className="btn btn-secondary mt-2 w-full" to="/reminders"><CalendarCheck size={16} />{t("createReminder")}</Link> : null}
             </div>
           </div>
         </section>

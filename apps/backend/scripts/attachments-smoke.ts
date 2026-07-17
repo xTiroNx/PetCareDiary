@@ -86,6 +86,9 @@ const attachments: AttachmentRecord[] = [];
   if (where?.id === "symptom-admin" && where.userId === "user-admin" && where.petId === "pet-admin") {
     return { id: "symptom-admin" };
   }
+  if (where?.id === "symptom-regular" && where.userId === "user-regular" && where.petId === "pet-regular") {
+    return { id: "symptom-regular" };
+  }
   return null;
 };
 
@@ -185,6 +188,15 @@ function attachmentForm(entryId = "symptom-admin", file = previewCases[1]) {
   return form;
 }
 
+function regularAttachmentForm() {
+  const form = new FormData();
+  form.set("petId", "pet-regular");
+  form.set("entryType", "SYMPTOM");
+  form.set("entryId", "symptom-regular");
+  form.set("file", new Blob([previewCases[1].bytes], { type: previewCases[1].mimeType }), previewCases[1].fileName);
+  return form;
+}
+
 async function jsonRequest(pathname: string, telegramId: number): Promise<JsonResponse> {
   const response = await fetch(`${baseUrl()}${pathname}`, {
     headers: { Authorization: `tma ${signedInitData(telegramId)}` }
@@ -199,6 +211,20 @@ try {
     body: attachmentForm()
   });
   assert(nonAdminUpload.status === 403, `Expected regular user to be rejected, got ${nonAdminUpload.status}`);
+
+  const expiredUserUpload = await fetch(`${baseUrl()}/api/attachments`, {
+    method: "POST",
+    headers: { Authorization: `tma ${signedInitData(2002)}` },
+    body: regularAttachmentForm()
+  });
+  assert(expiredUserUpload.status === 201, `Expected expired user photo upload to remain free, got ${expiredUserUpload.status}`);
+  const expiredUserAttachment = await expiredUserUpload.json() as { id?: string };
+  assert(typeof expiredUserAttachment.id === "string", "Expected expired user attachment id.");
+  const expiredUserDelete = await fetch(`${baseUrl()}/api/attachments/${expiredUserAttachment.id}`, {
+    method: "DELETE",
+    headers: { Authorization: `tma ${signedInitData(2002)}` }
+  });
+  assert(expiredUserDelete.status === 204, `Expected expired user photo delete to remain free, got ${expiredUserDelete.status}`);
 
   const missingEntryUpload = await fetch(`${baseUrl()}/api/admin/attachments`, {
     method: "POST",

@@ -39,7 +39,7 @@ export function createApp() {
   app.use("/api/telegram", telegramRoutes);
   app.use("/api/admin/voice", authMiddleware, requireAdmin, rateLimit({ keyPrefix: "admin-voice", windowMs: 60_000, max: 20 }), adminVoiceRoutes);
   app.use("/api/admin/analytics", authMiddleware, requireAdmin, rateLimit({ keyPrefix: "admin-analytics", windowMs: 60_000, max: 120 }), adminAnalyticsRoutes);
-  app.use("/api/admin/attachments", authMiddleware, requireAdmin, requireActiveAccess, rateLimit({ keyPrefix: "admin-attachments", windowMs: 60_000, max: 60 }), attachmentsRoutes);
+  app.use("/api/admin/attachments", authMiddleware, requireAdmin, rateLimit({ keyPrefix: "admin-attachments", windowMs: 60_000, max: 60 }), attachmentsRoutes);
   app.use("/api/admin", authMiddleware, requireAdmin, rateLimit({ keyPrefix: "admin", windowMs: 60_000, max: 120 }), adminRoutes);
   app.use("/api/analytics", authMiddleware, rateLimit({ keyPrefix: "analytics", windowMs: 60_000, max: 120 }), analyticsRoutes);
   app.use("/api/payments", authMiddleware, rateLimit({ keyPrefix: "payments", windowMs: 60_000, max: 20 }), paymentsRoutes);
@@ -48,10 +48,10 @@ export function createApp() {
   app.use("/api/ai", authMiddleware, requireActiveAccess, rateLimit({ keyPrefix: "ai-assistant", windowMs: 60_000, max: 10 }), aiRoutes);
   app.use("/api/attachments", authMiddleware, rateLimit({ keyPrefix: "attachments", windowMs: 60_000, max: 60 }), attachmentsRoutes);
   app.use("/api/pets", authMiddleware, petsRoutes);
-  app.use("/api/reminders", authMiddleware, requireActiveAccess, remindersRoutes);
+  app.use("/api/reminders", authMiddleware, remindersRoutes);
   app.use("/api/vaccinations", authMiddleware, vaccinationsRoutes);
   app.use("/api/water", authMiddleware, waterRoutes);
-  app.use("/api/reports", authMiddleware, requireActiveAccess, rateLimit({ keyPrefix: "reports", windowMs: 60_000, max: 60 }), reportsRoutes);
+  app.use("/api/reports", authMiddleware, rateLimit({ keyPrefix: "reports", windowMs: 60_000, max: 60 }), reportsRoutes);
   app.use("/api", authMiddleware, diaryRoutes);
 
   app.use(notFoundMiddleware);

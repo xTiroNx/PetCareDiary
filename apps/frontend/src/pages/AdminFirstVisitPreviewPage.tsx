@@ -186,7 +186,7 @@ function ExpiredPreview() {
         <p className="mt-2 text-sm leading-6 text-white/75">{t("proText")}</p>
       </section>
       <div className="grid gap-2">
-        {[t("buyMonthly"), t("buySixMonths"), t("buyYearly")].map((label, index) => (
+        {[t("buyMonthly"), t("buySixMonths")].map((label, index) => (
           <button className={index === 0 ? "btn btn-primary w-full" : "btn btn-secondary w-full"} type="button" disabled key={label}>
             <Sparkles size={18} />{label}
           </button>

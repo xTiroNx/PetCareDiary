@@ -8,7 +8,7 @@ const router = Router();
 
 router.post("/create-invoice", async (req, res, next) => {
   try {
-    const { productType } = z.object({ productType: z.enum(["MONTHLY", "SIX_MONTHS", "YEARLY", "ADMIN_TEST_DAY"]) }).strict().parse(req.body);
+    const { productType } = z.object({ productType: z.enum(["MONTHLY", "SIX_MONTHS", "ADMIN_TEST_DAY"]) }).strict().parse(req.body);
     const result = await createStarsInvoice(req.user!.id, productType, { isAdmin: req.isAdmin });
     await trackAnalyticsEvent({
       userId: req.user!.id,

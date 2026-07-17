@@ -26,7 +26,7 @@ import { useI18n } from "./utils/i18n";
 import { hideTelegramBackButton } from "./utils/telegram";
 import { trackEvent } from "./utils/telegramAnalytics";
 
-const proRoutes = new Set(["/ai", "/reminders", "/report"]);
+const proRoutes = new Set(["/ai"]);
 const routesWithoutPet = new Set(["/onboarding", "/paywall", "/profile", "/admin", "/admin/first-visit-preview"]);
 const appOpenedSessionKey = "petcare-analytics-app-opened";
 

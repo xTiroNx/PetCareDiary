@@ -20,6 +20,7 @@
     "ai:assistant-smoke": "tsx scripts/ai-assistant-smoke.ts",
     "report:pdf-smoke": "tsx scripts/report-pdf-smoke.ts",
     "reminder:types-smoke": "tsx scripts/reminder-types-smoke.ts",
+    "release:free-core": "tsx scripts/free-core-release.ts",
     "lint": "tsc -p tsconfig.json --noEmit",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

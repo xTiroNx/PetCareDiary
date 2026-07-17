@@ -5,26 +5,20 @@ import { trackAnalyticsEvent } from "./analytics.service.js";
 import { sendPaymentReceiptNotification } from "./reminderScheduler.service.js";
 import { HttpError } from "../utils/httpError.js";
 
-export type CheckoutProductType = "MONTHLY" | "SIX_MONTHS" | "YEARLY" | "ADMIN_TEST_DAY";
+export type CheckoutProductType = "MONTHLY" | "SIX_MONTHS" | "ADMIN_TEST_DAY";
 
 const checkoutProducts: Record<CheckoutProductType, { priceStars: number; durationDays: number; title: string; description: string }> = {
   MONTHLY: {
     priceStars: env.MONTHLY_PRICE_STARS,
     durationDays: 30,
     title: "PetCare Diary: 1 month access",
-    description: "30 days of Pro access to AI, voice commands, reminders, reports and photo uploads."
+    description: "30 days of Pro access to the AI helper and voice commands."
   },
   SIX_MONTHS: {
     priceStars: env.SIX_MONTHS_PRICE_STARS,
     durationDays: 180,
     title: "PetCare Diary: 6 months access",
-    description: "180 days of Pro access to AI, voice commands, reminders, reports and photo uploads."
-  },
-  YEARLY: {
-    priceStars: env.YEARLY_PRICE_STARS,
-    durationDays: 365,
-    title: "PetCare Diary: 1 year access",
-    description: "365 days of Pro access to AI, voice commands, reminders, reports and photo uploads."
+    description: "180 days of Pro access to the AI helper and voice commands."
   },
   ADMIN_TEST_DAY: {
     priceStars: 1,

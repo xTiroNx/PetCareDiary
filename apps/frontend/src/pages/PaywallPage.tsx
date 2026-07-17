@@ -11,13 +11,12 @@ import { useEffect } from "react";
 import { useAppStore } from "../store/appStore";
 
 type InvoiceResponse = { invoiceLink: string; amountStars: number };
-type ProductType = "MONTHLY" | "SIX_MONTHS" | "YEARLY" | "ADMIN_TEST_DAY";
-type PlanLabelKey = "buyMonthly" | "buySixMonths" | "buyYearly" | "buyAdminTestDay";
+type ProductType = "MONTHLY" | "SIX_MONTHS" | "ADMIN_TEST_DAY";
+type PlanLabelKey = "buyMonthly" | "buySixMonths" | "buyAdminTestDay";
 
 const plans: Array<{ productType: ProductType; labelKey: PlanLabelKey }> = [
   { productType: "MONTHLY", labelKey: "buyMonthly" },
-  { productType: "SIX_MONTHS", labelKey: "buySixMonths" },
-  { productType: "YEARLY", labelKey: "buyYearly" }
+  { productType: "SIX_MONTHS", labelKey: "buySixMonths" }
 ];
 const adminTestPlan: { productType: ProductType; labelKey: PlanLabelKey } = {
   productType: "ADMIN_TEST_DAY",

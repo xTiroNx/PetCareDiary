@@ -1,7 +1,6 @@
 import type { AccessNotificationType, Prisma, Reminder, ReminderType, User } from "@prisma/client";
 import { env } from "../config/env.js";
 import { prisma } from "../prisma/client.js";
-import { adminTelegramIds } from "../utils/admin.js";
 
 type DueReminder = Reminder & { user: Pick<User, "telegramId" | "languageCode"> };
 
@@ -37,24 +36,6 @@ function messageFor(reminder: DueReminder) {
     "",
     "Откройте Mini App, чтобы отметить или изменить напоминание."
   ].join("\n");
-}
-
-function activeAccessFilter(now: Date): Prisma.UserWhereInput {
-  const adminIds = Array.from(adminTelegramIds()).flatMap((value) => {
-    try {
-      return [BigInt(value)];
-    } catch {
-      return [];
-    }
-  });
-  const filters: Prisma.UserWhereInput[] = [
-    { lifetimeAccess: true },
-    { accessUntil: { gt: now } },
-    { trialEndsAt: { gt: now } }
-  ];
-
-  if (adminIds.length > 0) filters.push({ telegramId: { in: adminIds } });
-  return { OR: filters };
 }
 
 async function sendTelegramMessage(chatId: bigint, text: string) {
@@ -148,12 +129,12 @@ async function hasAccessNotificationLog(input: {
 function accessNotificationMessage(type: AccessNotificationType, date?: Date | null) {
   const datePart = date ? `\nДата: ${date.toLocaleDateString("ru-RU", { timeZone: "UTC" })}` : "";
   if (type === "TRIAL_ENDING_SOON") {
-    return `PetCare Diary: trial закончится завтра.${datePart}\n\nОткройте Mini App, чтобы продлить доступ, если хотите продолжить вести дневник.`;
+    return `PetCare Diary: trial Pro закончится завтра.${datePart}\n\nДневник, фото, напоминания, отчёты и PDF останутся бесплатными. Продление Pro нужно только для AI-помощника и голосовых команд.`;
   }
   if (type === "PAID_ENDING_SOON") {
-    return `PetCare Diary: оплаченный доступ закончится через 3 дня.${datePart}\n\nОткройте Mini App, чтобы продлить доступ заранее.`;
+    return `PetCare Diary: оплаченный Pro закончится через 3 дня.${datePart}\n\nОсновные функции останутся бесплатными. Продлите Pro, если хотите продолжить пользоваться AI-помощником и голосовыми командами.`;
   }
-  return "PetCare Diary: доступ закончился.\n\nОткройте Mini App, чтобы продлить доступ и продолжить вести дневник питомца.";
+  return "PetCare Diary: доступ Pro закончился.\n\nДневник, фото, напоминания, отчёты и PDF по-прежнему бесплатны. Pro можно продлить для AI-помощника и голосовых команд.";
 }
 
 async function sendLoggedAccessNotification(input: {
@@ -343,7 +324,7 @@ export async function processDueReminders() {
 
   try {
     const reminders = await prisma.reminder.findMany({
-      where: { active: true, time: { lte: now }, user: activeAccessFilter(now) },
+      where: { active: true, time: { lte: now } },
       orderBy: { time: "asc" },
       take: 25,
       include: { user: { select: { telegramId: true, languageCode: true } } }

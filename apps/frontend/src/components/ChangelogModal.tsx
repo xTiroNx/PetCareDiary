@@ -5,7 +5,7 @@ import { telegramSelection } from "../utils/telegram";
 
 export const changelogSeenKey = "petcare-changelog-seen-v2026-05-18-promo-feedback";
 export const openChangelogEvent = "petcare-open-changelog";
-const showLaunchPromo = true;
+const showLaunchPromo = false;
 
 type ChangelogModalProps = {
   open: boolean;

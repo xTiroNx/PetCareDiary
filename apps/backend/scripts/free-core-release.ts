@@ -1,5 +1,11 @@
-import { env } from "../src/config/env.js";
-import { prisma } from "../src/prisma/client.js";
+import dotenv from "dotenv";
+
+dotenv.config({ path: new URL("../../../.env", import.meta.url) });
+
+const [{ env }, { prisma }] = await Promise.all([
+  import("../src/config/env.js"),
+  import("../src/prisma/client.js")
+]);
 
 const releaseId = "free_core_20260717";
 const resetEvent = `${releaseId}_trial_reset`;

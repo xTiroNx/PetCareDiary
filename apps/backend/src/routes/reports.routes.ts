@@ -732,8 +732,8 @@ async function buildAiVetSummary(report: Awaited<ReturnType<typeof buildReport>>
   }
 }
 
-function pdfFont(doc: PDFKit.PDFDocument) {
-  const candidates = [
+function pdfFonts(doc: PDFKit.PDFDocument) {
+  const regularCandidates = [
     "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
     "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
@@ -741,10 +741,21 @@ function pdfFont(doc: PDFKit.PDFDocument) {
     "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
     "/System/Library/Fonts/Supplemental/Arial.ttf"
   ];
-  const fontPath = candidates.find((candidate) => existsSync(candidate));
-  if (!fontPath) return "Helvetica";
-  doc.registerFont("PetCareFont", fontPath);
-  return "PetCareFont";
+  const boldCandidates = [
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+    "/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "/System/Library/Fonts/PingFang.ttc",
+    "/System/Library/Fonts/Supplemental/Arial Bold.ttf"
+  ];
+  const regularPath = regularCandidates.find((candidate) => existsSync(candidate));
+  const boldPath = boldCandidates.find((candidate) => existsSync(candidate));
+  if (regularPath) doc.registerFont("PetCareRegular", regularPath);
+  if (boldPath) doc.registerFont("PetCareBold", boldPath);
+  return {
+    regular: regularPath ? "PetCareRegular" : "Helvetica",
+    bold: boldPath ? "PetCareBold" : regularPath ? "PetCareRegular" : "Helvetica-Bold"
+  };
 }
 
 function safeTimezone(timezone?: string | null) {
@@ -848,39 +859,114 @@ export async function renderReportPdf(report: Awaited<ReturnType<typeof buildRep
     const formatDateTime = dateFormatter(options.locale, options.timezone);
     const formatDate = dateFormatter(options.locale, options.timezone, { year: "numeric", month: "2-digit", day: "2-digit" });
     const analytics = reportAnalytics(report);
+    const periodLabel = report.period === "all" ? text.allTime : text.lastDays(report.period);
     const doc = new PDFDocument({
       size: "A4",
-      margin: 44,
+      margin: 38,
+      bufferPages: true,
       info: {
-        Author: "PetCare Diary"
+        Author: "PetCare Diary",
+        Title: `${report.petName} - ${text.summary}`,
+        Subject: periodLabel
       }
     });
     const chunks: Buffer[] = [];
-    const font = pdfFont(doc);
+    const fonts = pdfFonts(doc);
+    const colors = {
+      ink: "#17202A",
+      body: "#4B5563",
+      muted: "#7C8491",
+      line: "#E4E7EB",
+      soft: "#F4F7F7",
+      mint: "#1F9D8A",
+      mintSoft: "#E8F6F3",
+      coral: "#E96D61",
+      coralSoft: "#FCEDEB",
+      white: "#FFFFFF"
+    } as const;
 
     doc.on("data", (chunk: Buffer) => chunks.push(chunk));
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
 
-    const periodLabel = report.period === "all" ? text.allTime : text.lastDays(report.period);
     const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
-    const value = (label: string, content?: string | null) => {
-      if (!content) return;
-      doc.font(font).fontSize(10).fillColor("#17202a").text(`${label}: ${content}`, { width: pageWidth });
+    const contentBottom = doc.page.height - 68;
+
+    const decoratePage = (pageNumber: number, first = false) => {
+      const savedY = doc.y;
+      doc.save();
+      if (!first) {
+        doc.rect(0, 0, doc.page.width, 7).fill(colors.mint);
+        doc.font(fonts.bold).fontSize(8).fillColor(colors.muted)
+          .text("PETCARE DIARY", doc.page.margins.left, 22, { width: pageWidth, characterSpacing: 0.8, lineBreak: false });
+      }
+      doc.moveTo(doc.page.margins.left, doc.page.height - 57)
+        .lineTo(doc.page.width - doc.page.margins.right, doc.page.height - 57)
+        .lineWidth(0.7).strokeColor(colors.line).stroke();
+      doc.font(fonts.regular).fontSize(8).fillColor(colors.muted)
+        .text(`${report.petName} | ${periodLabel}`, doc.page.margins.left, doc.page.height - 51, { width: pageWidth - 50, lineBreak: false });
+      doc.text(String(pageNumber), doc.page.width - doc.page.margins.right - 35, doc.page.height - 51, { width: 35, align: "right", lineBreak: false });
+      doc.restore();
+      doc.y = savedY;
     };
 
-    value(text.pet, report.petName);
-    value(text.petType, report.pet ? text.petTypes[report.pet.type] ?? report.pet.type : null);
-    value(text.age, report.pet?.ageYears ? `${report.pet.ageYears.toString()} ${text.years}` : null);
-    value(text.currentWeight, report.pet?.weightKg ? `${report.pet.weightKg.toString()} ${text.kg}` : null);
-    value(text.healthNotes, report.pet?.healthNotes);
-    value(text.period, periodLabel);
-    value(text.generated, formatDateTime.format(new Date()));
-    value("Timezone", options.timezone);
-    doc.moveDown(1);
+    doc.roundedRect(0, 0, doc.page.width, 154, 0).fill(colors.ink);
+    doc.rect(0, 146, doc.page.width, 8).fill(colors.mint);
+    doc.font(fonts.bold).fontSize(10).fillColor(colors.mint)
+      .text("PETCARE DIARY", doc.page.margins.left, 30, { characterSpacing: 1.2 });
+    doc.font(fonts.bold).fontSize(28).fillColor(colors.white)
+      .text(report.petName, doc.page.margins.left, 52, { width: pageWidth, lineGap: 2 });
+    doc.font(fonts.regular).fontSize(11).fillColor("#CFD6DB")
+      .text(`${text.summary} | ${periodLabel}`, doc.page.margins.left, 92, { width: pageWidth });
+    doc.font(fonts.regular).fontSize(9).fillColor("#AEB8C0")
+      .text(`${text.generated}: ${formatDateTime.format(new Date())} | ${options.timezone}`, doc.page.margins.left, 118, { width: pageWidth });
+    doc.y = 174;
 
-    doc.fillColor("#17202a").fontSize(15).text(text.summary);
-    doc.moveDown(0.5);
+    const petMeta = [
+      report.pet ? text.petTypes[report.pet.type] ?? report.pet.type : null,
+      report.pet?.ageYears ? `${report.pet.ageYears.toString()} ${text.years}` : null,
+      report.pet?.weightKg ? `${report.pet.weightKg.toString()} ${text.kg}` : null
+    ].filter(Boolean).join("  |  ");
+    if (petMeta) {
+      doc.font(fonts.bold).fontSize(10).fillColor(colors.ink).text(petMeta, { width: pageWidth });
+      doc.moveDown(0.45);
+    }
+    if (report.pet?.healthNotes) {
+      const noteY = doc.y;
+      const noteHeight = doc.heightOfString(report.pet.healthNotes, { width: pageWidth - 24 }) + 18;
+      doc.roundedRect(doc.page.margins.left, noteY, pageWidth, noteHeight, 6).fill(colors.soft);
+      doc.font(fonts.bold).fontSize(8).fillColor(colors.muted)
+        .text(text.healthNotes.toUpperCase(), doc.page.margins.left + 12, noteY + 7, { width: pageWidth - 24, characterSpacing: 0.5 });
+      doc.font(fonts.regular).fontSize(9).fillColor(colors.body)
+        .text(report.pet.healthNotes, doc.page.margins.left + 12, noteY + 20, { width: pageWidth - 24 });
+      doc.y = noteY + noteHeight + 12;
+    }
+
+    const ensureSpace = (height = 90) => {
+      if (doc.y + height > contentBottom) {
+        doc.addPage();
+        doc.y = 48;
+      }
+    };
+    const section = (title: string, subtitle?: string) => {
+      ensureSpace(subtitle ? 96 : 86);
+      doc.moveDown(0.7);
+      const y = doc.y;
+      doc.roundedRect(doc.page.margins.left, y + 1, 4, 20, 2).fill(colors.mint);
+      doc.font(fonts.bold).fontSize(15).fillColor(colors.ink)
+        .text(title, doc.page.margins.left + 12, y, { width: pageWidth - 12 });
+      if (subtitle) {
+        doc.font(fonts.regular).fontSize(8.5).fillColor(colors.muted)
+          .text(subtitle, doc.page.margins.left + 12, y + 22, { width: pageWidth - 12 });
+      }
+      doc.y = y + (subtitle ? 42 : 29);
+    };
+    const empty = () => {
+      doc.font(fonts.regular).fontSize(9.5).fillColor(colors.muted).text(text.noRecords);
+      doc.moveDown(0.4);
+    };
+
+    section(text.summary);
     const rows = [
       [text.feedingsCount, report.counts.feeding],
       [text.symptomsCount, report.counts.symptoms],
@@ -891,41 +977,82 @@ export async function renderReportPdf(report: Awaited<ReturnType<typeof buildRep
       [text.waterRecords, report.counts.water],
       [text.vaccinations, report.counts.vaccinations]
     ] as const;
-
-    rows.forEach(([label, count]) => {
-      doc.font(font).fontSize(12).fillColor("#17202a").text(`${label}: `, { continued: true });
-      doc.font(font).fillColor("#1f9d8a").text(String(count));
+    const metricGap = 8;
+    const metricWidth = (pageWidth - metricGap * 3) / 4;
+    const metricHeight = 57;
+    const metricStartY = doc.y;
+    rows.forEach(([label, count], index) => {
+      const column = index % 4;
+      const row = Math.floor(index / 4);
+      const x = doc.page.margins.left + column * (metricWidth + metricGap);
+      const y = metricStartY + row * (metricHeight + metricGap);
+      doc.roundedRect(x, y, metricWidth, metricHeight, 6).fill(index === 1 ? colors.coralSoft : colors.mintSoft);
+      doc.font(fonts.bold).fontSize(19).fillColor(index === 1 ? colors.coral : colors.mint)
+        .text(String(count), x + 10, y + 8, { width: metricWidth - 20 });
+      doc.font(fonts.regular).fontSize(7.5).fillColor(colors.body)
+        .text(label, x + 10, y + 33, { width: metricWidth - 20, height: 18, ellipsis: true });
     });
+    doc.y = metricStartY + (metricHeight + metricGap) * 2 + 2;
 
-    const ensureSpace = (height = 90) => {
-      if (doc.y > doc.page.height - doc.page.margins.bottom - height) doc.addPage();
-    };
-    const section = (title: string) => {
-      ensureSpace();
-      doc.moveDown(0.8);
-      doc.fillColor("#17202a").fontSize(15).text(title);
-      doc.moveDown(0.35);
-    };
-    const empty = () => doc.font(font).fontSize(10).fillColor("#8a91a0").text(text.noRecords);
     const line = (date: Date, details: Array<[string, string | null | undefined]>) => {
-      ensureSpace();
-      doc.font(font).fontSize(10).fillColor("#5f6673").text(formatDateTime.format(new Date(date)));
-      details.forEach(([label, content]) => {
-        if (!content) return;
-        doc.font(font).fontSize(10).fillColor("#17202a").text(`${label}: ${content}`, { width: pageWidth });
-      });
-      doc.moveDown(0.4);
+      const visible = details.filter(([, content]) => content !== null && content !== undefined && content !== "");
+      const detailText = visible.map(([label, content]) => `${label}: ${content}`).join("\n");
+      const detailWidth = pageWidth - 128;
+      doc.font(fonts.regular).fontSize(9);
+      const rowHeight = Math.max(36, doc.heightOfString(detailText, { width: detailWidth }) + 14);
+      ensureSpace(rowHeight + 6);
+      const y = doc.y;
+      doc.roundedRect(doc.page.margins.left, y, pageWidth, rowHeight, 5).fill(colors.soft);
+      doc.font(fonts.bold).fontSize(8.5).fillColor(colors.mint)
+        .text(formatDateTime.format(new Date(date)), doc.page.margins.left + 10, y + 8, { width: 105 });
+      doc.font(fonts.regular).fontSize(9).fillColor(colors.ink)
+        .text(detailText, doc.page.margins.left + 124, y + 7, { width: detailWidth, lineGap: 1.5 });
+      doc.y = y + rowHeight + 5;
     };
     const statLine = (label: string, content: string | number | null | undefined) => {
       if (content === null || content === undefined || content === "") return;
-      ensureSpace(40);
-      doc.font(font).fontSize(10).fillColor("#17202a").text(`${label}: ${String(content)}`, { width: pageWidth });
+      ensureSpace(28);
+      const y = doc.y;
+      doc.font(fonts.regular).fontSize(9.5).fillColor(colors.body).text(label, doc.page.margins.left, y, { width: pageWidth * 0.58 });
+      doc.font(fonts.bold).fontSize(9.5).fillColor(colors.ink).text(String(content), doc.page.margins.left + pageWidth * 0.6, y, { width: pageWidth * 0.4, align: "right" });
+      doc.moveTo(doc.page.margins.left, y + 17).lineTo(doc.page.width - doc.page.margins.right, y + 17).lineWidth(0.5).strokeColor(colors.line).stroke();
+      doc.y = y + 23;
     };
     const weightLabel = (value: number | null | undefined) => value === null || value === undefined ? null : `${value.toFixed(2)} ${text.kg}`;
 
-    section(text.analytics);
     section(text.weightTrend);
     if (analytics.weight.first && analytics.weight.last) {
+      const points = report.entries.weights
+        .map((entry) => ({ date: entry.date, value: numberValue(entry.weightKg) }))
+        .filter((entry): entry is { date: Date; value: number } => entry.value !== null);
+      if (points.length > 1) {
+        ensureSpace(125);
+        const chartX = doc.page.margins.left;
+        const chartY = doc.y;
+        const chartHeight = 82;
+        const values = points.map((point) => point.value);
+        const min = Math.min(...values);
+        const max = Math.max(...values);
+        const spread = Math.max(max - min, 0.2);
+        doc.roundedRect(chartX, chartY, pageWidth, 108, 6).fill(colors.soft);
+        for (let index = 0; index < 4; index += 1) {
+          const gridY = chartY + 13 + index * (chartHeight / 3);
+          doc.moveTo(chartX + 38, gridY).lineTo(chartX + pageWidth - 12, gridY).lineWidth(0.5).strokeColor(colors.line).stroke();
+        }
+        const plotted = points.map((point, index) => ({
+          x: chartX + 38 + index * ((pageWidth - 56) / Math.max(points.length - 1, 1)),
+          y: chartY + 13 + chartHeight - ((point.value - min + spread * 0.08) / (spread * 1.16)) * chartHeight
+        }));
+        plotted.forEach((point, index) => {
+          if (!index) return;
+          doc.moveTo(plotted[index - 1].x, plotted[index - 1].y).lineTo(point.x, point.y).lineWidth(2.2).strokeColor(colors.mint).stroke();
+        });
+        plotted.forEach((point) => doc.circle(point.x, point.y, 3).fill(colors.mint));
+        doc.font(fonts.regular).fontSize(7.5).fillColor(colors.muted)
+          .text(`${min.toFixed(2)} ${text.kg}`, chartX + 6, chartY + 83, { width: 29, align: "right" })
+          .text(`${max.toFixed(2)} ${text.kg}`, chartX + 6, chartY + 10, { width: 29, align: "right" });
+        doc.y = chartY + 116;
+      }
       statLine(text.firstWeight, `${weightLabel(analytics.weight.first.weightKg)} (${formatDate.format(analytics.weight.first.date)})`);
       statLine(text.lastWeight, `${weightLabel(analytics.weight.last.weightKg)} (${formatDate.format(analytics.weight.last.date)})`);
       statLine(text.weightChange, weightLabel(analytics.weight.change));
@@ -936,7 +1063,17 @@ export async function renderReportPdf(report: Awaited<ReturnType<typeof buildRep
     section(text.feedingByType);
     const feedingRows = Object.entries(analytics.feedingByType);
     if (feedingRows.length) {
-      feedingRows.forEach(([type, count]) => statLine(text.foodLabels[type as keyof typeof text.foodLabels] ?? type, count));
+      const maxCount = Math.max(...feedingRows.map(([, count]) => count));
+      feedingRows.forEach(([type, count]) => {
+        ensureSpace(32);
+        const y = doc.y;
+        const label = text.foodLabels[type as keyof typeof text.foodLabels] ?? type;
+        doc.font(fonts.regular).fontSize(9).fillColor(colors.body).text(label, doc.page.margins.left, y, { width: 125 });
+        doc.roundedRect(doc.page.margins.left + 132, y + 1, pageWidth - 162, 10, 5).fill(colors.line);
+        doc.roundedRect(doc.page.margins.left + 132, y + 1, Math.max(8, (pageWidth - 162) * count / maxCount), 10, 5).fill(colors.mint);
+        doc.font(fonts.bold).fontSize(9).fillColor(colors.ink).text(String(count), doc.page.width - doc.page.margins.right - 24, y, { width: 24, align: "right" });
+        doc.y = y + 23;
+      });
     } else empty();
 
     section(text.symptomsByType);
@@ -971,7 +1108,15 @@ export async function renderReportPdf(report: Awaited<ReturnType<typeof buildRep
 
     if (aiSummary) {
       section(text.importantForVet);
-      doc.font(font).fontSize(10).fillColor("#17202a").text(aiSummary, { width: pageWidth });
+      doc.font(fonts.regular).fontSize(9.5);
+      const summaryHeight = doc.heightOfString(aiSummary, { width: pageWidth - 28, lineGap: 3 }) + 28;
+      ensureSpace(summaryHeight + 5);
+      const y = doc.y;
+      doc.roundedRect(doc.page.margins.left, y, pageWidth, summaryHeight, 7).fill(colors.mintSoft);
+      doc.rect(doc.page.margins.left, y, 5, summaryHeight).fill(colors.mint);
+      doc.font(fonts.regular).fontSize(9.5).fillColor(colors.ink)
+        .text(aiSummary, doc.page.margins.left + 16, y + 13, { width: pageWidth - 28, lineGap: 3 });
+      doc.y = y + summaryHeight + 4;
     }
 
     section(text.feeding);
@@ -1043,8 +1188,17 @@ export async function renderReportPdf(report: Awaited<ReturnType<typeof buildRep
       ]));
     } else empty();
 
-    doc.moveDown(1);
-    doc.font(font).fontSize(9).fillColor("#8a91a0").text(text.disclaimer, { align: "left" });
+    doc.moveDown(0.5);
+    ensureSpace(48);
+    const disclaimerY = doc.y;
+    doc.roundedRect(doc.page.margins.left, disclaimerY, pageWidth, 44, 6).fill(colors.coralSoft);
+    doc.font(fonts.regular).fontSize(8.5).fillColor(colors.body)
+      .text(text.disclaimer, doc.page.margins.left + 12, disclaimerY + 11, { width: pageWidth - 24, lineGap: 2 });
+    const pages = doc.bufferedPageRange();
+    for (let index = 0; index < pages.count; index += 1) {
+      doc.switchToPage(pages.start + index);
+      decoratePage(index + 1, index === 0);
+    }
     doc.end();
   });
 }

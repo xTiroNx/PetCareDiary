@@ -244,8 +244,10 @@ try {
   assert(primaryRequest.model === "google/gemini-3.1-flash-lite", "Expected Gemini as primary AI helper model.");
   assert(generalHelpRequest?.model === "minimax/minimax-m3", "Expected MiniMax as application-level AI helper fallback.");
   const tokenLimit = generalHelpRequest?.max_completion_tokens ?? generalHelpRequest?.max_tokens;
-  assert(tokenLimit === 1100, `Expected AI token limit to be 1100, got ${tokenLimit}`);
-  assert(generalHelpRequest.messages?.[0]?.content?.includes("not overly terse"), "Expected system prompt to allow more useful answers.");
+  assert(tokenLimit === 1400, `Expected AI token limit to be 1400, got ${tokenLimit}`);
+  assert(generalHelpRequest.messages?.[0]?.content?.includes("do not force it into a checklist"), "Expected system prompt to avoid mechanical checklist answers.");
+  assert(generalHelpRequest.messages?.[0]?.content?.includes("primary evidence"), "Expected system prompt to prioritize selected photos.");
+  assert(generalHelpRequest.messages?.[0]?.content?.includes("Inspect every attached image"), "Expected system prompt to require reviewing every selected photo.");
   assert(generalHelpRequest.messages?.[0]?.content?.includes("Do not include a final medical disclaimer"), "Expected system prompt to suppress duplicate disclaimer.");
   assert(generalHelpRequest.messages?.[0]?.content?.includes("Use '-' for bullet points"), "Expected system prompt to require dash bullets.");
   assert(generalHelpRequest.messages?.[0]?.content?.includes("exact local dates"), "Expected system prompt to require dated diary evidence.");

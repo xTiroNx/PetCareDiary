@@ -25,7 +25,7 @@ const assistantBodySchema = z.object({
   locale: z.string().min(2).max(16).optional().nullable(),
   includeImages: z.coerce.boolean().default(false),
   imageAttachmentIds: z.array(z.string().min(1).max(128)).max(3).default([]),
-  history: z.array(assistantHistoryMessageSchema).max(6).default([])
+  history: z.array(assistantHistoryMessageSchema).max(16).default([])
 }).strict();
 
 const assistantPhotosQuerySchema = z.object({
@@ -136,20 +136,18 @@ function modeInstruction(mode: typeof assistantModes[number]) {
     ].join("\n");
   }
   return [
-    "Answer the user's free-form question cautiously, warmly, and practically.",
-    "Use the pet diary records for context when they are relevant.",
+    "Answer the user's actual question directly, cautiously, warmly, and practically.",
+    "Write like an attentive assistant who has just reviewed this specific pet's diary, not like a generic health checklist.",
+    "Open with the most useful concrete takeaway in 1-3 natural sentences. Mention the pet by name when available.",
+    "Use the pet diary records and exact dates as evidence when they are relevant.",
     "If the diary does not contain enough information, say that clearly and suggest what to check or record next.",
     "Do not invent facts that are not in the diary.",
-    "Use a clear mobile-friendly structure. Prefer 4-7 short sections or bullets. Be practical, but not overly terse.",
-    "When useful, structure the answer like this:",
-    "1. Brief takeaway.",
-    "2. What the diary shows.",
-    "3. Possible everyday explanations or hypotheses, only if they are safe, obvious, and framed as possibilities rather than conclusions.",
-    "4. What the owner can check at home without changing treatment, medication, dosage, or diet in a risky way.",
-    "5. What to record next in the diary.",
-    "6. Red flags for urgent veterinary care.",
-    "7. Questions to ask the veterinarian.",
-    "Avoid panic and avoid long medical textbook paragraphs."
+    "Choose the structure that best fits the question. A short answer may be 2-4 paragraphs; use bullets only when they genuinely make actions or comparisons easier to scan.",
+    "Do not mechanically repeat headings such as takeaway, diary, hypotheses, next steps, red flags, and veterinarian questions in every response.",
+    "Connect related observations into a coherent explanation instead of walking through every record category.",
+    "Prioritize meaningful changes, repeated patterns, contrasts, and gaps in the data. Ignore unrelated categories.",
+    "If selected photos are attached, discuss the visible photo evidence before the diary summary and give it meaningful space in the answer.",
+    "Avoid panic, canned phrases, and long medical textbook paragraphs."
   ].join("\n");
 }
 
@@ -572,6 +570,7 @@ async function askChatCompletionProvider(input: {
     const reportData = {
       ...input.data,
       imageAnalysisEnabled: visionImages.length > 0,
+      photoReviewRequired: visionImages.length > 0,
       imageAttachments: input.data.imageAttachments.map(({ url: _url, ...attachment }) => attachment)
     };
     const userText = JSON.stringify({
@@ -609,18 +608,21 @@ async function askChatCompletionProvider(input: {
               "Never present a possible explanation as a diagnosis or certainty.",
               "You may summarize diary records, suggest questions to ask a veterinarian, suggest what data to track next, and recommend contacting a veterinarian for severe, recurring, or worsening symptoms.",
               "You may mention simple, common, non-diagnostic possibilities when they are safe and clearly supported by the diary context, using phrases like 'one possible explanation' or 'this can sometimes happen when'.",
-              "When image inputs are attached, use them as visual context together with the diary records. Describe only visible, relevant details and uncertainty; do not infer a diagnosis from an image.",
+              "When image inputs are attached, the user selected them intentionally and they are primary evidence, not a minor supplement.",
+              "Inspect every attached image before interpreting the diary. Start the substantive answer with what is visibly present in the selected photos, then connect it to relevant diary dates.",
+              "For each selected photo, describe the concrete visible details that matter to the question, note differences between photos when useful, and say when blur, lighting, angle, or framing limits confidence.",
+              "Do not merely say that photos were reviewed. Do not infer a diagnosis from an image and do not claim to see anything that is not visible.",
               "If image metadata is present but imageAnalysisEnabled is false, do not claim you inspected the photos.",
               "Do not include a final medical disclaimer in the answer. The app already shows a separate disclaimer below the answer.",
               "Do not write phrases like 'I am not a veterinarian', 'I am not a doctor', or 'this does not replace veterinary care' inside the answer.",
               "Still mention urgent red flags and when to contact a veterinarian urgently when relevant.",
               "Use careful non-diagnostic language.",
-              "Use a warm, calm, practical tone. Help the owner understand what to observe before defaulting to 'ask a veterinarian'.",
+              "Use a warm, calm, conversational tone. Help the owner understand what matters in this specific situation before defaulting to 'ask a veterinarian'.",
               "Do not include chain-of-thought or hidden reasoning.",
               "Do not include <think> tags.",
               "Return only the final user-facing answer.",
               "Follow the task from the user message exactly.",
-              "Use a clear mobile-friendly structure. Prefer 4-7 short sections or bullets. Be practical, but not overly terse.",
+              "Keep the answer mobile-friendly, but do not force it into a checklist. Use short paragraphs and only the bullets that improve clarity.",
               "Use '-' for bullet points. Do not use '*' as a markdown bullet. If you use numbered sections, nested items must use '-' bullets.",
               "When you make an observation based on diary records, cite the record type and exact local dates in parentheses, for example: (symptoms: 12 Jul, 15 Jul).",
               "Never invent an evidence date or source. If the supplied records do not support a claim, say that clearly.",
@@ -634,8 +636,8 @@ async function askChatCompletionProvider(input: {
             content: userContent
           }
         ],
-        temperature: 0.2,
-        ...(input.tokenField === "max_tokens" ? { max_tokens: 1100 } : { max_completion_tokens: 1100 })
+        temperature: 0.35,
+        ...(input.tokenField === "max_tokens" ? { max_tokens: 1400 } : { max_completion_tokens: 1400 })
       })
     });
     const data = await response.json().catch(() => null) as { choices?: Array<{ message?: { content?: unknown } }> } | null;

@@ -8,6 +8,9 @@ process.env.MINIMAX_API_KEY = "test_minimax_key";
 process.env.MINIMAX_PARSER_MODEL = "MiniMax-M2.7";
 process.env.MINIMAX_REPORT_MODEL = "MiniMax-M2.7";
 
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
+
 const { renderReportPdf } = await import("../src/routes/reports.routes.js");
 
 function assert(condition: unknown, message: string) {
@@ -92,6 +95,10 @@ globalThis.fetch = async () => new Response(JSON.stringify({
 for (const [language, locale] of locales) {
   const pdf = await renderReportPdf(report as never, { language, locale, timezone: "Europe/Moscow" });
   assert(pdf.subarray(0, 4).toString() === "%PDF", `Expected ${language} PDF buffer.`);
+  if (language === "ru" && process.env.REPORT_PDF_SMOKE_OUTPUT) {
+    await mkdir(dirname(process.env.REPORT_PDF_SMOKE_OUTPUT), { recursive: true });
+    await writeFile(process.env.REPORT_PDF_SMOKE_OUTPUT, pdf);
+  }
 }
 
 globalThis.fetch = async () => {

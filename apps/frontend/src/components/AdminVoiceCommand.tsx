@@ -238,6 +238,14 @@ export function VoiceCommand({ endpoint = "/api/voice/command", hint, visible = 
   const attachmentEntryType = result ? attachmentEntryTypeForIntent(result.intent) : null;
   const attachment = useEntryAttachmentUpload(attachmentEntryType ?? "NOTE", pet?.id, t);
   const canAttachFile = Boolean(attachmentEntryType && canCreateFromVoice(result));
+  const voiceExamples = [
+    t("voiceExampleFeeding", { pet: pet?.name ?? t("pet") }),
+    t("voiceExampleMedicine", { pet: pet?.name ?? t("pet") }),
+    t("voiceExampleSymptom", { pet: pet?.name ?? t("pet") }),
+    t("voiceExampleWeight", { pet: pet?.name ?? t("pet") }),
+    t("voiceExampleNote", { pet: pet?.name ?? t("pet") }),
+    t("voiceExampleReminder", { pet: pet?.name ?? t("pet") })
+  ];
 
   const voiceCommand = useMutation({
     mutationFn: (audio: Blob) => {
@@ -521,9 +529,14 @@ export function VoiceCommand({ endpoint = "/api/voice/command", hint, visible = 
         </div>
         <div className="min-w-0 text-center">
           <p className="muted mt-1">{hint ?? t("voiceCommandHint")}</p>
-          <p className="mx-auto mt-2 max-w-[22rem] rounded-lg border border-mint/20 bg-mint/5 px-3 py-2 text-sm font-semibold leading-5 text-zinc-600 dark:bg-mint/10 dark:text-zinc-300">
-            {t("voiceCommandExample")}
-          </p>
+          <details className="mx-auto mt-2 max-w-[24rem] rounded-lg border border-mint/20 bg-mint/5 px-3 py-2 text-left dark:bg-mint/10" open>
+            <summary className="cursor-pointer text-sm font-bold text-zinc-700 dark:text-zinc-200">{t("voiceExamplesTitle")}</summary>
+            <ul className="mt-2 grid gap-2 text-xs font-semibold leading-5 text-zinc-600 dark:text-zinc-300">
+              {voiceExamples.map((example) => (
+                <li className="border-l-2 border-mint/40 pl-2" key={example}>{example}</li>
+              ))}
+            </ul>
+          </details>
           <p className="mt-1 text-xs font-semibold text-zinc-500 dark:text-zinc-400">{t("voiceDurationHint")}</p>
         </div>
       </div>

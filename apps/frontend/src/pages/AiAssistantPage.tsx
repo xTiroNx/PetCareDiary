@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Bot, Check, Clock3, ImageIcon, RotateCcw, Send } from "lucide-react";
+import { ArrowLeft, Bot, Check, Clock3, ImageIcon, Lightbulb, RotateCcw, Send } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { api, jsonBody } from "../api/client";
 import { MedicalDisclaimer } from "../components/MedicalDisclaimer";
@@ -100,6 +100,12 @@ export default function AiAssistantPage() {
   const [showAnswer, setShowAnswer] = useState(false);
   const timezone = getDeviceTimeZone();
   const activeExchange = history.find((exchange) => exchange.id === activeExchangeId) ?? null;
+  const exampleQuestions = [
+    { text: t("aiExampleSummary"), includeImages: false },
+    { text: t("aiExampleSymptoms"), includeImages: false },
+    { text: t("aiExampleRoutine"), includeImages: false },
+    { text: t("aiExamplePhotos"), includeImages: true }
+  ];
   const conversation = useMemo<ConversationMessage[]>(() => history.flatMap((exchange) => [
     { role: "user", content: exchange.question },
     { role: "assistant", content: exchange.answer }
@@ -248,6 +254,26 @@ export default function AiAssistantPage() {
               placeholder={history.length ? t("aiFollowUpQuestion") : t("aiQuestion")}
               required
             />
+            <div className="space-y-2">
+              <p className="inline-flex items-center gap-1.5 text-xs font-bold text-zinc-500">
+                <Lightbulb size={15} />{t("aiExamplesTitle")}
+              </p>
+              <div className="grid gap-2">
+                {exampleQuestions.map((example) => (
+                  <button
+                    className="min-h-11 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-left text-xs font-semibold leading-5 text-zinc-700 transition-colors hover:border-mint/50 hover:bg-mint/5 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200"
+                    key={example.text}
+                    type="button"
+                    onClick={() => {
+                      setQuestion(example.text);
+                      if (example.includeImages) toggleImages(true);
+                    }}
+                  >
+                    {example.text}
+                  </button>
+                ))}
+              </div>
+            </div>
             <label className="flex items-start gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-700 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200">
               <input
                 className="mt-1 h-5 w-5 accent-mint"

@@ -15,23 +15,28 @@ function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
 
+const requestedModels: string[] = [];
 globalThis.fetch = async (input, init) => {
   assert(String(input) === "https://openrouter.ai/api/v1/chat/completions", "Expected OpenRouter parser endpoint.");
   assert(typeof init?.body === "string", "Expected JSON request body.");
 
   const body = JSON.parse(init.body) as Record<string, unknown>;
-  assert(!("model" in body), "Expected fallback routing to use the models array.");
-  assert(
-    JSON.stringify(body.models) === JSON.stringify(["google/gemini-3.1-flash-lite", "minimax/minimax-m3"]),
-    "Expected Gemini primary and MiniMax fallback models."
-  );
+  assert(typeof body.model === "string", "Expected explicit model selection for application-level fallback.");
+  requestedModels.push(body.model);
   assert(body.temperature === 0, "Expected deterministic parser temperature.");
-  assert(body.max_tokens === 400, "Expected compact parser output limit.");
+  assert(body.max_tokens === 550, "Expected compact parser output limit with truncation headroom.");
 
   const responseFormat = body.response_format as Record<string, unknown>;
   const jsonSchema = responseFormat?.json_schema as Record<string, unknown>;
   assert(responseFormat?.type === "json_schema", "Expected strict JSON schema response format.");
   assert(jsonSchema?.strict === true, "Expected strict structured output.");
+
+  if (requestedModels.length === 1) {
+    return new Response(JSON.stringify({ choices: [{ message: { content: "{broken-json" } }] }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
 
   return new Response(JSON.stringify({
     choices: [{
@@ -63,5 +68,9 @@ const parsed = await parseVoiceCommandWithMinimax({
 
 assert(parsed.intent === "create_weight_entry", "Expected parsed weight entry.");
 assert(parsed.draft.weightKg === 4.2, "Expected parsed weight value.");
+assert(
+  JSON.stringify(requestedModels) === JSON.stringify(["google/gemini-3.1-flash-lite", "minimax/minimax-m3"]),
+  "Expected invalid primary JSON to trigger the MiniMax fallback."
+);
 
 console.log("Voice parser OpenRouter provider smoke checks passed.");

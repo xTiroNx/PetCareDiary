@@ -392,6 +392,10 @@ export async function demoApi<T>(path: string, options: RequestInit = {}): Promi
     return { invoiceLink: "https://t.me/$demo-invoice", amountStars: amounts[String(body.productType)] ?? 149 } as T;
   }
 
+  if (path.startsWith("/api/ai/photos")) {
+    return { items: [], limit: 3, warnings: [] } as T;
+  }
+
   if (path === "/api/ai/assistant") {
     return {
       answer: "Demo AI summary: recent records are grouped for easier review. This is not a diagnosis.",

@@ -232,32 +232,35 @@ type WallDateTime = {
 type ParserProvider = {
   apiKey: string;
   model: string;
-  fallbackModel?: string;
   supportsStrictSchema: boolean;
   url: string;
   tokenLimitField: "max_completion_tokens" | "max_tokens";
 };
 
-function voiceParserProvider(): ParserProvider {
+function voiceParserProviders(): ParserProvider[] {
   if (env.OPENROUTER_STT_PARSER) {
-    return {
-      apiKey: env.OPENROUTER_STT_PARSER,
-      model: env.OPENROUTER_STT_MODEL_PARSER,
-      fallbackModel: env.OPENROUTER_STT_MODEL_PARSER_FALLBACK,
+    const apiKey = env.OPENROUTER_STT_PARSER;
+    const models = Array.from(new Set([
+      env.OPENROUTER_STT_MODEL_PARSER,
+      env.OPENROUTER_STT_MODEL_PARSER_FALLBACK
+    ]));
+    return models.map((model) => ({
+      apiKey,
+      model,
       supportsStrictSchema: true,
       url: "https://openrouter.ai/api/v1/chat/completions",
       tokenLimitField: "max_tokens"
-    };
+    }));
   }
 
   if (env.MINIMAX_API_KEY) {
-    return {
+    return [{
       apiKey: env.MINIMAX_API_KEY,
       model: env.MINIMAX_PARSER_MODEL,
       supportsStrictSchema: false,
       url: `${env.MINIMAX_API_BASE_URL.replace(/\/$/, "")}/v1/chat/completions`,
       tokenLimitField: "max_completion_tokens"
-    };
+    }];
   }
 
   throw new HttpError(422, "VOICE_PARSE_FAILED", "Voice command parser provider is not configured.");
@@ -803,16 +806,6 @@ function normalizeParsedCommand(value: unknown, input: { clientNow: string; time
   return normalized;
 }
 
-function fallbackUnknown(warnings: string[]): ParsedVoiceCommand {
-  return {
-    intent: "unknown",
-    target: "unknown",
-    confidence: 0,
-    draft: {},
-    warnings: Array.from(new Set(["parser_invalid_draft", ...warnings])).slice(0, 10)
-  } as ParsedVoiceCommand;
-}
-
 function temporalDraftValue(draft: Record<string, unknown>, key: string) {
   const value = draft[key];
   return typeof value === "string" || typeof value === "boolean" || value === null ? value : undefined;
@@ -960,72 +953,80 @@ export async function parseVoiceCommandWithMinimax(input: {
     logTranscript?: boolean;
   };
 }) {
-  const provider = voiceParserProvider();
-  const models = Array.from(new Set([provider.model, provider.fallbackModel].filter((model): model is string => Boolean(model))));
-  const modelSelection = provider.supportsStrictSchema && models.length > 1
-    ? { models }
-    : { model: provider.model };
+  const providers = voiceParserProviders();
+  let lastError: unknown;
 
-  const response = await fetch(provider.url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${provider.apiKey}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": env.FRONTEND_URL,
-      "X-Title": "PetCare Diary"
-    },
-    body: JSON.stringify({
-      ...modelSelection,
-      messages: [
-        { role: "system", content: parserSystemPrompt() },
-        {
-          role: "user",
-          content: JSON.stringify({
-            transcript: input.transcript,
-            clientNow: input.clientNow,
-            timezone: input.timezone,
-            locale: input.locale ?? null
-          })
-        }
-      ],
-      temperature: 0,
-      response_format: provider.supportsStrictSchema
-        ? { type: "json_schema", json_schema: voiceCommandJsonSchema }
-        : { type: "json_object" },
-      [provider.tokenLimitField]: 400
-    })
-  });
+  for (const [attemptIndex, provider] of providers.entries()) {
+    try {
+      const response = await fetch(provider.url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${provider.apiKey}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": env.FRONTEND_URL,
+          "X-Title": "PetCare Diary"
+        },
+        body: JSON.stringify({
+          model: provider.model,
+          messages: [
+            { role: "system", content: parserSystemPrompt() },
+            {
+              role: "user",
+              content: JSON.stringify({
+                transcript: input.transcript,
+                clientNow: input.clientNow,
+                timezone: input.timezone,
+                locale: input.locale ?? null
+              })
+            }
+          ],
+          temperature: 0,
+          response_format: provider.supportsStrictSchema
+            ? { type: "json_schema", json_schema: voiceCommandJsonSchema }
+            : { type: "json_object" },
+          [provider.tokenLimitField]: 550
+        })
+      });
 
-  const data = await response.json().catch(() => null);
-  if (!response.ok) {
-    throw new HttpError(422, "VOICE_PARSE_FAILED", "Voice command parser provider failed.");
-  }
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new HttpError(422, "VOICE_PARSE_FAILED", "Voice command parser provider failed.");
+      }
 
-  const parsedResponse = minimaxResponseSchema.safeParse(data);
-  if (!parsedResponse.success) {
-    throw new HttpError(422, "VOICE_PARSE_FAILED", "Voice command parser returned an invalid response.");
-  }
+      const parsedResponse = minimaxResponseSchema.safeParse(data);
+      if (!parsedResponse.success) {
+        throw new HttpError(422, "VOICE_PARSE_FAILED", "Voice command parser returned an invalid response.");
+      }
 
-  const json = parseJsonContent(parsedResponse.data.choices[0].message.content);
-  const normalizedJson = normalizeParsedCommand(json, { clientNow: input.clientNow, timezone: input.timezone, transcript: input.transcript });
-  logVoiceParserTemporalDebug({
-    transcript: input.transcript,
-    clientNow: input.clientNow,
-    timezone: input.timezone,
-    debug: input.debug,
-    raw: json,
-    normalized: normalizedJson
-  });
-  const parsedCommand = parsedCommandSchema.safeParse(normalizedJson);
-  if (!parsedCommand.success) {
-    if (env.NODE_ENV !== "production") {
+      const json = parseJsonContent(parsedResponse.data.choices[0].message.content);
+      const normalizedJson = normalizeParsedCommand(json, { clientNow: input.clientNow, timezone: input.timezone, transcript: input.transcript });
+      logVoiceParserTemporalDebug({
+        transcript: input.transcript,
+        clientNow: input.clientNow,
+        timezone: input.timezone,
+        debug: input.debug,
+        raw: json,
+        normalized: normalizedJson
+      });
+      const parsedCommand = parsedCommandSchema.safeParse(normalizedJson);
+      if (!parsedCommand.success) {
+        throw new HttpError(422, "VOICE_PARSE_FAILED", "Voice command parser returned an invalid draft.");
+      }
+
+      return parsedCommand.data;
+    } catch (error) {
+      lastError = error;
       console.warn(JSON.stringify({
-        event: "voice_parser_invalid_draft",
-        issues: parsedCommand.error.issues.map((issue) => ({ path: issue.path.join("."), code: issue.code }))
+        event: "voice_parser_attempt_failed",
+        model: provider.model,
+        attempt: attemptIndex + 1,
+        hasFallback: attemptIndex < providers.length - 1,
+        reason: error instanceof HttpError ? error.code : error instanceof Error ? error.name : "unknown"
       }));
     }
-    return fallbackUnknown(normalizedJson.warnings);
   }
 
-  return parsedCommand.data;
+  throw lastError instanceof HttpError
+    ? lastError
+    : new HttpError(422, "VOICE_PARSE_FAILED", "Voice command parser failed.");
 }

@@ -43,6 +43,7 @@ const envSchema = z.object({
   OPENROUTER_STT_MODEL_PARSER_FALLBACK: z.string().min(1).default("minimax/minimax-m3"),
   OPENROUTER_API_KEY_AI_HELPER: z.string().min(1).optional(),
   OPENROUTER_AI_HELPER_MODEL: z.string().min(1).default("google/gemini-3.1-flash-lite"),
+  OPENROUTER_AI_HELPER_MODEL_FALLBACK: z.string().min(1).default("minimax/minimax-m3"),
   OPENROUTER_AI_HELPER_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(60_000).default(50_000),
   MINIMAX_API_KEY: z.string().min(1).optional(),
   MINIMAX_PARSER_MODEL: z.string().min(1).default("MiniMax-M2.7"),

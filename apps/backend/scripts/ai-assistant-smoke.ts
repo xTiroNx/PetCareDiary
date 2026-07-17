@@ -10,7 +10,10 @@ process.env.TELEGRAM_WEBHOOK_SECRET ??= "test_webhook_secret_123456789";
 process.env.ADMIN_TELEGRAM_IDS = "9999";
 process.env.MINIMAX_API_KEY = "test_minimax_key";
 process.env.MINIMAX_PARSER_MODEL = "MiniMax-M2.7";
-delete process.env.OPENROUTER_API_KEY_AI_HELPER;
+process.env.OPENROUTER_API_KEY_AI_HELPER = "test_openrouter_ai_key";
+process.env.OPENROUTER_AI_HELPER_MODEL = "google/gemini-3.1-flash-lite";
+process.env.OPENROUTER_AI_HELPER_MODEL_FALLBACK = "minimax/minimax-m3";
+process.env.FILE_STORAGE_DRIVER = "local";
 
 const [{ createApp }, { prisma }] = await Promise.all([
   import("../src/app.js"),
@@ -93,12 +96,29 @@ for (const model of [
   (model.findMany as unknown as () => Promise<unknown[]>) = async () => [];
 }
 
+(prisma.feedingEntry.findMany as unknown as (args: unknown) => Promise<unknown[]>) = async (args) => {
+  const orderBy = (args as { orderBy?: { dateTime?: string } }).orderBy;
+  assert(orderBy?.dateTime === "desc", "Expected AI assistant to load the newest diary entries first.");
+  return [
+    { id: "feeding-new", dateTime: new Date(now.getTime() - 60_000), foodType: "WET", amount: "1 pouch", note: null },
+    { id: "feeding-old", dateTime: new Date(now.getTime() - 3_600_000), foodType: "DRY", amount: "20 g", note: null }
+  ];
+};
+
 const realFetch = globalThis.fetch.bind(globalThis);
 const providerRequests: unknown[] = [];
+let providerCallCount = 0;
 globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
   if (url.includes("api.minimax") || url.includes("openrouter.ai")) {
     if (typeof init?.body === "string") providerRequests.push(JSON.parse(init.body));
+    providerCallCount += 1;
+    if (providerCallCount === 1) {
+      return new Response(JSON.stringify({ choices: [{ message: { content: "" } }] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
     return new Response(JSON.stringify({
       choices: [
         { message: { content: "<think>hidden reasoning</think>* Brief takeaway: keep observing appetite patterns.\n* Ask the veterinarian about appetite changes.\nPlease remember that I am not a veterinarian and this does not replace veterinary care." } }
@@ -155,6 +175,8 @@ async function postAssistant(input: {
   mode?: "VET_QUESTIONS" | "GENERAL_HELP";
   question?: string;
   includeImages?: boolean;
+  imageAttachmentIds?: string[];
+  history?: Array<{ role: "user" | "assistant"; content: string }>;
 }): Promise<JsonResponse> {
   const response = await fetch(`${baseUrl()}/api/ai/assistant`, {
     method: "POST",
@@ -169,8 +191,23 @@ async function postAssistant(input: {
       period: "7",
       timezone: "Europe/Moscow",
       locale: "en",
-      includeImages: input.includeImages ?? false
+      includeImages: input.includeImages ?? false,
+      imageAttachmentIds: input.imageAttachmentIds ?? [],
+      history: input.history ?? []
     })
+  });
+  return { status: response.status, body: await response.json() };
+}
+
+async function getAssistantPhotos(telegramId: number): Promise<JsonResponse> {
+  const query = new URLSearchParams({
+    petId: "pet-active",
+    period: "7",
+    timezone: "Europe/Moscow",
+    locale: "en"
+  });
+  const response = await fetch(`${baseUrl()}/api/ai/photos?${query.toString()}`, {
+    headers: { Authorization: `tma ${signedInitData(telegramId)}` }
   });
   return { status: response.status, body: await response.json() };
 }
@@ -180,7 +217,11 @@ try {
     telegramId: Number(activeUser.telegramId),
     mode: "GENERAL_HELP",
     question: "What should I prepare before a vet visit?",
-    includeImages: true
+    includeImages: true,
+    history: [
+      { role: "user", content: "Has appetite changed?" },
+      { role: "assistant", content: "The diary has two feeding records." }
+    ]
   });
   assert(active.status === 200, `Expected active non-admin user to access AI assistant, got ${active.status}`);
   assert(typeof active.body === "object" && active.body !== null, "Expected JSON object response for active user.");
@@ -197,13 +238,30 @@ try {
     && activeBody.warnings.some((warning) => /image analysis requires R2|No photos were found/.test(String(warning))),
     "Expected includeImages to warn when images cannot be attached."
   );
-  const generalHelpRequest = providerRequests.at(-1) as { max_completion_tokens?: number; max_tokens?: number; messages?: Array<{ content?: string }> } | undefined;
+  assert(providerRequests.length === 2, "Expected invalid primary AI response to trigger one fallback request.");
+  const primaryRequest = providerRequests[0] as { model?: string };
+  const generalHelpRequest = providerRequests[1] as { model?: string; max_completion_tokens?: number; max_tokens?: number; messages?: Array<{ role?: string; content?: string }> } | undefined;
+  assert(primaryRequest.model === "google/gemini-3.1-flash-lite", "Expected Gemini as primary AI helper model.");
+  assert(generalHelpRequest?.model === "minimax/minimax-m3", "Expected MiniMax as application-level AI helper fallback.");
   const tokenLimit = generalHelpRequest?.max_completion_tokens ?? generalHelpRequest?.max_tokens;
   assert(tokenLimit === 1100, `Expected AI token limit to be 1100, got ${tokenLimit}`);
   assert(generalHelpRequest.messages?.[0]?.content?.includes("not overly terse"), "Expected system prompt to allow more useful answers.");
   assert(generalHelpRequest.messages?.[0]?.content?.includes("Do not include a final medical disclaimer"), "Expected system prompt to suppress duplicate disclaimer.");
   assert(generalHelpRequest.messages?.[0]?.content?.includes("Use '-' for bullet points"), "Expected system prompt to require dash bullets.");
-  assert(generalHelpRequest.messages?.[1]?.content?.includes("\"imageAnalysisEnabled\":false"), "Expected provider prompt to mark images as not inspected when unavailable.");
+  assert(generalHelpRequest.messages?.[0]?.content?.includes("exact local dates"), "Expected system prompt to require dated diary evidence.");
+  assert(generalHelpRequest.messages?.[1]?.content === "Has appetite changed?", "Expected short conversation history in provider messages.");
+  const currentPrompt = generalHelpRequest.messages?.at(-1)?.content ?? "";
+  assert(currentPrompt.includes("\"imageAnalysisEnabled\":false"), "Expected fallback prompt to mark images as not inspected.");
+  assert(currentPrompt.includes("\"summary\""), "Expected deterministic diary summary in provider context.");
+  assert(currentPrompt.includes("\"feeding\":2"), "Expected feeding totals in diary summary.");
+  assert(currentPrompt.includes("\"contextSelection\""), "Expected relevance selection metadata in provider context.");
+
+  const photoCandidates = await getAssistantPhotos(Number(activeUser.telegramId));
+  assert(photoCandidates.status === 200, `Expected AI photo candidates endpoint, got ${photoCandidates.status}`);
+  const photoBody = photoCandidates.body as { items?: unknown; limit?: unknown; warnings?: unknown };
+  assert(Array.isArray(photoBody.items), "Expected AI photo candidate items.");
+  assert(photoBody.limit === 3, "Expected configured AI image selection limit.");
+  assert(Array.isArray(photoBody.warnings), "Expected AI photo candidate warnings.");
 
   const paid = await postAssistant({ telegramId: Number(paidUser.telegramId), petId: "pet-paid", mode: "VET_QUESTIONS" });
   assert(paid.status === 200, `Expected paid non-admin user to access AI assistant, got ${paid.status}`);

@@ -11,6 +11,10 @@ import { assertPetBelongsToUser } from "../utils/petOwnership.js";
 const router = Router();
 
 const assistantModes = ["VET_QUESTIONS", "GENERAL_HELP"] as const;
+const assistantHistoryMessageSchema = z.object({
+  role: z.enum(["user", "assistant"]),
+  content: z.string().trim().min(1).max(2000)
+}).strict();
 
 const assistantBodySchema = z.object({
   petId: z.string().min(1).max(128),
@@ -19,7 +23,16 @@ const assistantBodySchema = z.object({
   period: z.coerce.number().int().refine((value) => [7, 14, 30, 90].includes(value)),
   timezone: z.string().min(1).max(80),
   locale: z.string().min(2).max(16).optional().nullable(),
-  includeImages: z.coerce.boolean().default(false)
+  includeImages: z.coerce.boolean().default(false),
+  imageAttachmentIds: z.array(z.string().min(1).max(128)).max(3).default([]),
+  history: z.array(assistantHistoryMessageSchema).max(6).default([])
+}).strict();
+
+const assistantPhotosQuerySchema = z.object({
+  petId: z.string().min(1).max(128),
+  period: z.coerce.number().int().refine((value) => [7, 14, 30, 90].includes(value)),
+  timezone: z.string().min(1).max(80),
+  locale: z.string().min(2).max(16).optional().nullable()
 }).strict();
 
 function startOfUtcDay(date = new Date()) {
@@ -140,6 +153,123 @@ function modeInstruction(mode: typeof assistantModes[number]) {
   ].join("\n");
 }
 
+type AssistantCategory = "feeding" | "symptoms" | "medicines" | "weights" | "notes" | "water" | "vaccinations";
+
+const categoryKeywords: Record<AssistantCategory, RegExp> = {
+  feeding: /(корм|ед|аппетит|food|feed|eat|meal|comida|comer|repas|mang|futter|essen|喂|吃|粮)/i,
+  symptoms: /(симптом|рвот|понос|боль|вял|аппетит|symptom|vomit|diarr|pain|letharg|v[oó]mit|dolor|douleur|schmerz|呕吐|腹泻|疼)/i,
+  medicines: /(лекар|таблет|доз|medicine|medication|dose|medicina|m[eé]dicament|medikament|药|剂量)/i,
+  weights: /(вес|взвес|weight|weigh|peso|poids|gewicht|体重)/i,
+  notes: /(замет|запис|note|nota|notiz|备注|笔记)/i,
+  water: /(вод|пить|water|drink|agua|boire|wasser|trinken|水|喝)/i,
+  vaccinations: /(вакцин|привив|обработ|глист|блох|клещ|vaccin|deworm|flea|tick|vacuna|vermifuge|impfung|entwurm|疫苗|驱虫)/i
+};
+
+function relevantCategories(question?: string | null) {
+  const text = question?.trim() ?? "";
+  return new Set(
+    (Object.entries(categoryKeywords) as Array<[AssistantCategory, RegExp]>)
+      .filter(([, pattern]) => pattern.test(text))
+      .map(([category]) => category)
+  );
+}
+
+function selectRelevantRecords<T>(records: T[], category: AssistantCategory, relevant: Set<AssistantCategory>) {
+  const limit = relevant.size === 0 ? 25 : relevant.has(category) ? 80 : 10;
+  return records.slice(-limit);
+}
+
+function localDayKey(date: Date, timezone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(date);
+  const value = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
+  return `${value("year")}-${value("month")}-${value("day")}`;
+}
+
+function buildAssistantSummary(input: {
+  timezone: string;
+  feeding: Array<{ dateTime: Date }>;
+  symptoms: Array<{ dateTime: Date; symptomType: string }>;
+  medicines: Array<{ dateTime: Date; taken: boolean }>;
+  weights: Array<{ date: Date; weightKg: { toString(): string } }>;
+  notes: Array<{ dateTime: Date }>;
+  water: Array<{ dateTime: Date; amountMl: number }>;
+  vaccinations: Array<{ date: Date }>;
+}) {
+  type DailySummary = {
+    date: string;
+    feedings: number;
+    symptoms: number;
+    medicines: number;
+    medicinesTaken: number;
+    waterMl: number;
+    notes: number;
+    vaccinations: number;
+    weightKg?: number;
+  };
+  const daily = new Map<string, DailySummary>();
+  const row = (date: Date) => {
+    const key = localDayKey(date, input.timezone);
+    const existing = daily.get(key) ?? {
+      date: key,
+      feedings: 0,
+      symptoms: 0,
+      medicines: 0,
+      medicinesTaken: 0,
+      waterMl: 0,
+      notes: 0,
+      vaccinations: 0
+    };
+    daily.set(key, existing);
+    return existing;
+  };
+
+  input.feeding.forEach((entry) => { row(entry.dateTime).feedings += 1; });
+  input.symptoms.forEach((entry) => { row(entry.dateTime).symptoms += 1; });
+  input.medicines.forEach((entry) => {
+    const day = row(entry.dateTime);
+    day.medicines += 1;
+    if (entry.taken) day.medicinesTaken += 1;
+  });
+  input.weights.forEach((entry) => { row(entry.date).weightKg = Number(entry.weightKg.toString()); });
+  input.notes.forEach((entry) => { row(entry.dateTime).notes += 1; });
+  input.water.forEach((entry) => { row(entry.dateTime).waterMl += entry.amountMl; });
+  input.vaccinations.forEach((entry) => { row(entry.date).vaccinations += 1; });
+
+  const symptomFrequency = input.symptoms.reduce<Record<string, number>>((result, entry) => {
+    result[entry.symptomType] = (result[entry.symptomType] ?? 0) + 1;
+    return result;
+  }, {});
+  const weightValues = input.weights.map((entry) => Number(entry.weightKg.toString())).filter(Number.isFinite);
+  const firstWeight = weightValues[0];
+  const lastWeight = weightValues.at(-1);
+
+  return {
+    totals: {
+      feeding: input.feeding.length,
+      symptoms: input.symptoms.length,
+      medicines: input.medicines.length,
+      weights: input.weights.length,
+      notes: input.notes.length,
+      water: input.water.length,
+      vaccinations: input.vaccinations.length
+    },
+    symptomFrequency,
+    weightTrend: firstWeight !== undefined && lastWeight !== undefined ? {
+      firstKg: firstWeight,
+      lastKg: lastWeight,
+      changeKg: Number((lastWeight - firstWeight).toFixed(3)),
+      minKg: Math.min(...weightValues),
+      maxKg: Math.max(...weightValues)
+    } : null,
+    daily: Array.from(daily.values()).sort((a, b) => a.date.localeCompare(b.date))
+  };
+}
+
 async function loadAssistantData(input: {
   userId: string;
   petId: string;
@@ -147,57 +277,69 @@ async function loadAssistantData(input: {
   timezone: string;
   locale?: string | null;
   includeImages?: boolean;
+  imageAttachmentIds?: string[];
+  imageLimit?: number;
+  question?: string | null;
 }) {
   const from = new Date(Date.now() - input.period * 24 * 60 * 60 * 1000);
   const format = dateFormatter(input.locale, input.timezone);
-  const [pet, feeding, symptoms, medicines, weights, notes, water, vaccinations] = await Promise.all([
+  const [pet, feedingNewest, symptomsNewest, medicinesNewest, weightsNewest, notesNewest, waterNewest, vaccinationsNewest] = await Promise.all([
     prisma.pet.findFirst({
       where: { id: input.petId, userId: input.userId },
       select: { name: true, type: true, weightKg: true, ageYears: true, healthNotes: true }
     }),
     prisma.feedingEntry.findMany({
       where: { userId: input.userId, petId: input.petId, dateTime: { gte: from } },
-      orderBy: { dateTime: "asc" },
+      orderBy: { dateTime: "desc" },
       take: 200,
       select: { id: true, dateTime: true, foodType: true, amount: true, note: true }
     }),
     prisma.symptomEntry.findMany({
       where: { userId: input.userId, petId: input.petId, dateTime: { gte: from } },
-      orderBy: { dateTime: "asc" },
+      orderBy: { dateTime: "desc" },
       take: 200,
       select: { id: true, dateTime: true, symptomType: true, severity: true, note: true }
     }),
     prisma.medicineEntry.findMany({
       where: { userId: input.userId, petId: input.petId, dateTime: { gte: from } },
-      orderBy: { dateTime: "asc" },
+      orderBy: { dateTime: "desc" },
       take: 200,
       select: { id: true, dateTime: true, medicineName: true, dosage: true, taken: true, note: true }
     }),
     prisma.weightEntry.findMany({
       where: { userId: input.userId, petId: input.petId, date: { gte: from } },
-      orderBy: { date: "asc" },
+      orderBy: { date: "desc" },
       take: 200,
       select: { id: true, date: true, weightKg: true }
     }),
     prisma.noteEntry.findMany({
       where: { userId: input.userId, petId: input.petId, dateTime: { gte: from } },
-      orderBy: { dateTime: "asc" },
+      orderBy: { dateTime: "desc" },
       take: 200,
       select: { id: true, dateTime: true, note: true }
     }),
     prisma.waterEntry.findMany({
       where: { userId: input.userId, petId: input.petId, dateTime: { gte: from } },
-      orderBy: { dateTime: "asc" },
+      orderBy: { dateTime: "desc" },
       take: 200,
       select: { id: true, dateTime: true, amountMl: true, note: true }
     }),
     prisma.vaccinationEntry.findMany({
       where: { userId: input.userId, petId: input.petId, date: { gte: from } },
-      orderBy: { date: "asc" },
+      orderBy: { date: "desc" },
       take: 200,
       select: { id: true, date: true, procedureType: true, title: true, nextDueDate: true, note: true }
     })
   ]);
+
+  const feeding = [...feedingNewest].reverse();
+  const symptoms = [...symptomsNewest].reverse();
+  const medicines = [...medicinesNewest].reverse();
+  const weights = [...weightsNewest].reverse();
+  const notes = [...notesNewest].reverse();
+  const water = [...waterNewest].reverse();
+  const vaccinations = [...vaccinationsNewest].reverse();
+  const relevant = relevantCategories(input.question);
 
   const imageWarnings: string[] = [];
   const sourceByEntry = new Map<string, string>();
@@ -234,15 +376,18 @@ async function loadAssistantData(input: {
     }
 
     try {
+      const selectedIds = Array.from(new Set(input.imageAttachmentIds ?? [])).slice(0, env.AI_ASSISTANT_IMAGE_LIMIT);
+      const imageLimit = Math.max(1, Math.min(input.imageLimit ?? env.AI_ASSISTANT_IMAGE_LIMIT, 20));
       const attachments = await prisma.attachment.findMany({
         where: {
           userId: input.userId,
           petId: input.petId,
           mimeType: { in: ["image/jpeg", "image/png", "image/webp"] },
+          ...(selectedIds.length ? { id: { in: selectedIds } } : {}),
           OR: attachmentFilters.map((item) => ({ entryType: item.entryType, entryId: { in: item.ids } }))
         },
         orderBy: { createdAt: "desc" },
-        take: env.AI_ASSISTANT_IMAGE_LIMIT,
+        take: selectedIds.length || imageLimit,
         select: {
           id: true,
           entryType: true,
@@ -258,7 +403,11 @@ async function loadAssistantData(input: {
         imageWarnings.push(warningFor(input.locale, "imagesNone"));
         return [];
       }
-      return Promise.all(attachments.map(async (attachment) => ({
+      const byId = new Map(attachments.map((attachment) => [attachment.id, attachment]));
+      const orderedAttachments = selectedIds.length
+        ? selectedIds.map((id) => byId.get(id)).filter((attachment): attachment is NonNullable<typeof attachment> => Boolean(attachment))
+        : attachments;
+      return Promise.all(orderedAttachments.map(async (attachment) => ({
         id: attachment.id,
         entryType: attachment.entryType,
         entryId: attachment.entryId,
@@ -282,6 +431,16 @@ async function loadAssistantData(input: {
     }
   })();
 
+  const selectedEntries = {
+    feeding: selectRelevantRecords(feeding, "feeding", relevant),
+    symptoms: selectRelevantRecords(symptoms, "symptoms", relevant),
+    medicines: selectRelevantRecords(medicines, "medicines", relevant),
+    weights: selectRelevantRecords(weights, "weights", relevant),
+    notes: selectRelevantRecords(notes, "notes", relevant),
+    water: selectRelevantRecords(water, "water", relevant),
+    vaccinations: selectRelevantRecords(vaccinations, "vaccinations", relevant)
+  };
+
   return {
     pet: {
       name: pet?.name,
@@ -292,15 +451,30 @@ async function loadAssistantData(input: {
     },
     periodDays: input.period,
     timezone: input.timezone,
+    summary: buildAssistantSummary({ timezone: input.timezone, feeding, symptoms, medicines, weights, notes, water, vaccinations }),
+    contextSelection: {
+      relevantCategories: Array.from(relevant),
+      selectedCounts: Object.fromEntries(Object.entries(selectedEntries).map(([key, value]) => [key, value.length])),
+      availableCounts: {
+        feeding: feeding.length,
+        symptoms: symptoms.length,
+        medicines: medicines.length,
+        weights: weights.length,
+        notes: notes.length,
+        water: water.length,
+        vaccinations: vaccinations.length
+      }
+    },
     entries: {
-      feeding: feeding.map((entry) => ({ ...entry, localTime: format.format(entry.dateTime) })),
-      symptoms: symptoms.map((entry) => ({ ...entry, localTime: format.format(entry.dateTime) })),
-      medicines: medicines.map((entry) => ({ ...entry, localTime: format.format(entry.dateTime) })),
-      weights: weights.map((entry) => ({ date: entry.date, localDate: format.format(entry.date), weightKg: entry.weightKg.toString() })),
-      notes: notes.map((entry) => ({ ...entry, localTime: format.format(entry.dateTime) })),
-      water: water.map((entry) => ({ ...entry, localTime: format.format(entry.dateTime) })),
-      vaccinations: vaccinations.map((entry) => ({
+      feeding: selectedEntries.feeding.map((entry) => ({ ...entry, sourceRef: `FEEDING:${entry.id}`, localTime: format.format(entry.dateTime) })),
+      symptoms: selectedEntries.symptoms.map((entry) => ({ ...entry, sourceRef: `SYMPTOM:${entry.id}`, localTime: format.format(entry.dateTime) })),
+      medicines: selectedEntries.medicines.map((entry) => ({ ...entry, sourceRef: `MEDICINE:${entry.id}`, localTime: format.format(entry.dateTime) })),
+      weights: selectedEntries.weights.map((entry) => ({ sourceRef: `WEIGHT:${entry.id}`, date: entry.date, localDate: format.format(entry.date), weightKg: entry.weightKg.toString() })),
+      notes: selectedEntries.notes.map((entry) => ({ ...entry, sourceRef: `NOTE:${entry.id}`, localTime: format.format(entry.dateTime) })),
+      water: selectedEntries.water.map((entry) => ({ ...entry, sourceRef: `WATER:${entry.id}`, localTime: format.format(entry.dateTime) })),
+      vaccinations: selectedEntries.vaccinations.map((entry) => ({
         ...entry,
+        sourceRef: `VACCINATION:${entry.id}`,
         localDate: format.format(entry.date),
         nextDueLocalDate: entry.nextDueDate ? format.format(entry.nextDueDate) : null
       }))
@@ -314,36 +488,74 @@ async function askAiProvider(input: {
   mode: typeof assistantModes[number];
   question?: string | null;
   locale?: string | null;
+  history: Array<z.infer<typeof assistantHistoryMessageSchema>>;
   data: Awaited<ReturnType<typeof loadAssistantData>>;
 }) {
+  const attempts: Array<{
+    provider: "minimax" | "openrouter";
+    apiKey: string;
+    model: string;
+    url: string;
+    timeoutMs: number;
+    tokenField: "max_completion_tokens" | "max_tokens";
+    includeVision: boolean;
+  }> = [];
+
   if (env.OPENROUTER_API_KEY_AI_HELPER) {
-    return askChatCompletionProvider({
-      ...input,
+    const apiKey = env.OPENROUTER_API_KEY_AI_HELPER;
+    const models = Array.from(new Set([env.OPENROUTER_AI_HELPER_MODEL, env.OPENROUTER_AI_HELPER_MODEL_FALLBACK]));
+    models.forEach((model, index) => attempts.push({
       provider: "openrouter",
-      apiKey: env.OPENROUTER_API_KEY_AI_HELPER,
-      model: env.OPENROUTER_AI_HELPER_MODEL,
+      apiKey,
+      model,
       url: "https://openrouter.ai/api/v1/chat/completions",
       timeoutMs: env.OPENROUTER_AI_HELPER_TIMEOUT_MS,
-      tokenField: "max_tokens"
+      tokenField: "max_tokens",
+      includeVision: index === 0
+    }));
+  }
+
+  if (env.MINIMAX_API_KEY) {
+    attempts.push({
+      provider: "minimax",
+      apiKey: env.MINIMAX_API_KEY,
+      model: env.MINIMAX_REPORT_MODEL ?? env.MINIMAX_PARSER_MODEL,
+      url: `${env.MINIMAX_API_BASE_URL.replace(/\/$/, "")}/v1/chat/completions`,
+      timeoutMs: env.MINIMAX_AI_TIMEOUT_MS,
+      tokenField: "max_completion_tokens",
+      includeVision: false
     });
   }
 
-  if (!env.MINIMAX_API_KEY) throw new HttpError(503, "AI_ASSISTANT_UNAVAILABLE", "AI assistant provider is not configured.");
-  return askChatCompletionProvider({
-    ...input,
-    provider: "minimax",
-    apiKey: env.MINIMAX_API_KEY,
-    model: env.MINIMAX_REPORT_MODEL ?? env.MINIMAX_PARSER_MODEL,
-    url: `${env.MINIMAX_API_BASE_URL.replace(/\/$/, "")}/v1/chat/completions`,
-    timeoutMs: env.MINIMAX_AI_TIMEOUT_MS,
-    tokenField: "max_completion_tokens"
-  });
+  if (!attempts.length) throw new HttpError(503, "AI_ASSISTANT_UNAVAILABLE", "AI assistant provider is not configured.");
+
+  let lastError: unknown;
+  for (const [attemptIndex, attempt] of attempts.entries()) {
+    try {
+      return await askChatCompletionProvider({ ...input, ...attempt });
+    } catch (error) {
+      lastError = error;
+      console.warn(JSON.stringify({
+        event: "ai_assistant_attempt_failed",
+        provider: attempt.provider,
+        model: attempt.model,
+        attempt: attemptIndex + 1,
+        hasFallback: attemptIndex < attempts.length - 1,
+        reason: error instanceof HttpError ? error.code : error instanceof Error ? error.name : "unknown"
+      }));
+    }
+  }
+
+  throw lastError instanceof HttpError
+    ? lastError
+    : new HttpError(502, "AI_ASSISTANT_FAILED", "AI assistant provider failed.");
 }
 
 async function askChatCompletionProvider(input: {
   mode: typeof assistantModes[number];
   question?: string | null;
   locale?: string | null;
+  history: Array<z.infer<typeof assistantHistoryMessageSchema>>;
   data: Awaited<ReturnType<typeof loadAssistantData>>;
   provider: "minimax" | "openrouter";
   apiKey: string;
@@ -351,11 +563,12 @@ async function askChatCompletionProvider(input: {
   url: string;
   timeoutMs: number;
   tokenField: "max_completion_tokens" | "max_tokens";
+  includeVision: boolean;
 }) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), input.timeoutMs);
   try {
-    const visionImages = input.provider === "openrouter" ? input.data.imageAttachments : [];
+    const visionImages = input.provider === "openrouter" && input.includeVision ? input.data.imageAttachments : [];
     const reportData = {
       ...input.data,
       imageAnalysisEnabled: visionImages.length > 0,
@@ -409,10 +622,13 @@ async function askChatCompletionProvider(input: {
               "Follow the task from the user message exactly.",
               "Use a clear mobile-friendly structure. Prefer 4-7 short sections or bullets. Be practical, but not overly terse.",
               "Use '-' for bullet points. Do not use '*' as a markdown bullet. If you use numbered sections, nested items must use '-' bullets.",
+              "When you make an observation based on diary records, cite the record type and exact local dates in parentheses, for example: (symptoms: 12 Jul, 15 Jul).",
+              "Never invent an evidence date or source. If the supplied records do not support a claim, say that clearly.",
               `Answer in ${responseLanguage(input.locale)}.`,
               "Return plain text only."
             ].join("\n")
           },
+          ...input.history.map((message) => ({ role: message.role, content: message.content })),
           {
             role: "user",
             content: userContent
@@ -451,6 +667,30 @@ async function askChatCompletionProvider(input: {
   }
 }
 
+router.get("/photos", async (req, res, next) => {
+  try {
+    const query = assistantPhotosQuerySchema.parse(req.query);
+    const timezone = safeTimezone(query.timezone);
+    await assertPetBelongsToUser(query.petId, req.user!.id);
+    const data = await loadAssistantData({
+      userId: req.user!.id,
+      petId: query.petId,
+      period: query.period,
+      timezone,
+      locale: query.locale ?? req.user!.languageCode,
+      includeImages: true,
+      imageLimit: 20
+    });
+    res.json({
+      items: data.imageAttachments,
+      limit: env.AI_ASSISTANT_IMAGE_LIMIT,
+      warnings: data.imageWarnings
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.post("/assistant", async (req, res, next) => {
   try {
     const body = assistantBodySchema.parse(req.body);
@@ -466,18 +706,27 @@ router.post("/assistant", async (req, res, next) => {
       period: body.period,
       timezone,
       locale: body.locale ?? req.user!.languageCode,
-      includeImages: body.includeImages
+      includeImages: body.includeImages || body.imageAttachmentIds.length > 0,
+      imageAttachmentIds: body.imageAttachmentIds,
+      question: body.question
     });
     const answer = await askAiProvider({
       mode: body.mode,
       question: body.question,
       locale: body.locale ?? req.user!.languageCode,
+      history: body.history,
       data
     });
     await trackAnalyticsEvent({
       userId: req.user!.id,
       event: "ai_assistant_used",
-      metadata: { petId: body.petId, mode: body.mode, period: body.period }
+      metadata: {
+        petId: body.petId,
+        mode: body.mode,
+        period: body.period,
+        selectedImageCount: data.imageAttachments.length,
+        historyMessageCount: body.history.length
+      }
     });
     res.json({
       answer,

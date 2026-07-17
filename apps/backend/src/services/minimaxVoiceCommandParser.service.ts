@@ -232,6 +232,8 @@ type WallDateTime = {
 type ParserProvider = {
   apiKey: string;
   model: string;
+  fallbackModel?: string;
+  supportsStrictSchema: boolean;
   url: string;
   tokenLimitField: "max_completion_tokens" | "max_tokens";
 };
@@ -241,6 +243,8 @@ function voiceParserProvider(): ParserProvider {
     return {
       apiKey: env.OPENROUTER_STT_PARSER,
       model: env.OPENROUTER_STT_MODEL_PARSER,
+      fallbackModel: env.OPENROUTER_STT_MODEL_PARSER_FALLBACK,
+      supportsStrictSchema: true,
       url: "https://openrouter.ai/api/v1/chat/completions",
       tokenLimitField: "max_tokens"
     };
@@ -250,6 +254,7 @@ function voiceParserProvider(): ParserProvider {
     return {
       apiKey: env.MINIMAX_API_KEY,
       model: env.MINIMAX_PARSER_MODEL,
+      supportsStrictSchema: false,
       url: `${env.MINIMAX_API_BASE_URL.replace(/\/$/, "")}/v1/chat/completions`,
       tokenLimitField: "max_completion_tokens"
     };
@@ -257,6 +262,51 @@ function voiceParserProvider(): ParserProvider {
 
   throw new HttpError(422, "VOICE_PARSE_FAILED", "Voice command parser provider is not configured.");
 }
+
+const voiceCommandJsonSchema = {
+  name: "petcare_voice_command",
+  strict: true,
+  schema: {
+    type: "object",
+    additionalProperties: false,
+    required: ["intent", "target", "confidence", "draft", "warnings"],
+    properties: {
+      intent: {
+        type: "string",
+        enum: ["create_reminder", "create_feeding_entry", "create_medicine_entry", "create_symptom_entry", "create_weight_entry", "create_note", "unknown"]
+      },
+      target: { type: "string", enum: ["reminder", "diary", "unknown"] },
+      confidence: { type: "number", minimum: 0, maximum: 1 },
+      draft: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          type: { type: "string", enum: ["FEEDING", "MEDICINE", "WATER", "WEIGHT", "VET", "VACCINATION", "OTHER"] },
+          title: { type: "string", maxLength: 160 },
+          repeatRule: { type: ["string", "null"], enum: ["daily", "weekly", "monthly", null] },
+          foodType: { type: "string", enum: ["DRY", "WET", "NATURAL", "TREAT", "OTHER"] },
+          amount: { type: "string", maxLength: 80 },
+          note: { type: ["string", "null"], maxLength: 2000 },
+          medicineName: { type: "string", maxLength: 120 },
+          dosage: { type: "string", maxLength: 80 },
+          taken: { type: "boolean" },
+          symptomType: { type: "string", enum: ["VOMITING", "YELLOW_VOMIT", "NO_APPETITE", "DIARRHEA", "CONSTIPATION", "LETHARGY", "PAIN", "OTHER"] },
+          severity: { type: "integer", minimum: 1, maximum: 5 },
+          weightKg: { type: "number", exclusiveMinimum: 0 },
+          localDate: { type: ["string", "null"], pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+          localTime: { type: ["string", "null"], pattern: "^(?:[01]\\d|2[0-3]):[0-5]\\d$" },
+          hasExplicitDate: { type: "boolean" },
+          hasExplicitTime: { type: "boolean" }
+        }
+      },
+      warnings: {
+        type: "array",
+        maxItems: 10,
+        items: { type: "string", maxLength: 240 }
+      }
+    }
+  }
+} as const;
 
 function zonedParts(date: Date, timeZone: string): WallDateTime {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -911,6 +961,10 @@ export async function parseVoiceCommandWithMinimax(input: {
   };
 }) {
   const provider = voiceParserProvider();
+  const models = Array.from(new Set([provider.model, provider.fallbackModel].filter((model): model is string => Boolean(model))));
+  const modelSelection = provider.supportsStrictSchema && models.length > 1
+    ? { models }
+    : { model: provider.model };
 
   const response = await fetch(provider.url, {
     method: "POST",
@@ -921,7 +975,7 @@ export async function parseVoiceCommandWithMinimax(input: {
       "X-Title": "PetCare Diary"
     },
     body: JSON.stringify({
-      model: provider.model,
+      ...modelSelection,
       messages: [
         { role: "system", content: parserSystemPrompt() },
         {
@@ -934,9 +988,11 @@ export async function parseVoiceCommandWithMinimax(input: {
           })
         }
       ],
-      temperature: 0.1,
-      response_format: { type: "json_object" },
-      [provider.tokenLimitField]: 700
+      temperature: 0,
+      response_format: provider.supportsStrictSchema
+        ? { type: "json_schema", json_schema: voiceCommandJsonSchema }
+        : { type: "json_object" },
+      [provider.tokenLimitField]: 400
     })
   });
 

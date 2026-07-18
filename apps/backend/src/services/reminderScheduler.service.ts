@@ -3,16 +3,76 @@ import { env } from "../config/env.js";
 import { prisma } from "../prisma/client.js";
 
 type DueReminder = Reminder & { user: Pick<User, "telegramId" | "languageCode"> };
+type SupportedLanguage = "ru" | "en" | "es" | "fr" | "de" | "zh";
 
-const reminderTypeLabels: Record<ReminderType, string> = {
-  FEEDING: "Кормление",
-  MEDICINE: "Лекарство",
-  WATER: "Питье",
-  WEIGHT: "Взвешивание",
-  VET: "Ветеринар",
-  VACCINATION: "Вакцинация/обработка",
-  OTHER: "Другое"
+const languageLocales: Record<SupportedLanguage, string> = {
+  ru: "ru-RU", en: "en-US", es: "es-ES", fr: "fr-FR", de: "de-DE", zh: "zh-CN"
 };
+
+const botCopy: Record<SupportedLanguage, {
+  typeLabels: Record<ReminderType, string>;
+  typePrefix: string;
+  reminderHint: string;
+  openApp: string;
+  trialEnding: string;
+  paidEnding: string;
+  accessExpired: string;
+  coreFree: string;
+  proRenew: string;
+  date: string;
+  paymentSuccess: string;
+  plan: string;
+  amount: string;
+  paymentThanks: string;
+}> = {
+  en: {
+    typeLabels: { FEEDING: "Feeding", MEDICINE: "Medicine", WATER: "Water", WEIGHT: "Weighing", VET: "Veterinarian", VACCINATION: "Vaccination/treatment", OTHER: "Other" },
+    typePrefix: "Type", reminderHint: "Open the Mini App to mark or edit the reminder.", openApp: "Open PetCare Diary",
+    trialEnding: "Your Pro trial ends tomorrow.", paidEnding: "Your paid Pro access ends in 3 days.", accessExpired: "Your Pro access has ended.",
+    coreFree: "Diary, photos, reminders, reports and PDF remain free.", proRenew: "Renew Pro to keep using the AI assistant and voice commands.", date: "Date",
+    paymentSuccess: "Payment completed successfully.", plan: "Plan", amount: "Amount", paymentThanks: "Thank you! Your access has already been updated."
+  },
+  ru: {
+    typeLabels: { FEEDING: "Кормление", MEDICINE: "Лекарство", WATER: "Питье", WEIGHT: "Взвешивание", VET: "Ветеринар", VACCINATION: "Вакцинация/обработка", OTHER: "Другое" },
+    typePrefix: "Тип", reminderHint: "Откройте Mini App, чтобы отметить или изменить напоминание.", openApp: "Открыть PetCare Diary",
+    trialEnding: "Пробный Pro закончится завтра.", paidEnding: "Оплаченный Pro закончится через 3 дня.", accessExpired: "Доступ Pro закончился.",
+    coreFree: "Дневник, фото, напоминания, отчёты и PDF останутся бесплатными.", proRenew: "Продлите Pro для AI-помощника и голосовых команд.", date: "Дата",
+    paymentSuccess: "Оплата прошла успешно.", plan: "Тариф", amount: "Сумма", paymentThanks: "Спасибо! Доступ уже обновлён."
+  },
+  es: {
+    typeLabels: { FEEDING: "Comida", MEDICINE: "Medicina", WATER: "Agua", WEIGHT: "Peso", VET: "Veterinario", VACCINATION: "Vacuna/tratamiento", OTHER: "Otro" },
+    typePrefix: "Tipo", reminderHint: "Abre la Mini App para marcar o editar el recordatorio.", openApp: "Abrir PetCare Diary",
+    trialEnding: "Tu prueba Pro termina mañana.", paidEnding: "Tu acceso Pro de pago termina en 3 días.", accessExpired: "Tu acceso Pro ha terminado.",
+    coreFree: "El diario, las fotos, los recordatorios, los informes y los PDF siguen siendo gratuitos.", proRenew: "Renueva Pro para seguir usando el asistente IA y los comandos de voz.", date: "Fecha",
+    paymentSuccess: "Pago completado correctamente.", plan: "Plan", amount: "Importe", paymentThanks: "Gracias. Tu acceso ya está actualizado."
+  },
+  fr: {
+    typeLabels: { FEEDING: "Repas", MEDICINE: "Médicament", WATER: "Eau", WEIGHT: "Pesée", VET: "Vétérinaire", VACCINATION: "Vaccin/soin", OTHER: "Autre" },
+    typePrefix: "Type", reminderHint: "Ouvrez la Mini App pour valider ou modifier le rappel.", openApp: "Ouvrir PetCare Diary",
+    trialEnding: "Votre essai Pro se termine demain.", paidEnding: "Votre accès Pro payant se termine dans 3 jours.", accessExpired: "Votre accès Pro est terminé.",
+    coreFree: "Le journal, les photos, les rappels, les rapports et les PDF restent gratuits.", proRenew: "Renouvelez Pro pour continuer à utiliser l'assistant IA et les commandes vocales.", date: "Date",
+    paymentSuccess: "Paiement effectué.", plan: "Formule", amount: "Montant", paymentThanks: "Merci. Votre accès est déjà mis à jour."
+  },
+  de: {
+    typeLabels: { FEEDING: "Fütterung", MEDICINE: "Medikament", WATER: "Trinken", WEIGHT: "Wiegen", VET: "Tierarzt", VACCINATION: "Impfung/Behandlung", OTHER: "Anderes" },
+    typePrefix: "Typ", reminderHint: "Öffne die Mini App, um die Erinnerung zu bestätigen oder zu bearbeiten.", openApp: "PetCare Diary öffnen",
+    trialEnding: "Dein Pro-Test endet morgen.", paidEnding: "Dein bezahlter Pro-Zugang endet in 3 Tagen.", accessExpired: "Dein Pro-Zugang ist beendet.",
+    coreFree: "Tagebuch, Fotos, Erinnerungen, Berichte und PDFs bleiben kostenlos.", proRenew: "Verlängere Pro für den KI-Helfer und Sprachbefehle.", date: "Datum",
+    paymentSuccess: "Zahlung erfolgreich.", plan: "Tarif", amount: "Betrag", paymentThanks: "Danke. Dein Zugang wurde bereits aktualisiert."
+  },
+  zh: {
+    typeLabels: { FEEDING: "喂食", MEDICINE: "用药", WATER: "饮水", WEIGHT: "称重", VET: "兽医", VACCINATION: "疫苗/护理", OTHER: "其他" },
+    typePrefix: "类型", reminderHint: "打开 Mini App 可确认或编辑提醒。", openApp: "打开 PetCare Diary",
+    trialEnding: "你的 Pro 试用将于明天结束。", paidEnding: "你的付费 Pro 将于 3 天后结束。", accessExpired: "你的 Pro 权限已结束。",
+    coreFree: "日记、照片、提醒、报告和 PDF 仍可免费使用。", proRenew: "续订 Pro 可继续使用 AI 助手和语音命令。", date: "日期",
+    paymentSuccess: "付款成功。", plan: "套餐", amount: "金额", paymentThanks: "谢谢，权限已更新。"
+  }
+};
+
+function supportedLanguage(value?: string | null): SupportedLanguage {
+  const language = value?.toLowerCase().split(/[-_]/)[0];
+  return language && language in botCopy ? language as SupportedLanguage : "en";
+}
 
 let processing = false;
 let interval: NodeJS.Timeout | null = null;
@@ -28,17 +88,19 @@ function nextReminderTime(time: Date, repeatRule: string | null, now = new Date(
   return next;
 }
 
-function messageFor(reminder: DueReminder) {
-  const type = reminderTypeLabels[reminder.type] ?? reminder.type;
+export function messageFor(reminder: DueReminder) {
+  const copy = botCopy[supportedLanguage(reminder.user.languageCode)];
+  const type = copy.typeLabels[reminder.type] ?? reminder.type;
   return [
     `PetCare Diary: ${reminder.title}`,
-    `Тип: ${type}`,
+    `${copy.typePrefix}: ${type}`,
     "",
-    "Откройте Mini App, чтобы отметить или изменить напоминание."
+    copy.reminderHint
   ].join("\n");
 }
 
-async function sendTelegramMessage(chatId: bigint, text: string) {
+async function sendTelegramMessage(chatId: bigint, text: string, languageCode?: string | null) {
+  const copy = botCopy[supportedLanguage(languageCode)];
   const miniAppUrl = env.BOT_USERNAME ? `https://t.me/${env.BOT_USERNAME}?startapp=reminders` : undefined;
   const response = await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/sendMessage`, {
     method: "POST",
@@ -50,7 +112,7 @@ async function sendTelegramMessage(chatId: bigint, text: string) {
       ...(miniAppUrl
         ? {
             reply_markup: {
-              inline_keyboard: [[{ text: "Открыть PetCare Diary", url: miniAppUrl }]]
+              inline_keyboard: [[{ text: copy.openApp, url: miniAppUrl }]]
             }
           }
         : {})
@@ -126,19 +188,32 @@ async function hasAccessNotificationLog(input: {
   return Boolean(existing);
 }
 
-function accessNotificationMessage(type: AccessNotificationType, date?: Date | null) {
-  const datePart = date ? `\nДата: ${date.toLocaleDateString("ru-RU", { timeZone: "UTC" })}` : "";
+export function accessNotificationMessage(type: AccessNotificationType, date?: Date | null, languageCode?: string | null) {
+  const language = supportedLanguage(languageCode);
+  const copy = botCopy[language];
+  const datePart = date ? `\n${copy.date}: ${date.toLocaleDateString(languageLocales[language], { timeZone: "UTC" })}` : "";
   if (type === "TRIAL_ENDING_SOON") {
-    return `PetCare Diary: trial Pro закончится завтра.${datePart}\n\nДневник, фото, напоминания, отчёты и PDF останутся бесплатными. Продление Pro нужно только для AI-помощника и голосовых команд.`;
+    return `PetCare Diary: ${copy.trialEnding}${datePart}\n\n${copy.coreFree} ${copy.proRenew}`;
   }
   if (type === "PAID_ENDING_SOON") {
-    return `PetCare Diary: оплаченный Pro закончится через 3 дня.${datePart}\n\nОсновные функции останутся бесплатными. Продлите Pro, если хотите продолжить пользоваться AI-помощником и голосовыми командами.`;
+    return `PetCare Diary: ${copy.paidEnding}${datePart}\n\n${copy.coreFree} ${copy.proRenew}`;
   }
-  return "PetCare Diary: доступ Pro закончился.\n\nДневник, фото, напоминания, отчёты и PDF по-прежнему бесплатны. Pro можно продлить для AI-помощника и голосовых команд.";
+  return `PetCare Diary: ${copy.accessExpired}${datePart}\n\n${copy.coreFree} ${copy.proRenew}`;
+}
+
+export function paymentReceiptMessage(productType: string, amountStars: number, languageCode?: string | null) {
+  const copy = botCopy[supportedLanguage(languageCode)];
+  return [
+    `PetCare Diary: ${copy.paymentSuccess}`,
+    `${copy.plan}: ${productType}`,
+    `${copy.amount}: ${amountStars} Stars`,
+    "",
+    copy.paymentThanks
+  ].join("\n");
 }
 
 async function sendLoggedAccessNotification(input: {
-  user: Pick<User, "id" | "telegramId">;
+  user: Pick<User, "id" | "telegramId" | "languageCode">;
   type: AccessNotificationType;
   dayKey: string;
   date?: Date | null;
@@ -146,7 +221,7 @@ async function sendLoggedAccessNotification(input: {
   const alreadySent = await hasAccessNotificationLog({ userId: input.user.id, type: input.type, dayKey: input.dayKey });
   if (alreadySent) return false;
   try {
-    await sendTelegramMessage(input.user.telegramId, accessNotificationMessage(input.type, input.date));
+    await sendTelegramMessage(input.user.telegramId, accessNotificationMessage(input.type, input.date, input.user.languageCode), input.user.languageCode);
   } catch (error) {
     // Avoid retrying the same expired/trial access notification every scheduler tick
     // when Telegram can no longer deliver to a chat.
@@ -165,14 +240,14 @@ function expiredAccessWhere(now: Date): Prisma.UserWhereInput {
 }
 
 async function loadExpiredUsersWithoutLog(now: Date, limit = 50) {
-  const users: Array<Pick<User, "id" | "telegramId" | "trialEndsAt" | "accessUntil">> = [];
+  const users: Array<Pick<User, "id" | "telegramId" | "languageCode" | "trialEndsAt" | "accessUntil">> = [];
   const take = 50;
   let skip = 0;
 
   while (users.length < limit) {
     const batch = await prisma.user.findMany({
       where: expiredAccessWhere(now),
-      select: { id: true, telegramId: true, trialEndsAt: true, accessUntil: true },
+      select: { id: true, telegramId: true, languageCode: true, trialEndsAt: true, accessUntil: true },
       orderBy: [{ trialEndsAt: "asc" }, { id: "asc" }],
       skip,
       take
@@ -215,7 +290,7 @@ async function processAccessNotifications(now = new Date()) {
           none: { type: "TRIAL_ENDING_SOON", dayKey: utcDayKey(tomorrowStart) }
         }
       },
-      select: { id: true, telegramId: true, trialEndsAt: true },
+      select: { id: true, telegramId: true, languageCode: true, trialEndsAt: true },
       orderBy: { trialEndsAt: "asc" },
       take: 50
     }),
@@ -227,7 +302,7 @@ async function processAccessNotifications(now = new Date()) {
           none: { type: "PAID_ENDING_SOON", dayKey: utcDayKey(paidEndingStart) }
         }
       },
-      select: { id: true, telegramId: true, accessUntil: true },
+      select: { id: true, telegramId: true, languageCode: true, accessUntil: true },
       orderBy: { accessUntil: "asc" },
       take: 50
     }),
@@ -282,7 +357,7 @@ export async function sendPaymentReceiptNotification(paymentId: string) {
   try {
     const payment = await prisma.payment.findUnique({
       where: { id: paymentId },
-      include: { user: { select: { id: true, telegramId: true } } }
+      include: { user: { select: { id: true, telegramId: true, languageCode: true } } }
     });
     if (!payment || payment.status !== "PAID") return false;
 
@@ -293,14 +368,8 @@ export async function sendPaymentReceiptNotification(paymentId: string) {
     });
     if (alreadySent) return false;
 
-    const text = [
-      "PetCare Diary: оплата прошла успешно.",
-      `Тариф: ${payment.productType}`,
-      `Сумма: ${payment.amountStars} Stars`,
-      "",
-      "Спасибо! Доступ уже обновлен."
-    ].join("\n");
-    await sendTelegramMessage(payment.user.telegramId, text);
+    const text = paymentReceiptMessage(payment.productType, payment.amountStars, payment.user.languageCode);
+    await sendTelegramMessage(payment.user.telegramId, text, payment.user.languageCode);
     return createAccessNotificationLog({
       userId: payment.userId,
       type: "PAYMENT_RECEIPT",
@@ -324,7 +393,7 @@ export async function processDueReminders() {
 
   try {
     const reminders = await prisma.reminder.findMany({
-      where: { active: true, time: { lte: now } },
+      where: { active: true, time: { lte: now }, lastDeliveryError: null },
       orderBy: { time: "asc" },
       take: 25,
       include: { user: { select: { telegramId: true, languageCode: true } } }
@@ -332,7 +401,7 @@ export async function processDueReminders() {
 
     for (const reminder of reminders) {
       try {
-        await sendTelegramMessage(reminder.user.telegramId, messageFor(reminder));
+        await sendTelegramMessage(reminder.user.telegramId, messageFor(reminder), reminder.user.languageCode);
         const nextTime = nextReminderTime(reminder.time, reminder.repeatRule, now);
         await prisma.reminder.update({
           where: { id: reminder.id },

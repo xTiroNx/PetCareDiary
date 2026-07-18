@@ -57,13 +57,13 @@ function getDeviceTimeZone() {
   }
 }
 
-function aiHistoryKey(petId: string) {
-  return `petcare-ai-history-v1:${petId}`;
+function aiHistoryKey(petId: string, language: string) {
+  return `petcare-ai-history-v2:${petId}:${language}`;
 }
 
-function readHistory(petId: string) {
+function readHistory(petId: string, language: string) {
   try {
-    const value = JSON.parse(localStorage.getItem(aiHistoryKey(petId)) ?? "[]") as unknown;
+    const value = JSON.parse(localStorage.getItem(aiHistoryKey(petId, language)) ?? "[]") as unknown;
     if (!Array.isArray(value)) return [];
     return value.filter((item): item is AssistantExchange => {
       if (!item || typeof item !== "object") return false;
@@ -131,20 +131,20 @@ export default function AiAssistantPage() {
       setHistoryReady(false);
       return;
     }
-    setHistory(readHistory(pet.id));
+    setHistory(readHistory(pet.id, language));
     setHistoryReady(true);
     setActiveExchangeId(null);
     setShowAnswer(false);
-  }, [pet?.id]);
+  }, [language, pet?.id]);
 
   useEffect(() => {
     if (!historyReady || !pet?.id) return;
     try {
-      localStorage.setItem(aiHistoryKey(pet.id), JSON.stringify(history.slice(-historyLimit)));
+      localStorage.setItem(aiHistoryKey(pet.id, language), JSON.stringify(history.slice(-historyLimit)));
     } catch {
       // History persistence is optional in restricted WebViews.
     }
-  }, [history, historyReady, pet?.id]);
+  }, [history, historyReady, language, pet?.id]);
 
   useEffect(() => {
     if (!includeImages || photoSelectionInitialized || !photos.data) return;

@@ -6,6 +6,7 @@ export type User = {
   telegramId: string;
   username?: string;
   firstName?: string;
+  languageCode?: string | null;
   trialEndsAt: string;
   accessUntil?: string | null;
   lifetimeAccess: boolean;

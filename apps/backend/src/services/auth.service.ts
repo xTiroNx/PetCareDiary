@@ -44,12 +44,14 @@ export async function authenticateTelegram(initData: string, acquisition?: {
       username: parsed.user.username,
       firstName: parsed.user.first_name,
       lastName: parsed.user.last_name,
-      languageCode,
       lastSeenAt: now,
       ...(platform ? { platform } : {}),
       ...(startParam ? { lastStartParam: startParam, source } : {})
     }
   });
+  if (!user.languageCode && languageCode) {
+    user = await prisma.user.update({ where: { id: user.id }, data: { languageCode } });
+  }
   if (startParam && !user.firstStartParam) {
     user = await prisma.user.update({ where: { id: user.id }, data: { firstStartParam: startParam } });
   }

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../prisma/client.js";
 import { trackAnalyticsEvent } from "../services/analytics.service.js";
@@ -28,6 +29,11 @@ const remindersQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).default(0)
 }).strict();
 
+export const reminderListOrderBy: Prisma.ReminderOrderByWithRelationInput[] = [
+  { time: "desc" },
+  { createdAt: "desc" }
+];
+
 function pageResponse<T>(items: T[], query: z.infer<typeof remindersQuerySchema>) {
   if (!query.limit) return items;
   return {
@@ -42,7 +48,7 @@ router.get("/", async (req, res, next) => {
     if (query.petId) await assertPetBelongsToUser(query.petId, req.user!.id);
     const reminders = await prisma.reminder.findMany({
       where: { userId: req.user!.id, petId: query.petId },
-      orderBy: { time: "asc" },
+      orderBy: reminderListOrderBy,
       ...(query.limit ? { skip: query.offset, take: query.limit + 1 } : {})
     });
     res.json(serialize(pageResponse(reminders, query)));

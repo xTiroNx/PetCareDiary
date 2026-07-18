@@ -19,6 +19,7 @@ import diaryRoutes from "./routes/diary.routes.js";
 import feedbackRoutes from "./routes/feedback.routes.js";
 import paymentsRoutes from "./routes/payments.routes.js";
 import petsRoutes from "./routes/pets.routes.js";
+import profileRoutes from "./routes/profile.routes.js";
 import remindersRoutes from "./routes/reminders.routes.js";
 import reportsRoutes from "./routes/reports.routes.js";
 import telegramRoutes from "./routes/telegram.routes.js";
@@ -48,6 +49,7 @@ export function createApp() {
   app.use("/api/ai", authMiddleware, requireActiveAccess, rateLimit({ keyPrefix: "ai-assistant", windowMs: 60_000, max: 10 }), aiRoutes);
   app.use("/api/attachments", authMiddleware, rateLimit({ keyPrefix: "attachments", windowMs: 60_000, max: 60 }), attachmentsRoutes);
   app.use("/api/pets", authMiddleware, petsRoutes);
+  app.use("/api/profile", authMiddleware, profileRoutes);
   app.use("/api/reminders", authMiddleware, remindersRoutes);
   app.use("/api/vaccinations", authMiddleware, vaccinationsRoutes);
   app.use("/api/water", authMiddleware, waterRoutes);

@@ -764,6 +764,11 @@ export const useI18nStore = create<I18nState>((set) => ({
   }
 }));
 
+export function initializeLanguageFromProfile(value: string | null | undefined) {
+  if (localStorage.getItem(storageKey) || !isLanguage(value)) return;
+  useI18nStore.getState().setLanguage(value);
+}
+
 export function useI18n() {
   const language = useI18nStore((state) => state.language);
   const setLanguage = useI18nStore((state) => state.setLanguage);

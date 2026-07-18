@@ -111,8 +111,18 @@ let providerCallCount = 0;
 globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
   if (url.includes("api.minimax") || url.includes("openrouter.ai")) {
-    if (typeof init?.body === "string") providerRequests.push(JSON.parse(init.body));
+    const requestBody = typeof init?.body === "string" ? JSON.parse(init.body) as { model?: string; messages?: unknown } : {};
+    providerRequests.push(requestBody);
     providerCallCount += 1;
+    if (JSON.stringify(requestBody.messages).includes("wrong-language-regression")) {
+      const content = requestBody.model === process.env.OPENROUTER_AI_HELPER_MODEL
+        ? "Это ответ на русском языке, который должен быть отклонён проверкой."
+        : "This English answer was returned by the fallback after rejecting the wrong language.";
+      return new Response(JSON.stringify({ choices: [{ message: { content } }] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
     if (providerCallCount === 1) {
       return new Response(JSON.stringify({ choices: [{ message: { content: "" } }] }), {
         status: 200,
@@ -177,6 +187,7 @@ async function postAssistant(input: {
   includeImages?: boolean;
   imageAttachmentIds?: string[];
   history?: Array<{ role: "user" | "assistant"; content: string }>;
+  locale?: string;
 }): Promise<JsonResponse> {
   const response = await fetch(`${baseUrl()}/api/ai/assistant`, {
     method: "POST",
@@ -190,7 +201,7 @@ async function postAssistant(input: {
       question: input.question,
       period: "7",
       timezone: "Europe/Moscow",
-      locale: "en",
+      locale: input.locale ?? "en",
       includeImages: input.includeImages ?? false,
       imageAttachmentIds: input.imageAttachmentIds ?? [],
       history: input.history ?? []
@@ -219,8 +230,8 @@ try {
     question: "What should I prepare before a vet visit?",
     includeImages: true,
     history: [
-      { role: "user", content: "Has appetite changed?" },
-      { role: "assistant", content: "The diary has two feeding records." }
+      { role: "user", content: "Изменился ли аппетит?" },
+      { role: "assistant", content: "В дневнике есть две записи о кормлении." }
     ]
   });
   assert(active.status === 200, `Expected active non-admin user to access AI assistant, got ${active.status}`);
@@ -251,12 +262,23 @@ try {
   assert(generalHelpRequest.messages?.[0]?.content?.includes("Do not include a final medical disclaimer"), "Expected system prompt to suppress duplicate disclaimer.");
   assert(generalHelpRequest.messages?.[0]?.content?.includes("Use '-' for bullet points"), "Expected system prompt to require dash bullets.");
   assert(generalHelpRequest.messages?.[0]?.content?.includes("exact local dates"), "Expected system prompt to require dated diary evidence.");
-  assert(generalHelpRequest.messages?.[1]?.content === "Has appetite changed?", "Expected short conversation history in provider messages.");
+  assert(generalHelpRequest.messages?.[0]?.content?.includes("entire answer in English"), "Expected strict English response instruction.");
+  assert(generalHelpRequest.messages?.[0]?.content?.includes("regardless of the language used in diary notes"), "Expected history language not to override the profile locale.");
+  assert(generalHelpRequest.messages?.[1]?.content === "Изменился ли аппетит?", "Expected mixed-language conversation history in provider messages.");
   const currentPrompt = generalHelpRequest.messages?.at(-1)?.content ?? "";
+  assert(currentPrompt.includes('"requiredResponseLanguage":"English"'), "Expected target language in the current user payload.");
   assert(currentPrompt.includes("\"imageAnalysisEnabled\":false"), "Expected fallback prompt to mark images as not inspected.");
   assert(currentPrompt.includes("\"summary\""), "Expected deterministic diary summary in provider context.");
   assert(currentPrompt.includes("\"feeding\":2"), "Expected feeding totals in diary summary.");
   assert(currentPrompt.includes("\"contextSelection\""), "Expected relevance selection metadata in provider context.");
+
+  const wrongLanguageFallback = await postAssistant({
+    telegramId: Number(activeUser.telegramId),
+    mode: "GENERAL_HELP",
+    question: "wrong-language-regression"
+  });
+  assert(wrongLanguageFallback.status === 200, `Expected wrong-language primary response to use fallback, got ${wrongLanguageFallback.status}`);
+  assert(String((wrongLanguageFallback.body as { answer?: unknown }).answer).startsWith("This English answer"), "Expected fallback answer in the requested language.");
 
   const photoCandidates = await getAssistantPhotos(Number(activeUser.telegramId));
   assert(photoCandidates.status === 200, `Expected AI photo candidates endpoint, got ${photoCandidates.status}`);

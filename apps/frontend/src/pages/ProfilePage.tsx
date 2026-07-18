@@ -69,6 +69,13 @@ export default function ProfilePage() {
     }
   });
 
+  const updateLanguage = useMutation({
+    mutationFn: (languageCode: typeof language) => api<{ languageCode: string }>("/api/profile/preferences", {
+      method: "PATCH",
+      body: jsonBody({ languageCode })
+    })
+  });
+
   function startPetEdit(item: Pet) {
     telegramSelection();
     setEditingPetId(item.id);
@@ -169,11 +176,17 @@ export default function ProfilePage() {
       </section>
       <section className="panel space-y-2">
         <label className="section-title block" htmlFor="language">{t("language")}</label>
-        <SelectField id="language" value={language} onChange={(event) => { telegramSelection(); setLanguage(event.target.value as typeof language); }}>
+        <SelectField id="language" value={language} onChange={(event) => {
+          telegramSelection();
+          const nextLanguage = event.target.value as typeof language;
+          setLanguage(nextLanguage);
+          updateLanguage.mutate(nextLanguage);
+        }}>
           {languages.map((item) => (
             <option key={item.code} value={item.code}>{item.nativeName}</option>
           ))}
         </SelectField>
+        <RequestError error={updateLanguage.error} />
       </section>
       {isAdmin && (
         <Link to="/admin" className="btn btn-primary w-full">

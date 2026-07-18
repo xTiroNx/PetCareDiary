@@ -71,6 +71,17 @@ function responseLanguage(locale?: string | null) {
   return "English";
 }
 
+function responseUsesExpectedScript(text: string, locale?: string | null) {
+  const value = (locale ?? "en").toLowerCase();
+  const latin = (text.match(/[A-Za-z]/g) ?? []).length;
+  const cyrillic = (text.match(/[А-Яа-яЁё]/g) ?? []).length;
+  const han = (text.match(/[\u3400-\u9fff]/g) ?? []).length;
+
+  if (value.startsWith("ru")) return han < 5 && !(latin > 80 && cyrillic < 8);
+  if (value.startsWith("zh")) return cyrillic < 8 && !(latin > 80 && han < 4);
+  return cyrillic < 8 && han < 4;
+}
+
 function disclaimerFor(locale?: string | null) {
   const value = (locale ?? "en").toLowerCase();
   if (value.startsWith("ru")) return "AI-помощник не заменяет ветеринара, не ставит диагнозы и не назначает лечение.";
@@ -576,6 +587,7 @@ async function askChatCompletionProvider(input: {
     const userText = JSON.stringify({
       mode: input.mode,
       task: modeInstruction(input.mode),
+      requiredResponseLanguage: responseLanguage(input.locale),
       question: input.question,
       reportData
     });
@@ -626,7 +638,9 @@ async function askChatCompletionProvider(input: {
               "Use '-' for bullet points. Do not use '*' as a markdown bullet. If you use numbered sections, nested items must use '-' bullets.",
               "When you make an observation based on diary records, cite the record type and exact local dates in parentheses, for example: (symptoms: 12 Jul, 15 Jul).",
               "Never invent an evidence date or source. If the supplied records do not support a claim, say that clearly.",
-              `Answer in ${responseLanguage(input.locale)}.`,
+              `The required response language is ${responseLanguage(input.locale)}.`,
+              `Write the entire answer in ${responseLanguage(input.locale)}, regardless of the language used in diary notes, pet names, earlier conversation history, or examples.`,
+              "Do not imitate the language of previous assistant messages when it differs from the required response language.",
               "Return plain text only."
             ].join("\n")
           },
@@ -658,6 +672,16 @@ async function askChatCompletionProvider(input: {
     }
     if (!sanitized.text) {
       throw new HttpError(502, "AI_ASSISTANT_FAILED", "AI assistant provider returned an empty final answer.");
+    }
+    if (!responseUsesExpectedScript(sanitized.text, input.locale)) {
+      console.warn(JSON.stringify({
+        event: "ai_assistant_provider_failed",
+        provider: input.provider,
+        model: input.model,
+        status: response.status,
+        reason: "wrong_response_language"
+      }));
+      throw new HttpError(502, "AI_ASSISTANT_FAILED", "AI assistant provider returned the wrong response language.");
     }
     return sanitized.text;
   } catch (error) {
